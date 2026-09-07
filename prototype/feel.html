@@ -35,6 +35,14 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #pauseBtn:hover{background:rgba(52,38,18,.8);border-color:#F0B429}
 #pauseBtn i{display:block;width:3.5px;height:13px;border-radius:1px;background:#F2E7CE}
 #pauseBtn[hidden]{display:none}
+#sndBtn{position:absolute;top:calc(14px + env(safe-area-inset-top));right:60px;z-index:2;
+  width:38px;height:38px;margin:0;padding:0;border-radius:50%;
+  background:rgba(26,20,12,.55);border:1px solid rgba(255,240,210,.28);
+  display:flex;align-items:center;justify-content:center;color:#F2E7CE}
+#sndBtn:hover{background:rgba(52,38,18,.8);border-color:#F0B429}
+#sndBtn svg{width:19px;height:19px}
+#sndBtn.off{color:#B4655A;border-color:rgba(180,101,90,.5)}
+#sndBtn[hidden]{display:none}
 #over{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;
   background:rgba(14,11,7,.62);backdrop-filter:blur(3px);
   padding:calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
@@ -211,6 +219,7 @@ button:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
 <div id="app">
   <div id="stage"><canvas id="cv"></canvas><div id="toast"></div>
     <button id="tune">Tune</button>
+    <button id="sndBtn" aria-label="Sound"></button>
     <button id="pauseBtn" hidden aria-label="Pause"><i></i><i></i></button>
     <div id="over"><div id="card">
       <h1 id="oTitle">MEGAVAC</h1>
@@ -1509,7 +1518,13 @@ function hud(){
   const overUp = typeof over!=='undefined' && over && !over.hidden;
   const chrome = !overUp && phase!=='result' && phase!=='dead';
   if(overUp) return;
-  if(chrome && (!AC||AC.state!=='running')){
+  if(chrome && muted){
+    ctx.font='11px "JetBrains Mono",monospace';
+    const m2='SOUND OFF \u00b7 tap the speaker', pw=ctx.measureText(m2).width+26;
+    ctx.fillStyle='rgba(70,26,16,.85)'; rr(ctx,16,14,pw,26,3); ctx.fill();
+    ctx.fillStyle='#FFC9B4'; ctx.fillText(m2,29,21);
+  }
+  if(chrome && !muted && (!AC||AC.state!=='running')){
     const msg=muted?'sound muted  \u2014  press M':'click anywhere for sound';
     const pw=ctx.measureText(msg).width+40;
     ctx.fillStyle='rgba(32,24,12,.82)'; rr(ctx,16,14,pw,26,3); ctx.fill();
@@ -1674,10 +1689,10 @@ function makeIR(dur,decay){ const len=(AC.sampleRate*dur)|0, b=AC.createBuffer(2
 function initAudio(){
   if(AC){ if(AC.state==='suspended') AC.resume(); return; }
   AC=new (window.AudioContext||window.webkitAudioContext)();
-  master=AC.createGain(); master.gain.value=muted?0:.85; master.connect(AC.destination);
+  master=AC.createGain(); master.gain.value=muted?0:1.0; master.connect(AC.destination);
   const conv=AC.createConvolver(); conv.buffer=makeIR(1.7,3.4);
   revIn=AC.createGain(); revIn.gain.value=1;
-  const wet=AC.createGain(); wet.gain.value=.3;
+  const wet=AC.createGain(); wet.gain.value=.34;
   revIn.connect(conv); conv.connect(wet); wet.connect(master);
   noiseBuf=noise(.5);
 }
@@ -1692,13 +1707,13 @@ function tick(r){
   o.frequency.exponentialRampToValueAtTime(f,t+.05);
   bf.type='lowpass'; bf.frequency.value=2800;
   g.gain.setValueAtTime(.0001,t);
-  g.gain.exponentialRampToValueAtTime(.075,t+.006);
+  g.gain.exponentialRampToValueAtTime(0.1575,t+.006);
   g.gain.exponentialRampToValueAtTime(.0001,t+.2);
   o.connect(bf); bf.connect(g); g.connect(master); g.connect(revIn);
   o.start(t); o.stop(t+.22);
   const o3=AC.createOscillator(),g3=AC.createGain();
   o3.type='triangle'; o3.frequency.value=f*2;
-  g3.gain.setValueAtTime(.0001,t); g3.gain.exponentialRampToValueAtTime(.02,t+.005);
+  g3.gain.setValueAtTime(.0001,t); g3.gain.exponentialRampToValueAtTime(0.042,t+.005);
   g3.gain.exponentialRampToValueAtTime(.0001,t+.1);
   o3.connect(g3); g3.connect(revIn); o3.start(t); o3.stop(t+.12);
 }
@@ -1713,7 +1728,7 @@ function sCrunch(r){
   f.frequency.setValueAtTime(3400,t); f.frequency.exponentialRampToValueAtTime(1500,t+.16);
   const g=AC.createGain();
   g.gain.setValueAtTime(.0001,t);
-  g.gain.exponentialRampToValueAtTime(.055*duck,t+.012);
+  g.gain.exponentialRampToValueAtTime(0.1155*duck,t+.012);
   g.gain.exponentialRampToValueAtTime(.0001,t+.19);
   s.connect(f); f.connect(g); g.connect(master); g.connect(revIn); s.start(t); s.stop(t+.22);
   noteI=0;
@@ -1723,7 +1738,7 @@ function sMult(m){
   const o=AC.createOscillator(),g=AC.createGain();
   o.type='triangle'; o.frequency.setValueAtTime(ROOT*Math.pow(2,(m*2)/12),t);
   o.frequency.exponentialRampToValueAtTime(ROOT*Math.pow(2,(m*2+7)/12),t+.09);
-  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.06,t+.01);
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(0.126,t+.01);
   g.gain.exponentialRampToValueAtTime(.0001,t+.3);
   o.connect(g); g.connect(master); g.connect(revIn); o.start(t); o.stop(t+.33);
 }
@@ -1732,7 +1747,7 @@ function sStars(k){
   for(let i=0;i<k;i++){
     const o=AC.createOscillator(),g=AC.createGain(), st=t+.3+i*.24;
     o.type='triangle'; o.frequency.value=ROOT*Math.pow(2,[0,7,12][i]/12);
-    g.gain.setValueAtTime(.0001,st); g.gain.exponentialRampToValueAtTime(.085,st+.015);
+    g.gain.setValueAtTime(.0001,st); g.gain.exponentialRampToValueAtTime(0.1785,st+.015);
     g.gain.exponentialRampToValueAtTime(.0001,st+.7);
     o.connect(g); g.connect(master); g.connect(revIn); o.start(st); o.stop(st+.75);
   }
@@ -1741,7 +1756,7 @@ function sCharge(){
   if(!AC||muted) return; const t=AC.currentTime;
   [0,7,12,16].forEach((iv,k)=>{ const o=AC.createOscillator(),g=AC.createGain(), st=t+k*.045;
     o.type='sine'; o.frequency.value=ROOT*Math.pow(2,iv/12);
-    g.gain.setValueAtTime(.0001,st); g.gain.exponentialRampToValueAtTime(.06,st+.01);
+    g.gain.setValueAtTime(.0001,st); g.gain.exponentialRampToValueAtTime(0.126,st+.01);
     g.gain.exponentialRampToValueAtTime(.0001,st+.36);
     o.connect(g); g.connect(master); g.connect(revIn); o.start(st); o.stop(st+.4); });
 }
@@ -1749,7 +1764,7 @@ function sLow(){
   if(!AC||muted) return; const t=AC.currentTime;
   for(let k=0;k<2;k++){ const o=AC.createOscillator(),g=AC.createGain(), st=t+k*.18;
     o.type='square'; o.frequency.value=740;
-    g.gain.setValueAtTime(.0001,st); g.gain.exponentialRampToValueAtTime(.05,st+.008);
+    g.gain.setValueAtTime(.0001,st); g.gain.exponentialRampToValueAtTime(0.105,st+.008);
     g.gain.exponentialRampToValueAtTime(.0001,st+.13);
     o.connect(g); g.connect(master); o.start(st); o.stop(st+.15); }
 }
@@ -1757,7 +1772,7 @@ function sDead(){
   if(!AC||muted) return; const t=AC.currentTime;
   [0,-3,-7,-12].forEach((iv,k)=>{ const o=AC.createOscillator(),g=AC.createGain(), st=t+k*.14;
     o.type='triangle'; o.frequency.value=(ROOT/2)*Math.pow(2,iv/12);
-    g.gain.setValueAtTime(.0001,st); g.gain.exponentialRampToValueAtTime(.07,st+.02);
+    g.gain.setValueAtTime(.0001,st); g.gain.exponentialRampToValueAtTime(0.147,st+.02);
     g.gain.exponentialRampToValueAtTime(.0001,st+.9);
     o.connect(g); g.connect(master); g.connect(revIn); o.start(st); o.stop(st+.95); });
 }
@@ -1766,7 +1781,7 @@ function sGold(){
   [0,4,7,12,16,19].forEach((iv,k)=>{
     const o=AC.createOscillator(),g=AC.createGain(), st=t+k*.042;
     o.type='triangle'; o.frequency.value=ROOT*Math.pow(2,iv/12);
-    g.gain.setValueAtTime(.0001,st); g.gain.exponentialRampToValueAtTime(.075,st+.008);
+    g.gain.setValueAtTime(.0001,st); g.gain.exponentialRampToValueAtTime(0.1575,st+.008);
     g.gain.exponentialRampToValueAtTime(.0001,st+.5);
     o.connect(g); g.connect(master); g.connect(revIn); o.start(st); o.stop(st+.55); });
 }
@@ -1775,15 +1790,27 @@ function sBoss(){
   const s2=AC.createBufferSource(); s2.buffer=noiseBuf; s2.playbackRate.value=.55;
   const f=AC.createBiquadFilter(); f.type='lowpass';
   f.frequency.setValueAtTime(2600,t); f.frequency.exponentialRampToValueAtTime(280,t+.6);
-  const g=AC.createGain(); g.gain.setValueAtTime(.26,t);
+  const g=AC.createGain(); g.gain.setValueAtTime(0.546,t);
   g.gain.exponentialRampToValueAtTime(.0001,t+.75);
   s2.connect(f); f.connect(g); g.connect(master); g.connect(revIn);
   s2.start(t); s2.stop(t+.8);
   [0,7,12].forEach((iv,k)=>{ const o=AC.createOscillator(),gg=AC.createGain(), st=t+.12+k*.09;
     o.type='triangle'; o.frequency.value=(ROOT/2)*Math.pow(2,iv/12);
-    gg.gain.setValueAtTime(.0001,st); gg.gain.exponentialRampToValueAtTime(.09,st+.02);
+    gg.gain.setValueAtTime(.0001,st); gg.gain.exponentialRampToValueAtTime(0.189,st+.02);
     gg.gain.exponentialRampToValueAtTime(.0001,st+1.1);
     o.connect(gg); gg.connect(master); gg.connect(revIn); o.start(st); o.stop(st+1.2); });
+}
+// a confirmation chime, so "is my sound on?" is answerable in one click
+function sTest(){
+  if(!AC||muted) return; const t=AC.currentTime;
+  [0,7,12].forEach((iv,k)=>{
+    const o=AC.createOscillator(),g=AC.createGain(), st=t+k*.1;
+    o.type='triangle'; o.frequency.value=ROOT*Math.pow(2,iv/12);
+    g.gain.setValueAtTime(.0001,st);
+    g.gain.exponentialRampToValueAtTime(.22,st+.015);
+    g.gain.exponentialRampToValueAtTime(.0001,st+.5);
+    o.connect(g); g.connect(master); g.connect(revIn); o.start(st); o.stop(st+.55);
+  });
 }
 function sBuy(){
   if(!AC||muted) return; const t=AC.currentTime;
@@ -1792,7 +1819,7 @@ function sBuy(){
     o.type='triangle'; o.frequency.value=ROOT*Math.pow(2,iv/12);
     const st=t+k*.055;
     g.gain.setValueAtTime(.0001,st);
-    g.gain.exponentialRampToValueAtTime(.07,st+.012);
+    g.gain.exponentialRampToValueAtTime(0.147,st+.012);
     g.gain.exponentialRampToValueAtTime(.0001,st+.5);
     o.connect(g); g.connect(master); g.connect(revIn); o.start(st); o.stop(st+.55);
   });
@@ -1802,18 +1829,18 @@ function sBreak(){
   const s=AC.createBufferSource(); s.buffer=noise(1.4); s.playbackRate.value=.35;
   const f=AC.createBiquadFilter(); f.type='lowpass';
   f.frequency.setValueAtTime(1100,t); f.frequency.exponentialRampToValueAtTime(80,t+1.1);
-  const g=AC.createGain(); g.gain.setValueAtTime(.36,t); g.gain.exponentialRampToValueAtTime(.0001,t+1.5);
+  const g=AC.createGain(); g.gain.setValueAtTime(0.756,t); g.gain.exponentialRampToValueAtTime(.0001,t+1.5);
   s.connect(f); f.connect(g); g.connect(master); g.connect(revIn); s.start(t); s.stop(t+1.6);
   const o=AC.createOscillator(),g2=AC.createGain();
   o.type='sine'; o.frequency.setValueAtTime(160,t); o.frequency.exponentialRampToValueAtTime(26,t+.95);
-  g2.gain.setValueAtTime(.0001,t); g2.gain.exponentialRampToValueAtTime(.3,t+.01);
+  g2.gain.setValueAtTime(.0001,t); g2.gain.exponentialRampToValueAtTime(0.63,t+.01);
   g2.gain.exponentialRampToValueAtTime(.0001,t+1.15);
   o.connect(g2); g2.connect(master); o.start(t); o.stop(t+1.25);
   const root=261.63, ct=t+1.95;
   [0,4,7,12].forEach((iv,k)=>{ const oo=AC.createOscillator(),gg=AC.createGain();
     oo.type='sine'; oo.frequency.value=root*Math.pow(2,iv/12);
     gg.gain.setValueAtTime(.0001,ct+k*.07);
-    gg.gain.exponentialRampToValueAtTime(.045,ct+k*.07+.3);
+    gg.gain.exponentialRampToValueAtTime(0.0945,ct+k*.07+.3);
     gg.gain.exponentialRampToValueAtTime(.0001,ct+2);
     oo.connect(gg); gg.connect(revIn); gg.connect(master); oo.start(ct+k*.07); oo.stop(ct+2.1); });
 }
@@ -1867,8 +1894,8 @@ addEventListener('keydown',e=>{
   else if(k==='d'&&DEV){debug=!debug;say('debug '+(debug?'on':'off'))}
   else if(k==='escape'||k==='p'){ if(phase==='play') togglePause(); }
   else if(k==='h'&&DEV){panel.classList.toggle('open')}
-  else if(k==='m'){muted=!muted;if(master)master.gain.value=muted?0:.85;
-    saveGame();say(muted?'muted':'unmuted')}
+  else if(k==='m'){muted=!muted;if(master)master.gain.value=muted?0:1.0;
+    drawSnd();saveGame();say(muted?'muted':'unmuted')}
 });
 const COARSE=(window.matchMedia&&matchMedia('(pointer:coarse)').matches)||('ontouchstart' in window);
 function pt(e){
@@ -1905,7 +1932,8 @@ function frame(now){
   while(acc>=1/60 && guard++<3){ step(1/60); acc-=1/60; }
   if(guard>=3) acc=0;
   const pv=(phase==='play'&&over.hidden&&!paused);
-  if(pv!==pauseVis){ pauseVis=pv; document.getElementById('pauseBtn').hidden=!pv; }
+  if(pv!==pauseVis){ pauseVis=pv;
+    document.getElementById('pauseBtn').hidden=!pv; }
   render(); requestAnimationFrame(frame);
 }
 addEventListener('resize',()=>{const c=P.count;resize();P.count=c;generate();});
@@ -2106,6 +2134,25 @@ function togglePause(){
   else { paused=true; showOver('pause'); }
 }
 document.getElementById('pauseBtn').onclick=()=>togglePause();
+const sndBtn=document.getElementById('sndBtn');
+function drawSnd(){
+  sndBtn.classList.toggle('off',muted);
+  sndBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+    +' stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
+    +'<path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z" fill="currentColor"/>'
+    +(muted ? '<path d="M16 9.5l5 5M21 9.5l-5 5"/>'
+            : '<path d="M15.6 9a4.2 4.2 0 0 1 0 6M18.2 6.6a7.8 7.8 0 0 1 0 10.8"/>')
+    +'</svg>';
+}
+sndBtn.onclick=()=>{
+  initAudio();
+  if(AC && AC.state==='suspended') AC.resume();
+  muted=!muted;
+  if(master) master.gain.value=muted?0:1.0;
+  drawSnd(); saveGame();
+  if(!muted) sTest();
+};
+drawSnd();
 let deadPending=false;
 resize(); applyTier(loadGame());
 mx=W*.5; my=H*.5; lmx=mx; lmy=my; generate();
