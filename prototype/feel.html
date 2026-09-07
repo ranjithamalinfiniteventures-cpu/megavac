@@ -68,6 +68,21 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #card .coins{margin:14px 0 0;font-size:20px;font-weight:700;color:#F0B429;
   font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:center;gap:9px}
 #card .coins[hidden]{display:none}
+#shopBtn{display:flex;align-items:center;gap:11px;width:100%;margin:20px 0 0;
+  padding:14px 16px;border-radius:4px;text-transform:none;letter-spacing:.02em;
+  background:linear-gradient(180deg,rgba(84,64,22,.8),rgba(52,39,13,.8));
+  border:1px solid rgba(240,180,41,.5);color:#F8EAC2;font-size:15px;cursor:pointer}
+#shopBtn:hover{border-color:#F0B429;
+  background:linear-gradient(180deg,rgba(112,86,28,.9),rgba(72,54,18,.9))}
+#shopBtn .cp{width:16px;height:16px;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 35% 30%,#FBD976,#E8B23A 60%,#B5811C);
+  box-shadow:0 0 0 3px rgba(232,178,58,.18)}
+#shopBtn .bal{font-weight:700;font-variant-numeric:tabular-nums}
+#shopBtn .lbl{margin-left:auto;font-size:11px;letter-spacing:.17em;
+  text-transform:uppercase;color:#EBCB84}
+#shopBtn .chev{width:7px;height:7px;flex:none;transform:rotate(45deg);
+  border-right:2px solid #EBCB84;border-top:2px solid #EBCB84}
+#shopBtn[hidden]{display:none}
 #card .coins i{width:11px;height:11px;border-radius:50%;background:#E8B23A;
   box-shadow:0 0 0 3px rgba(232,178,58,.22)}
 #uList{margin:14px 0 0;max-height:48vh;overflow-y:auto;text-align:left;
@@ -131,6 +146,8 @@ button:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
       <h1 id="oTitle">MEGAVAC</h1>
       <p class="sub" id="oSub">crumbs to orbit</p>
       <div class="coins"><i></i><span id="oCoins">0</span></div>
+      <button id="shopBtn"><span class="cp"></span><span class="bal">0</span>
+        <span class="lbl">Shop</span><span class="chev"></span></button>
       <div id="oUpg" hidden><div id="uList"></div></div>
       <div class="btns" id="oBtns">
         <button id="bB"></button>
@@ -1585,7 +1602,9 @@ const over=document.getElementById('over'), oTitle=document.getElementById('oTit
       oUpg=document.getElementById('oUpg'), oBtns=document.getElementById('oBtns'),
       uList=document.getElementById('uList'), oCoins=document.getElementById('oCoins'),
       bA=document.getElementById('bA'), bB=document.getElementById('bB'),
-      bC=document.getElementById('bC'), bD=document.getElementById('bD');
+      bC=document.getElementById('bC'), bD=document.getElementById('bD'),
+      shopBtn=document.getElementById('shopBtn');
+shopBtn.onclick=()=>showOver('upg');
 let view='menu';
 function rec(l,v){ return '<div>'+l+'<b>'+v+'</b></div>'; }
 function pips(l,max){ let h='<div class="pips">';
@@ -1610,7 +1629,8 @@ function showOver(k){
   view=k; over.hidden=false;
   oCoins.textContent=scrap.toLocaleString();
   oUpg.hidden=(k!=='upg'); oRecs.hidden=(k==='upg'); oBtns.hidden=false;
-  bD.hidden=true; bA.disabled=false; stripEl.hidden=true;
+  bD.hidden=true; bA.disabled=false; stripEl.hidden=true; shopBtn.hidden=true;
+  shopBtn.querySelector('.bal').textContent=scrap.toLocaleString();
   if(k!=='cards'){ bB.className=''; bA.className=''; }
   document.querySelector('#card .coins').hidden=(k!=='upg');
   bC.hidden=false;
@@ -1618,7 +1638,8 @@ function showOver(k){
   if(k==='menu'){
     oTitle.textContent='MEGAVAC'; oSub.textContent='crumbs to orbit';
     const left=3-dailyTries(), doneToday=dailyBest()!==undefined;
-    bB.innerHTML='Challenge run'; bB.className='pri'; bB.hidden=false; bC.hidden=false;
+    shopBtn.hidden=false;
+    bB.innerHTML='Challenge run'; bB.className='pri'; bB.hidden=false;
     bB.onclick=()=>startRun('challenge');
     bA.className='sec'; bA.hidden=false;
     bA.innerHTML='Mess of the Day'
@@ -1628,8 +1649,7 @@ function showOver(k){
     bA.onclick=()=>{ if(left>0) startRun('daily'); };
     bD.hidden=false; bD.className='sec';
     bD.innerHTML='Relaxed &mdash; no battery'; bD.onclick=()=>startRun('relax');
-    bC.innerHTML='Upgrades &nbsp;\u00b7&nbsp; '+scrap.toLocaleString()+' coins'; bC.className='ter';
-    bC.onclick=()=>showOver('upg');
+    bC.hidden=true;
     drawStrip();
     oRecs.innerHTML=rec('Deepest',TIERS[deepest].name)
       +rec('Best clear',best[0]?fmtT(best[0].t)+'  '+'\u2605'.repeat(best[0].s||0):'\u2014')
@@ -1682,16 +1702,12 @@ function showOver(k){
         hideOver(); saveGame(); sCharge(); };
       bA.innerHTML='Run again'; bA.className='sec';
       bA.onclick=()=>{ deadPending=false; startRun('challenge'); };
-      bD.hidden=false; bD.className='ter';
-      bD.innerHTML='Upgrades &nbsp;\u00b7&nbsp; '+scrap.toLocaleString()+' coins';
-      bD.onclick=()=>showOver('upg');
     } else {
       bB.innerHTML='Run again'; bB.className='pri';
       bB.onclick=()=>{ deadPending=false; startRun('challenge'); };
-      bA.innerHTML='Upgrades &nbsp;\u00b7&nbsp; '+scrap.toLocaleString()+' coins'; bA.className='sec';
-      bA.onclick=()=>showOver('upg');
-      bD.hidden=true;
+      bA.hidden=true;
     }
+    shopBtn.hidden=false;
     bB.hidden=false; bC.innerHTML='Menu'; bC.className='ter';
     bC.onclick=()=>{ deadPending=false; phase='menu'; mode='relax';
       applyTier(0); generate(); showOver('menu'); };
