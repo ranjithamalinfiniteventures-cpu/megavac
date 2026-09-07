@@ -477,7 +477,7 @@ const LINES=[
  {k:'batt', n:'Battery',    d:'Run longer before it dies', max:8,
   cost:[3240,5670,9900,17370,30420,53190,93060,162900], eff:l=>'+'+(28*l)+'% capacity'},
  {k:'eff',  n:'Efficiency', d:'Drains slower under load', max:8,
-  cost:[4320,7560,13230,23130,40500,70830,123930,216900], eff:l=>'-'+(6*l)+'% drain'},
+  cost:[4320,7560,13230,23130,40500,70830,123930,216900], eff:l=>'-'+(4*l)+'% drain'},
  {k:'mouth',n:'Mouth',      d:'Swallow bigger things whole', max:8,
   cost:[3960,6930,12150,21240,37170,65070,113850,199260], eff:l=>'+'+(22*l)+'% intake'},
  {k:'power',n:'Power',      d:'Wider reach, faster pull', max:8,
@@ -515,12 +515,12 @@ const CARDS=[
  {n:'Fat Mouth',     d:'+45% intake',           f:()=>run.throat+=.45},
  {n:'Heavy Lifter',  d:'+40% crush ceiling',    f:()=>run.ceiling+=.40},
  {n:'Turbine',       d:'+25% pull speed',       f:()=>run.power+=.25},
- {n:'Overcharge',    d:'+25% battery, refilled',f:()=>{run.batt+=.25; battery=batMax();}},
+ {n:'Overcharge',    d:'+25% max battery',      f:()=>{run.batt+=.25; battery+=batMax()*.18;}},
  {n:'Trickle Charge',d:'-18% battery drain',    f:()=>run.drain=Math.min(.7,run.drain+.18)},
  {n:'Golden Touch',  d:'+40% coins',            f:()=>run.coin+=.40},
  {n:'Flywheel',      d:'combo holds far longer',f:()=>run.combo+=.6},
  {n:'Spare Drone',   d:'+1 drone for this run', f:()=>run.drone+=1},
- {n:'Jump Start',    d:'+35 battery right now', f:()=>{battery=Math.min(batMax(),battery+35);}}
+ {n:'Jump Start',    d:'+25 battery right now', f:()=>{battery=Math.min(batMax(),battery+25);}}
 ];
 function twoCards(){ const a=(Math.random()*CARDS.length)|0; let b=a;
   while(b===a) b=(Math.random()*CARDS.length)|0; return [CARDS[a],CARDS[b]]; }
@@ -774,7 +774,7 @@ function suck(dt){
 function bossBurst(){
   const i=boss.i, x=bx[i], y=by[i], R0=br[i];
   award(bm[i],7);
-  if(mode==='challenge') battery=Math.min(batMax(),battery+42);
+  if(mode==='challenge') battery=Math.min(batMax(),battery+28);
   const fr=Math.min(P.throat*.42,Math.max(2.5,P.throat*.42));
   for(let k=0;k<34;k++){
     const a=Math.random()*6.2832, q=Math.random()*R0*.8;
@@ -810,7 +810,7 @@ const fmtT=t=>Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');
 function finishRoom(){
   roomOver=true; stars = roomT<=T.par?3 : roomT<=T.par*1.5?2 : 1;
   roomN++; if(roomN>bestRoom){ bestRoom=roomN; }
-  if(mode==='challenge' && stars===3) battery=Math.min(batMax(),battery+18);
+  if(mode==='challenge' && stars===3) battery=Math.min(batMax(),battery+10);
   if(mode==='daily'){ recordDaily(roomT); }
   const b=best[tier];
   newBest = !b || roomT<b.t;
@@ -852,7 +852,7 @@ function step(dt){
     px=W*(.5+.31*Math.cos(a*1.1)); py=H*(.5+.29*Math.sin(a*1.7)); pointerSeen=true; }
   if(mode==='challenge' && (phase==='play'||phase==='result')){
     const load=Math.min(1,inField/45);
-    battery-=(1.05+0.75*load)*(T.drain||1)*(1+.25*loops)*(1-.06*lv.eff)*(1-run.drain)*dt;
+    battery-=(1.05+0.75*load)*(T.drain||1)*(1+.16*(roomN-1))*(1-.04*lv.eff)*(1-run.drain)*dt;
     if(battery<=0){ battery=0; endRun(); }
     else if(battery<batMax()*.2 && lowWarn<1){ lowWarn=1; sLow(); }
     else if(battery<batMax()*.1 && lowWarn<2){ lowWarn=2; sLow(); }
@@ -889,6 +889,7 @@ function step(dt){
   for(let i=0;i<n;i++){
     if(!alive[i]) continue;
     if(i===jam.i){ live++; continue; }
+    if(bk[i]===12||bk[i]===13||br[i]>=T.sizes[3][0]){ if(bi[i]===0) heavy++; continue; }
     if(bi[i]===0){ heavy++; continue; }
     live++;
     if(bi[i]===0){bvx[i]=0;bvy[i]=0;continue;}
