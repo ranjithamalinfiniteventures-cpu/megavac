@@ -28,6 +28,13 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #close{position:absolute;top:8px;right:10px;width:auto;margin:0;padding:4px 10px;
   font-size:15px;border:none;color:var(--mut);letter-spacing:0}
 #adv[hidden]{display:none}
+#pauseBtn{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;z-index:2;
+  width:38px;height:38px;margin:0;padding:0;border-radius:50%;
+  background:rgba(26,20,12,.55);border:1px solid rgba(255,240,210,.28);
+  display:flex;align-items:center;justify-content:center;gap:4px}
+#pauseBtn:hover{background:rgba(52,38,18,.8);border-color:#F0B429}
+#pauseBtn i{display:block;width:3.5px;height:13px;border-radius:1px;background:#F2E7CE}
+#pauseBtn[hidden]{display:none}
 #over{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;
   background:rgba(14,11,7,.62);backdrop-filter:blur(3px);
   padding:calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
@@ -199,6 +206,7 @@ button:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
 <div id="app">
   <div id="stage"><canvas id="cv"></canvas><div id="toast"></div>
     <button id="tune">Tune</button>
+    <button id="pauseBtn" hidden aria-label="Pause"><i></i><i></i></button>
     <div id="over"><div id="card">
       <h1 id="oTitle">MEGAVAC</h1>
       <p class="sub" id="oSub">crumbs to orbit</p>
@@ -1104,8 +1112,21 @@ function startRun(m){
   applyTier(m==='challenge'?0:tier); phase='play'; roomOver=false;
   generate(); initAudio();
 }
+const keys={};
+let paused=false, pauseVis=null;
 function step(dt){
+  if(paused) return;
   now+=dt;
+  if(phase==='play'){
+    let kx=0,ky=0;
+    if(keys.a||keys.arrowleft) kx--;
+    if(keys.d||keys.arrowright) kx++;
+    if(keys.w||keys.arrowup) ky--;
+    if(keys.s||keys.arrowdown) ky++;
+    if(kx||ky){ const m2=Math.hypot(kx,ky), sp=640*dt/m2;
+      px=Math.max(0,Math.min(W,px+kx*sp)); py=Math.max(0,Math.min(H,py+ky*sp));
+      pointerSeen=true; }
+  }
   if(phase==='menu'){ const a=now*.42;
     px=W*(.5+.31*Math.cos(a*1.1)); py=H*(.5+.29*Math.sin(a*1.7)); pointerSeen=true; }
   if(mode==='challenge' && (phase==='play'||phase==='result')){
@@ -1201,14 +1222,6 @@ function buildSprites(){
     for(let i=0;i<8;i++){ const a=i*.7854, rad=i%2?R*.14:R*.6;
       x[i?'lineTo':'moveTo'](Math.cos(a)*rad,Math.sin(a)*rad); }
     x.closePath(); x.fill(); });
-  SPR[11]=tile((x,R)=>{
-    x.fillStyle='#2C6E3A'; rr(x,-R*.5,-R*.84,R*1.0,R*1.68,R*.13); x.fill();
-    x.fillStyle='#41A257'; rr(x,-R*.41,-R*.75,R*.82,R*1.5,R*.09); x.fill();
-    x.fillStyle='#C8D93B'; rr(x,-R*.17,-R*.97,R*.34,R*.16,R*.05); x.fill();
-    x.fillStyle='#F4F8CC'; x.beginPath();
-    x.moveTo(R*.14,-R*.52); x.lineTo(-R*.24,R*.05); x.lineTo(R*.02,R*.05);
-    x.lineTo(-R*.12,R*.58); x.lineTo(R*.26,-R*.03); x.lineTo(0,-R*.03); x.closePath(); x.fill();
-    hi(x,R,.2); });
 }
 let ground=null, grime=null, gx2=null; const GS=4;
 function buildGround(){
@@ -1345,6 +1358,30 @@ function render(){
     ctx.beginPath(); ctx.arc(p.x,p.y,p.r*(1.2+(1-p.l)*2.4),0,6.2832); ctx.fill(); }
   ctx.globalAlpha=1;
 
+  // an object you cannot lift should say so, not just twitch
+  if(phase==='play'){
+    let hi2=-1, hd=1e9;
+    for(let i=0;i<n;i++){
+      if(!alive[i]||bi[i]!==0||bk[i]===13) continue;
+      const dx=mx-bx[i], dy=my-by[i], d2=dx*dx+dy*dy;
+      if(d2<P.reach*P.reach && d2<hd){ hd=d2; hi2=i; }
+    }
+    if(hi2>=0){
+      const ox=bx[hi2], oy=by[hi2], pl=.5+.5*Math.sin(now*8);
+      ctx.save();
+      ctx.strokeStyle='rgba(196,58,26,'+(.3+pl*.35).toFixed(2)+')'; ctx.lineWidth=2.5;
+      ctx.setLineDash([7,6]); ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(ox,oy); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle='rgba(196,58,26,.75)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(ox,oy,br[hi2]+6+pl*2,0,6.2832); ctx.stroke();
+      ctx.font='700 10px "JetBrains Mono",monospace'; ctx.textAlign='center';
+      const msg='TOO HEAVY \u00b7 UPGRADE CRUSH', tw=ctx.measureText(msg).width+18;
+      ctx.fillStyle='rgba(34,16,8,.82)';
+      rr(ctx,ox-tw/2,oy-br[hi2]-30,tw,19,3); ctx.fill();
+      ctx.fillStyle='#FFD2C2'; ctx.fillText(msg,ox,oy-br[hi2]-24);
+      ctx.restore(); ctx.textAlign='left';
+    }
+  }
   if(phase==='play' && liveN>0 && liveN<=20){
     const pl=.5+.5*Math.sin(now*5);
     ctx.strokeStyle='rgba(201,89,31,'+(.35+pl*.45).toFixed(2)+')'; ctx.lineWidth=2;
@@ -1819,7 +1856,8 @@ addEventListener('keydown',e=>{
   initAudio();
   const k=e.key.toLowerCase();
   if(k==='r'){generate();say('mess refilled')}
-  else if(k==='d'){debug=!debug;say('debug '+(debug?'on':'off'))}
+  else if(k==='d'&&DEV){debug=!debug;say('debug '+(debug?'on':'off'))}
+  else if(k==='escape'||k==='p'){ if(phase==='play') togglePause(); }
   else if(k==='h'&&DEV){panel.classList.toggle('open')}
   else if(k==='m'){muted=!muted;if(master)master.gain.value=muted?0:.85;
     saveGame();say(muted?'muted':'unmuted')}
@@ -1836,6 +1874,10 @@ cv.addEventListener('pointerdown',e=>{initAudio();pt(e);hintT=0;
 const unlock=()=>{try{initAudio()}catch(e){}};
 addEventListener('pointerdown',unlock,{capture:true});
 addEventListener('touchstart',unlock,{capture:true,passive:true});
+addEventListener('keydown',e=>{ const k=e.key.toLowerCase(); keys[k]=1;
+  if(k.slice(0,5)==='arrow') e.preventDefault(); });
+addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=0; });
+addEventListener('blur',()=>{ for(const k in keys) keys[k]=0; });
 addEventListener('keydown',unlock,{capture:true});
 document.addEventListener('visibilitychange',()=>{
   if(!AC) return; if(document.hidden) AC.suspend(); else AC.resume(); });
@@ -1854,6 +1896,8 @@ function frame(now){
   acc+=raw; let guard=0;
   while(acc>=1/60 && guard++<3){ step(1/60); acc-=1/60; }
   if(guard>=3) acc=0;
+  const pv=(phase==='play'&&over.hidden&&!paused);
+  if(pv!==pauseVis){ pauseVis=pv; document.getElementById('pauseBtn').hidden=!pv; }
   render(); requestAnimationFrame(frame);
 }
 addEventListener('resize',()=>{const c=P.count;resize();P.count=c;generate();});
@@ -1985,6 +2029,17 @@ function showOver(k){
     bD.hidden=true; bC.hidden=true;
     oRecs.innerHTML=rec('Room',roomN)+rec('Battery',Math.round(battery))
       +rec('This run','+'+runScrap.toLocaleString());
+  } else if(k==='pause'){
+    oTitle.textContent='PAUSED'; oSub.textContent=T.name+'  \u00b7  room '+roomN;
+    bB.innerHTML='Resume'; bB.className='pri'; bB.hidden=false;
+    bB.onclick=()=>togglePause();
+    bA.innerHTML='Shop'; bA.className='sec'; bA.hidden=false;
+    bA.onclick=()=>showOver('upg');
+    bC.innerHTML='Quit to menu'; bC.className='ter'; bC.hidden=false;
+    bC.onclick=()=>{ paused=false; phase='menu'; mode='relax';
+      applyTier(0); generate(); showOver('menu'); };
+    oRecs.innerHTML=rec('Room',roomN)+rec('Clean',Math.round((1-liveN/roomTotal)*100)+'%')
+      +rec('This run','+'+runScrap.toLocaleString());
   } else if(k==='rigs'){
     oTitle.textContent='RIGS'; oSub.textContent='pick your machine';
     rigView=Math.max(0,RIGS.findIndex(r=>r.id===rig)); renderRigs();
@@ -2036,6 +2091,11 @@ function drawStrip(){
   stripEl.innerHTML=h; stripEl.hidden=false;
 }
 function hideOver(){ over.hidden=true; }
+function togglePause(){
+  if(paused){ paused=false; hideOver(); }
+  else { paused=true; showOver('pause'); }
+}
+document.getElementById('pauseBtn').onclick=()=>togglePause();
 let deadPending=false;
 resize(); applyTier(loadGame());
 mx=W*.5; my=H*.5; lmx=mx; lmy=my; generate();
