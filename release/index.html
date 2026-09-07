@@ -2645,6 +2645,15 @@ function sTest(){
     o.connect(g); g.connect(master); g.connect(revIn); o.start(st); o.stop(st+.55);
   });
 }
+function sClick(){
+  if(!AC||muted) return; const t=AC.currentTime;
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type='sine'; o.frequency.value=ROOT*Math.pow(2,7/12);
+  g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(.1,t+.006);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.09);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+.1);
+}
 function sBuy(){
   if(!AC||muted) return; const t=AC.currentTime;
   [0,4,7,12].forEach((iv,k)=>{
@@ -2852,6 +2861,7 @@ function initMenuArt(){
 function worldUnlocked(i){return i>=0&&i<TIERS.length&&journey.cleared>=i*5;}
 function playWorld(i){
  if(!worldUnlocked(i))return;
+ initAudio(); sClick();
  journey.job=journey.cleared>=i*5+5?i*5:Math.max(i*5,journey.cleared);
  startJourney();
 }
@@ -2866,9 +2876,9 @@ function renderWorlds(){
 }
 initMenuArt();
 document.getElementById('rigPrev').onclick=()=>{ rigView--; renderRigs(); };
-document.getElementById('mmShop').onclick=()=>showOver('rigs');
-document.getElementById('mmGarage').onclick=()=>showOver('upg');
-document.getElementById('mmInfo').onclick=()=>showOver('info');
+document.getElementById('mmShop').onclick=()=>{ initAudio(); sClick(); showOver('rigs'); };
+document.getElementById('mmGarage').onclick=()=>{ initAudio(); sClick(); showOver('upg'); };
+document.getElementById('mmInfo').onclick=()=>{ initAudio(); sClick(); showOver('info'); };
 function drawMenuRig(){
   const c=mmRigArt.getContext('2d'), CW=mmRigArt.width, CH=mmRigArt.height, G=RIG();
   c.clearRect(0,0,CW,CH);
@@ -3027,7 +3037,7 @@ function showOver(k){
     mmPrompt.classList.toggle('point',wantHint);
     const clearHint=()=>{ if(!menuHintSeen){ menuHintSeen=true; saveGame();
       mmJourney.classList.remove('point'); mmPrompt.classList.remove('point'); } };
-    mmJourney.onclick=()=>{ clearHint(); startJourney(true); };
+    mmJourney.onclick=()=>{ initAudio(); sClick(); clearHint(); startJourney(true); };
     // The timed run and the battery run are the punishing modes. A brand new
     // save should meet the journey first rather than a drain bar and a death
     // screen, so both stay shut until one job has been cleared.
@@ -3038,13 +3048,13 @@ function showOver(k){
         +(doneToday?' \u00b7 best '+fmtT(dailyBest()):'')+' \u00b7 '+left+' left today'
       :sideLock;
     mmDaily.disabled=!sideOpen||left<=0;
-    mmDaily.onclick=()=>{ if(sideOpen&&left>0) startRun('daily'); };
+    mmDaily.onclick=()=>{ if(sideOpen&&left>0){ initAudio(); sClick(); startRun('daily'); } };
     mmChallengeSub.textContent=sideOpen
       ?'Beat the battery · Deepest '+TIERS[deepest].name
         +(bestRoom>1?' \u00b7 best room '+bestRoom:'')
       :sideLock;
     mmChallenge.disabled=!sideOpen;
-    mmChallenge.onclick=()=>{ if(sideOpen) startRun('challenge'); };
+    mmChallenge.onclick=()=>{ if(sideOpen){ initAudio(); sClick(); startRun('challenge'); } };
     renderWorlds();drawMenuRig();
   } else if(k==='info'){
     oTitle.textContent='HOW TO PLAY'; oSub.textContent='the short version';

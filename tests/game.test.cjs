@@ -402,3 +402,21 @@ test('the key bindings callout never fires for a job other than the first',()=>{
  run('controlsSeen=false;');
 });
 
+// The sandbox has no real WebAudio, so stand up a minimal fake AC/master the
+// way sClick() (and every other s*() sound) expects, and count oscillators.
+function fakeAudio(){
+ run(`window.__osc=0;
+  AC={currentTime:0,
+    createOscillator:()=>{window.__osc++;return {type:'',frequency:{value:0},
+      connect(){},start(){},stop(){}};},
+    createGain:()=>({gain:{setValueAtTime(){},exponentialRampToValueAtTime(){},value:1},connect(){}})};
+  master={gain:{value:1},connect(){}};`);
+}
+test('the menu still confirms a tap when music is off, but stays silent when sound is off',()=>{
+ fakeAudio(); run('muted=false;bgmMuted=true;showOver("menu");');
+ run('document.getElementById("mmInfo").onclick();');
+ assert.ok(run('window.__osc')>0,'the menu made no sound at all with only music turned off');
+ fakeAudio(); run('muted=true;showOver("menu");document.getElementById("mmGarage").onclick();');
+ assert.equal(run('window.__osc'),0,'the click sound played even though sound effects are muted');
+ run('muted=false;bgmMuted=false;');
+});
