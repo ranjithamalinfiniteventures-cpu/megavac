@@ -483,7 +483,7 @@ button:focus-visible{outline:3px solid #e8a331;outline-offset:3px}button:disable
     <button id="pauseBtn" hidden aria-label="Pause"><i></i><i></i></button>
     <button id="sndBtn" aria-label="Sound"></button>
     <button id="musicBtn" aria-label="Music"></button>
-    <button id="boostBtn" hidden aria-label="Turbo boost"><span class="ring"></span><span class="lb">TURBO</span></button>
+    <button id="boostBtn" hidden aria-label="Turbo boost" title="Turbo Boost [Shift / E / Right-Click]"><span class="ring"></span><span class="lb">TURBO</span></button>
     <div id="over"><div id="card">
       <button id="closeX" hidden aria-label="Close">&times;</button>
       <div id="mmMenu" hidden>
@@ -561,7 +561,7 @@ button:focus-visible{outline:3px solid #e8a331;outline-offset:3px}button:disable
         </div>
         <div class="jdKeys" id="jdKeys" hidden>
           <p>A few keys worth knowing:</p>
-          <div class="jdKeyRow"><kbd>Space</kbd><span>Turbo boost</span></div>
+          <div class="jdKeyRow"><kbd>Shift</kbd> / <kbd>E</kbd><span>Turbo boost</span></div>
           <div class="jdKeyRow"><kbd>P</kbd><span>Pause</span></div>
           <div class="jdKeyRow"><kbd>M</kbd><span>Sound</span></div>
           <div class="jdKeyRow"><kbd>B</kbd><span>Music</span></div>
@@ -584,7 +584,7 @@ button:focus-visible{outline:3px solid #e8a331;outline-offset:3px}button:disable
         <li><b>Mess of the Day</b> is a date-seeded personal challenge — three tries, best time kept.</li>
         <li>Buy new vacuums in the <b>Shop</b>. Improve your vacuum in the <b>Garage</b>. Upgrades stay with you when you change machines.</li><li>Finish five jobs in each location to unlock the next. Use the destination cards to replay unlocked locations.</li>
         <li>Music: <i>Carefree</i> by Kevin MacLeod (incompetech.com, CC-BY 4.0). Toggle music anytime with <b>B</b> or the 🎵 button; toggle sound with <b>M</b> or the 🔊 button.</li>
-        <li><b>Space</b> or the ⚡ button fires a short <b>Turbo</b> boost to reach, suction, and nozzle width. It has its own cooldown. <b>P</b> or <b>Esc</b> pauses.</li>
+        <li><b>Shift</b>, <b>E</b>, <b>Right-Click</b>, or the ⚡ <b>Turbo</b> button fires a short <b>Turbo</b> boost to reach, suction, and nozzle width. It has its own cooldown. <b>P</b> or <b>Esc</b> pauses.</li>
       </ul></div>
       <div id="oUpg" hidden><div id="uList"></div></div>
       <div id="oRigs" hidden>
@@ -2730,12 +2730,14 @@ document.getElementById('bCopy').onclick=async()=>{
   try{await navigator.clipboard.writeText(j);say('tuning copied')}catch(e){say('copy blocked \u2014 see console');console.log(j)}
 };
 addEventListener('keydown',e=>{
+  const k=(e.key||'').toLowerCase();
+  const c=e.code||'';
+  if(k===' '||k==='spacebar'||c==='Space'||k.slice(0,5)==='arrow'||c.slice(0,5)==='Arrow') e.preventDefault();
   if(CG.adBusy)return;
   // Held keys repeat. Without this, leaning on P strobes the pause menu and a
   // held M flips the mute preference - and saves it - dozens of times a second.
   if(e.repeat)return;
   initAudio();
-  const k=e.key.toLowerCase();
   if(k==='r'&&DEV){generate();say('mess refilled')}
   else if(k==='d'&&DEV){debug=!debug;say('debug '+(debug?'on':'off'))}
   else if(k==='escape'||k==='p'){ if(phase==='play') togglePause(); }
@@ -2744,7 +2746,9 @@ addEventListener('keydown',e=>{
     if(muted)pauseBGM();else if(!bgmMuted&&!paused&&phase!=='dead')playBGM();
     drawSnd();drawMusic();saveGame();say(muted?'muted':'unmuted')}
   else if(k==='b'){toggleMusic()}
-  else if(k===' '||k==='shift'){ if(over.hidden) fireSurge(); }
+  else if(k==='shift'||k==='e'||k==='f'||k===' '||k==='spacebar'||c==='ShiftLeft'||c==='ShiftRight'||c==='KeyE'||c==='KeyF'||c==='Space'){
+    if(over.hidden) fireSurge();
+  }
 });
 const COARSE=(window.matchMedia&&matchMedia('(pointer:coarse)').matches)||('ontouchstart' in window);
 function pt(e){
@@ -2756,15 +2760,31 @@ function pt(e){
   // One jump of a tap is not a lesson learned, so a single event can only
   // contribute so much towards retiring the coach.
   else coach.moved+=Math.min(60,Math.hypot(px-ox,py-oy));}
+cv.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  initAudio();
+  if(over.hidden) fireSurge();
+});
 cv.addEventListener('pointermove',e=>{pt(e);if(AC&&AC.state==='suspended')AC.resume();});
 cv.addEventListener('pointerdown',e=>{initAudio();pt(e);hintT=0;
+  if(e.button===2){ e.preventDefault(); if(over.hidden) fireSurge(); }
   if(e.pointerId!==undefined)cv.setPointerCapture(e.pointerId);});
 const unlock=()=>{try{initAudio()}catch(e){}};
 addEventListener('pointerdown',unlock,{capture:true});
 addEventListener('touchstart',unlock,{capture:true,passive:true});
-addEventListener('keydown',e=>{ const k=e.key.toLowerCase(); keys[k]=1;
-  if(k.slice(0,5)==='arrow') e.preventDefault(); });
-addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=0; });
+addEventListener('keydown',e=>{ const k=(e.key||'').toLowerCase(), c=e.code||''; keys[k]=1;
+  if(k===' '||k==='spacebar'||c==='Space'||k.slice(0,5)==='arrow'||c.slice(0,5)==='Arrow') e.preventDefault(); });
+addEventListener('keyup',e=>{ const k=(e.key||'').toLowerCase(), c=e.code||''; keys[k]=0;
+  if(k===' '||k==='spacebar'||c==='Space') e.preventDefault(); });
+['keydown','keyup','keypress'].forEach(evt=>{
+  addEventListener(evt,e=>{
+    const k=(e.key||'').toLowerCase(), c=e.code||'';
+    if(k===' '||k==='spacebar'||c==='Space'||k.slice(0,5)==='arrow'||c.slice(0,5)==='Arrow'){
+      e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+    }
+  },{capture:true,passive:false});
+});
 addEventListener('blur',()=>{ for(const k in keys) keys[k]=0; });
 addEventListener('keydown',unlock,{capture:true});
 document.addEventListener('visibilitychange',()=>{

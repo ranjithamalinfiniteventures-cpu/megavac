@@ -425,3 +425,19 @@ test('pressing or holding space always prevents browser page scrolling',()=>{
  listeners.keydown.forEach(f=>f({key:' ',repeat:true,preventDefault(){prevented++;}}));
  assert.ok(prevented>0,'holding space did not prevent page scroll');
 });
+test('turbo fires on Shift, E, and Space keys',()=>{
+ run('BOOST.adGated=false;journey.job=0;startJourney();endSurge();hideOver();');
+ assert.equal(run('surgeState()'),'ready');
+ listeners.keydown.forEach(f=>f({key:'Shift',code:'ShiftLeft',preventDefault(){}}));
+ assert.equal(run('surgeState()'),'on','Shift did not fire turbo');
+
+ run('endSurge();');
+ assert.equal(run('surgeState()'),'ready');
+ listeners.keydown.forEach(f=>f({key:'e',code:'KeyE',preventDefault(){}}));
+ assert.equal(run('surgeState()'),'on','E key did not fire turbo');
+
+ run('endSurge();');
+ assert.equal(run('surgeState()'),'ready');
+ listeners.keydown.forEach(f=>f({key:' ',code:'Space',preventDefault(){}}));
+ assert.equal(run('surgeState()'),'on','Space key did not fire turbo');
+});
