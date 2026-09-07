@@ -874,6 +874,11 @@ function generate(){
   for(let k=0;k<7;k++){buildHash();collide(1);}
   spawnStagger=false; lastGen=now;
   roomT=0; roomScrap=0; roomOver=false; combo=0; mult=1; comboT=0;
+  let tc=0;
+  for(let i=0;i<n;i++){ if(!alive[i]) continue;
+    if(bk[i]===12||bk[i]===13||br[i]>=T.sizes[3][0]) continue;
+    if(bi[i]===0) continue; tc++; }
+  roomTotal=Math.max(1,tc);
 }
 
 const boss={i:-1,hold:0,need:5};
@@ -1056,7 +1061,7 @@ function crunch(){
 
 /* ---------------- step ---------------- */
 let phase='play', ph=0, snap=null, titleA=0, liveN=0, lastGen=-99;
-let roomT=0, roomScrap=0, roomOver=false, resT=0, stars=0, newBest=false, heavyN=0;
+let roomT=0, roomScrap=0, roomOver=false, resT=0, stars=0, newBest=false, heavyN=0, roomTotal=1;
 let combo=0, comboT=0, mult=1, multPop=0;
 const best={};
 const fmtT=t=>Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');
@@ -1340,6 +1345,15 @@ function render(){
     ctx.beginPath(); ctx.arc(p.x,p.y,p.r*(1.2+(1-p.l)*2.4),0,6.2832); ctx.fill(); }
   ctx.globalAlpha=1;
 
+  if(phase==='play' && liveN>0 && liveN<=20){
+    const pl=.5+.5*Math.sin(now*5);
+    ctx.strokeStyle='rgba(201,89,31,'+(.35+pl*.45).toFixed(2)+')'; ctx.lineWidth=2;
+    for(let i=0;i<n;i++){
+      if(!alive[i]||i===jam.i||bi[i]===0) continue;
+      if(bk[i]===12||bk[i]===13||br[i]>=T.sizes[3][0]) continue;
+      ctx.beginPath(); ctx.arc(bx[i],by[i],br[i]+7+pl*5,0,6.2832); ctx.stroke();
+    }
+  }
   if(jam.i>=0){
     const i=jam.i, k=jam.t/jam.dur, sq=1-.14*Math.sin(k*Math.PI), j=Math.sin(jam.t*70)*k*2.2;
     ctx.save(); ctx.translate(bx[i]+j,by[i]); ctx.scale(sq,2-sq);
@@ -1527,9 +1541,20 @@ function hud(){
     ctx.font='700 11px "JetBrains Mono",monospace'; ctx.textAlign='left';
     ctx.fillStyle='rgba(28,20,10,.3)'; ctx.fillText('ROOM '+roomN,19,cy0+2);
     ctx.fillStyle='#3E2E14'; ctx.fillText('ROOM '+roomN,18,cy0+1);
-    if(bestRoom>1){ ctx.font='9px "JetBrains Mono",monospace';
-      ctx.fillStyle='rgba(62,46,20,.6)'; ctx.fillText('best '+bestRoom,18,cy0+16); }
+    const cp=Math.max(0,Math.min(1,1-liveN/roomTotal));
+    ctx.fillStyle='rgba(30,22,10,.2)'; rr(ctx,18,cy0+17,78,5,2.5); ctx.fill();
+    ctx.fillStyle=cp>.92?'#4E9B44':'#8A5A24'; rr(ctx,18,cy0+17,78*cp,5,2.5); ctx.fill();
+    ctx.font='9px "JetBrains Mono",monospace'; ctx.fillStyle='rgba(62,46,20,.75)';
+    ctx.fillText(Math.round(cp*100)+'% clean'+(bestRoom>1?'   best '+bestRoom:''),18,cy0+26);
     ctx.restore(); ctx.textAlign='left';
+  }
+  if(chrome && phase==='play' && mode!=='challenge'){
+    const cp=Math.max(0,Math.min(1,1-liveN/roomTotal));
+    ctx.textAlign='left';
+    ctx.fillStyle='rgba(30,22,10,.2)'; rr(ctx,18,44,78,5,2.5); ctx.fill();
+    ctx.fillStyle=cp>.92?'#4E9B44':'#8A5A24'; rr(ctx,18,44,78*cp,5,2.5); ctx.fill();
+    ctx.font='9px "JetBrains Mono",monospace'; ctx.fillStyle='rgba(62,46,20,.75)';
+    ctx.fillText(Math.round(cp*100)+'% clean',18,53);
   }
   if(mult>1 && phase==='play'){
     const pop=1+Math.max(0,multPop)*.5;
