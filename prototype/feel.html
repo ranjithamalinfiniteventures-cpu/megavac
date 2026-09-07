@@ -96,6 +96,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   border:1px solid rgba(140,180,205,.4);color:#D8E6F0;font-size:14px;cursor:pointer}
 #rigBtn:hover{border-color:#8FC3E0;background:linear-gradient(180deg,rgba(54,70,86,.9),rgba(34,44,54,.9))}
 #rigBtn .rn{font-weight:700}
+#rigBtn .ri{display:flex;color:#8FC3E0}
+#rigBtn .ri svg{width:21px;height:21px}
 #rigBtn .lbl{margin-left:auto;font-size:11px;letter-spacing:.17em;
   text-transform:uppercase;color:#93B8CE}
 #rigBtn .chev{width:7px;height:7px;flex:none;transform:rotate(45deg);
@@ -153,17 +155,20 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   padding-right:4px;-webkit-overflow-scrolling:touch}
 #uList::-webkit-scrollbar{width:5px}
 #uList::-webkit-scrollbar-thumb{background:rgba(255,236,200,.16);border-radius:3px}
-.urow{display:grid;grid-template-columns:1fr auto;gap:3px 14px;
+.urow{display:grid;grid-template-columns:30px 1fr auto;gap:3px 13px;
   padding:11px 2px;border-bottom:1px solid rgba(255,236,200,.08)}
+.urow .ic{grid-column:1;grid-row:1/3;align-self:center;color:#E8B23A;
+  display:flex;align-items:center;justify-content:center;opacity:.9}
+.urow .ic svg{width:23px;height:23px}
 .urow.max{opacity:.42}
-.urow .un{grid-column:1;grid-row:1;font-size:13px;color:#EFE7D3;
+.urow .un{grid-column:2;grid-row:1;font-size:13px;color:#EFE7D3;
   display:flex;align-items:center;gap:9px;min-width:0}
-.urow .ud{grid-column:1;grid-row:2;font-size:10px;letter-spacing:.03em;
+.urow .ud{grid-column:2;grid-row:2;font-size:10px;letter-spacing:.03em;
   color:#89826F;line-height:1.35}
 .pips{display:flex;gap:2px;flex:none}
 .pip{width:6px;height:6px;border-radius:1px;background:rgba(255,236,200,.14)}
 .pip.on{background:#F0B429}
-.urow button{grid-column:2;grid-row:1/3;align-self:center;
+.urow button{grid-column:3;grid-row:1/3;align-self:center;
   width:auto;margin:0;padding:9px 12px;font-size:11px;min-width:82px;
   text-transform:none;letter-spacing:.02em;border-radius:3px;
   border-color:rgba(255,236,200,.14);color:#7E7768}
@@ -212,8 +217,11 @@ button:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
       <p class="sub" id="oSub">crumbs to orbit</p>
       <div class="coins"><i></i><span id="oCoins">0</span></div>
       <button id="shopBtn"><span class="cp"></span><span class="bal">0</span>
-        <span class="lbl">Shop</span><span class="chev"></span></button>
-      <button id="rigBtn"><span class="rn">Dust-buster</span>
+        <span class="lbl">Upgrades</span><span class="chev"></span></button>
+      <button id="rigBtn"><span class="ri"><svg viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path
+        d="M3 10.5h8l6-4.5v12l-6-4.5H3z"/><circle cx="19.5" cy="12" r="1.6"/></svg></span>
+        <span class="rn">Dust-buster</span>
         <span class="lbl">Rigs</span><span class="chev"></span></button>
       <div id="oUpg" hidden><div id="uList"></div></div>
       <div id="oRigs" hidden>
@@ -568,19 +576,19 @@ function applyTier(i){ tier=i; T=TIERS[i]; Object.assign(P,BASE,T.def);
 
 /* ---------------- upgrades ---------------- */
 const LINES=[
- {k:'batt', n:'Battery',    d:'Run longer before it dies', max:8,
+ {k:'batt', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="2" y="7" width="16" height="11" rx="2.5"/><path d="M21 11v3"/><rect x="4.6" y="9.6" width="7" height="5.8" rx="1.2" fill="currentColor" stroke="none"/></svg>', n:'Battery',    d:'Run longer before it dies', max:8,
   cost:[3240,5670,9900,17370,30420,53190,93060,162900], eff:l=>'+'+(28*l)+'% capacity'},
- {k:'eff',  n:'Efficiency', d:'Drains slower under load', max:8,
+ {k:'eff',  icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 3.5C8 8 6 10.6 6 13.6A6 6 0 0 0 18 13.6c0-3-2-5.6-6-10.1z"/><path d="M9.5 14.2a2.6 2.6 0 0 0 2.5 2.4"/></svg>', n:'Efficiency', d:'Drains slower under load', max:8,
   cost:[4320,7560,13230,23130,40500,70830,123930,216900], eff:l=>'-'+(4*l)+'% drain'},
- {k:'mouth',n:'Mouth',      d:'Swallow bigger things whole', max:8,
+ {k:'mouth',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="3.1" fill="currentColor" stroke="none"/><path d="M12 1.6v2.4M12 20v2.4M1.6 12H4M20 12h2.4"/></svg>', n:'Mouth',      d:'Swallow bigger things whole', max:8,
   cost:[3960,6930,12150,21240,37170,65070,113850,199260], eff:l=>'+'+(22*l)+'% intake'},
- {k:'power',n:'Power',      d:'Wider reach, faster pull', max:8,
+ {k:'power',icon:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M13.4 2 5.6 13.2h4.9L9.2 22l8.4-11.7h-5.1z"/></svg>', n:'Power',      d:'Wider reach, faster pull', max:8,
   cost:[4680,8190,14310,25020,43830,76680,134190,234810], eff:l=>'+'+(14*l)+'% reach'},
- {k:'crush',n:'Crush',      d:'Eat what you could not move', max:8,
+ {k:'crush',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 4v16M8 5.5l3.6 6.5L8 18.5M20 4v16M16 5.5 12.4 12 16 18.5"/></svg>', n:'Crush',      d:'Eat what you could not move', max:8,
   cost:[5400,9450,16560,28980,50670,88650,155160,271530], eff:l=>'+'+(18*l)+'% ceiling'},
- {k:'luck', n:'Fortune',    d:'Every object pays more', max:6,
+ {k:'luck', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10.6" cy="13" r="7.2"/><path d="M10.6 9.4v7.2M8.6 11.2h4M8.6 14.8h4"/><path d="M18.6 3.4l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="currentColor" stroke="none"/></svg>', n:'Fortune',    d:'Every object pays more', max:6,
   cost:[6300,12600,25200,50400,100800,201600], eff:l=>'+'+(10*l)+'% coins'},
- {k:'drone',n:'Drones',     d:'Helpers that vacuum for you', max:3,
+ {k:'drone',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="4.4" cy="6.6" r="2.1"/><circle cx="20" cy="8.6" r="2.1"/><circle cx="16.4" cy="19.4" r="2.1"/></svg>', n:'Drones',     d:'Helpers that vacuum for you', max:3,
   cost:[16200,50400,144000], eff:l=>l+' drone'+(l===1?'':'s')}
 ];
 const lv={mouth:0,power:0,crush:0,drone:0,batt:0,eff:0,scav:0,luck:0};
@@ -1927,7 +1935,8 @@ function renderUpgrades(){
     const c=costOf(L), can=c!==null&&scrap>=c;
     const row=document.createElement('div');
     row.className='urow'+(c===null?' max':'');
-    row.innerHTML='<div class="un">'+L.n+pips(lv[L.k],L.max)+'</div>'
+    row.innerHTML='<div class="ic">'+L.icon+'</div>'
+      +'<div class="un">'+L.n+pips(lv[L.k],L.max)+'</div>'
       +'<div class="ud">'+(lv[L.k]?L.eff(lv[L.k]):L.d)+'</div>';
     const b=document.createElement('button');
     b.textContent=c===null?'MAX':c.toLocaleString();
@@ -1976,7 +1985,8 @@ function showOver(k){
   oUpg.hidden=(k!=='upg'); oRigs.hidden=(k!=='rigs');
   oRecs.hidden=(k==='upg'||k==='rigs'); oBtns.hidden=false;
   rigBtn.hidden=true; rigBtn.querySelector('.rn').textContent=RIG().n;
-  bD.hidden=true; bA.disabled=false; stripEl.hidden=true; shopBtn.hidden=true;
+  bA.hidden=false; bB.hidden=false; bC.hidden=false; bD.hidden=true;
+  bA.disabled=false; stripEl.hidden=true; shopBtn.hidden=true;
   shopBtn.querySelector('.bal').textContent=scrap.toLocaleString();
   if(k!=='cards'){ bB.className=''; bA.className=''; }
   document.querySelector('#card .coins').hidden=(k!=='upg');
