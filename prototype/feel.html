@@ -50,9 +50,14 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   padding:calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
           calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left))}
 #over[hidden]{display:none}
-#card{background:rgba(20,16,10,.95);border:1px solid rgba(255,236,200,.16);border-radius:5px;
+#card{position:relative;background:rgba(20,16,10,.95);border:1px solid rgba(255,236,200,.16);border-radius:5px;
   padding:30px 34px 26px;text-align:center;max-width:400px;width:100%;
   max-height:92vh;overflow-y:auto}
+#closeX{position:absolute;top:14px;right:14px;z-index:3;width:32px;height:32px;margin:0;padding:0;
+  border-radius:50%;background:rgba(255,240,210,.08);border:1px solid rgba(255,240,210,.22);
+  color:#D8CDB0;font-size:19px;line-height:1;display:flex;align-items:center;justify-content:center}
+#closeX:hover{background:rgba(255,240,210,.16);border-color:#F0B429;color:#F0B429}
+#closeX[hidden]{display:none}
 #card h1{margin:0;font-size:clamp(34px,8vw,52px);font-weight:700;letter-spacing:-.02em;color:#F4E9D0}
 #card .sub{margin:8px 0 0;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#8B8474}
 #card .btns{display:flex;flex-direction:column;gap:8px;margin:22px 0 0}
@@ -227,6 +232,8 @@ button:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
 #over{background:rgba(19,32,33,.65);backdrop-filter:blur(10px)}
 #card{max-width:540px;border-radius:24px;padding:24px;background:#f6f1e7;color:#213b3b;
  border:1px solid #fff9;box-shadow:0 28px 90px #10242455;text-align:left}
+#closeX{background:#e7e0cf;border-color:#d8cfb4;color:#4a5850}
+#closeX:hover{background:#dcd3ba;border-color:#b5c9a9;color:#284f43}
 #card h1{color:#203c3a;font-family:system-ui,sans-serif;font-weight:900;letter-spacing:-.055em;font-size:48px}
 #card .sub{color:#657873;letter-spacing:.07em;line-height:1.7}
 #card .btns{gap:9px;margin-top:20px}
@@ -262,6 +269,7 @@ button:focus-visible{outline:3px solid #e8a331;outline-offset:3px}button:disable
     <button id="sndBtn" aria-label="Sound"></button>
     <button id="pauseBtn" hidden aria-label="Pause"><i></i><i></i></button>
     <div id="over"><div id="card">
+      <button id="closeX" hidden aria-label="Close">&times;</button>
       <h1 id="oTitle">MEGAVAC</h1>
       <p class="sub" id="oSub">crumbs to orbit</p>
       <div id="journeyPanel" hidden></div>
@@ -2116,6 +2124,7 @@ const over=document.getElementById('over'), oTitle=document.getElementById('oTit
       bA=document.getElementById('bA'), bB=document.getElementById('bB'),
       bC=document.getElementById('bC'), bD=document.getElementById('bD'),
       shopBtn=document.getElementById('shopBtn'), rigBtn=document.getElementById('rigBtn'),
+      closeX=document.getElementById('closeX'),
       oRigs=document.getElementById('oRigs'), rigArt=document.getElementById('rigArt'),
       rigName=document.getElementById('rigName'), rigPerk=document.getElementById('rigPerk'),
       rigDesc=document.getElementById('rigDesc'), rigStats=document.getElementById('rigStats'),
@@ -2192,7 +2201,7 @@ function showOver(k){
   oRecs.hidden=(k==='upg'||k==='rigs'); oBtns.hidden=false;
   rigBtn.hidden=true; rigBtn.querySelector('.rn').textContent=RIG().n;
   bA.hidden=false; bB.hidden=false; bC.hidden=false; bD.hidden=true;
-  bA.disabled=false; stripEl.hidden=true; shopBtn.hidden=true;
+  bA.disabled=false; stripEl.hidden=true; shopBtn.hidden=true; closeX.hidden=true;
   shopBtn.querySelector('.bal').textContent=scrap.toLocaleString();
   if(k!=='cards'){ bB.className=''; bA.className=''; }
   document.querySelector('#card .coins').hidden=(k!=='upg'&&k!=='rigs');
@@ -2269,15 +2278,13 @@ function showOver(k){
   } else if(k==='rigs'){
     oTitle.textContent='RIGS'; oSub.textContent='pick your machine';
     rigView=Math.max(0,RIGS.findIndex(r=>r.id===rig)); renderRigs();
-    bA.innerHTML='Back'; bA.className='sec'; bA.hidden=false;
-    bB.hidden=true; bC.hidden=true; bD.hidden=true;
-    bA.onclick=()=>{ bB.hidden=false; showOver(prevView); };
+    bA.hidden=true; bB.hidden=true; bC.hidden=true; bD.hidden=true;
+    closeX.hidden=false; closeX.onclick=()=>{ bB.hidden=false; showOver(prevView); };
   } else if(k==='upg'){
     oTitle.textContent='UPGRADES'; oSub.textContent='spend what you collected';
     renderUpgrades();
-    bA.innerHTML='Back'; bA.className='sec';
-    bB.hidden=true; bC.hidden=true;
-    bA.onclick=()=>{ bB.hidden=false; showOver(prevView); };
+    bA.hidden=true; bB.hidden=true; bC.hidden=true;
+    closeX.hidden=false; closeX.onclick=()=>{ bB.hidden=false; showOver(prevView); };
   } else {
     oTitle.textContent='BATTERY DEAD'; oSub.textContent='you reached the '+T.name;
     const nx=TIERS[Math.min(tier+1,TIERS.length-1)];
