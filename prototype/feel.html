@@ -124,6 +124,11 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #rigStage button:hover{background:rgba(50,38,18,.8);border-color:#F0B429;color:#FFD98A}
 #rigPrev{left:9px} #rigNext{right:9px}
 #rigName{margin:15px 0 0;font-size:20px;font-weight:700;color:#F4EAD4}
+.rprice{display:inline-block;margin-left:9px;padding:4px 11px;border-radius:99px;
+  font-size:12px;font-weight:700;vertical-align:middle;font-variant-numeric:tabular-nums}
+.rprice.can{background:rgba(240,180,41,.16);border:1px solid rgba(240,180,41,.55);color:#E0A72C}
+.rprice.no{background:rgba(150,140,120,.12);border:1px solid rgba(150,140,120,.35);color:#9a9384}
+.rprice.own{background:rgba(99,195,86,.14);border:1px solid rgba(99,195,86,.5);color:#4e8f46}
 #rigPerk{display:inline-block;margin:7px 0 0;padding:4px 10px;border-radius:99px;
   font-size:10px;letter-spacing:.11em;text-transform:uppercase;
   background:rgba(240,180,41,.14);border:1px solid rgba(240,180,41,.4);color:#F0C86A}
@@ -132,6 +137,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .sbar{text-align:left}
 .sbar span{display:block;font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;
   color:#7E7768;margin-bottom:4px}
+.sbar span b{font-size:10px;letter-spacing:0;color:#C9A227;margin-left:3px}
 .sbar u{display:block;height:5px;border-radius:3px;background:rgba(255,236,200,.12);
   text-decoration:none;overflow:hidden}
 .sbar u i{display:block;height:100%;border-radius:3px;background:#F0B429}
@@ -905,13 +911,25 @@ function wipeGame(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
   applyTier(0); generate(); }
 function costOf(L){ return lv[L.k]>=L.max?null:L.cost[lv[L.k]]; }
 function viewScale(){ return Math.min(1.30,Math.max(.72,Math.sqrt(W*H/(1100*620)))); }
+// Mirrors applyStats without mutating P, so the shop can show what a rig will
+// actually give you rather than its nominal multiplier.
+function previewStats(G){
+  const vs=(mode==='daily')?1:viewScale(), m=G.m;
+  return {
+    throat : Math.round(T.def.throat *(1+.22*lv.mouth)*(1+run.throat)*m.throat),
+    reach  : Math.round(Math.min(T.def.reach*(1+.14*lv.power)*(1+run.reach)*vs*m.reach,
+                                 Math.max(80,Math.min(W,H)*.60))),
+    power  : Math.round(T.def.power  *(1+.09*lv.power)*(1+run.power)*m.power),
+    ceiling: Math.round(T.def.ceiling*(1+.18*lv.crush)*(1+run.ceiling)*m.ceiling)
+  };
+}
 function applyStats(){
   const vs=(mode==='daily')?1:viewScale();
   const G=RIG().m;
   P.swirl=BASE.swirl*G.swirl; P.grip=BASE.grip*G.grip;
   P.throat = Math.round(T.def.throat *(1+.22*lv.mouth) *(1+run.throat)*G.throat);
   P.reach  = Math.round(Math.min(T.def.reach*(1+.14*lv.power)*(1+run.reach)*vs*G.reach,
-                                 Math.max(80,Math.min(W,H)*.45)));
+                                 Math.max(80,Math.min(W,H)*.60)));
   P.power  = Math.round(T.def.power  *(1+.09*lv.power) *(1+run.power)*G.power);
   P.ceiling= Math.round(T.def.ceiling*(1+.18*lv.crush) *(1+run.ceiling)*G.ceiling);
   P.count=Math.round(T.def.count*Math.pow(vs,1.45)*(1+.15*loops));
@@ -2140,13 +2158,17 @@ function renderRigs(){
   c.globalAlpha=.22; c.fillStyle='#7A5A34';
   c.beginPath(); c.ellipse(0,CH*.3,CW*.29,CH*.07,0,0,6.2832); c.fill(); c.restore();
   c.globalAlpha=1; c.rotate(-.15); paintVacuum(c,CH*.34,G); c.restore();
-  rigName.textContent=G.n;
+  rigName.innerHTML=G.n+' <span class="rprice'+(on?' own':have?' own':can?' can':' no')+'">'
+    +(on?'Equipped':have?'Owned':G.cost.toLocaleString()+' coins')+'</span>';
   rigPerk.textContent=G.perk;
   rigDesc.textContent=G.d;
+  const eff=previewStats(G), ref=previewStats(RIGS[0]);
   rigStats.innerHTML=STATS.map(([k,lbl])=>{
-    const v=G.m[k]||1, pct=Math.max(6,Math.min(100,v/2.2*100));
-    return '<div class="sbar"><span>'+lbl+'</span><u><i class="'+(v<1?'dn':'')
-      +'" style="width:'+pct.toFixed(0)+'%"></i></u></div>';
+    const ratio=eff[k]/Math.max(1,ref[k]);
+    const pct=Math.max(6,Math.min(100,ratio/2.0*100));
+    const d=Math.round((ratio-1)*100);
+    return '<div class="sbar"><span>'+lbl+' <b>'+(d>0?'+':'')+d+'%</b></span>'
+      +'<u><i class="'+(ratio<1?'dn':'')+'" style="width:'+pct.toFixed(0)+'%"></i></u></div>';
   }).join('');
   rigBuy.textContent = on?'Equipped' : have?'Equip this rig' : can?('Buy \u00b7 '+G.cost.toLocaleString()+' coins')
     : (G.cost-scrap).toLocaleString()+' coins short';
@@ -2173,7 +2195,7 @@ function showOver(k){
   bA.disabled=false; stripEl.hidden=true; shopBtn.hidden=true;
   shopBtn.querySelector('.bal').textContent=scrap.toLocaleString();
   if(k!=='cards'){ bB.className=''; bA.className=''; }
-  document.querySelector('#card .coins').hidden=(k!=='upg');
+  document.querySelector('#card .coins').hidden=(k!=='upg'&&k!=='rigs');
   bC.hidden=false;
   const owned=LINES.reduce((a,L)=>a+lv[L.k],0);
   if(k==='menu'){
