@@ -550,7 +550,8 @@ function viewScale(){ return Math.min(1.45,Math.max(.72,Math.sqrt(W*H/(1100*620)
 function applyStats(){
   const vs=(mode==='daily')?1:viewScale();
   P.throat = Math.round(T.def.throat *(1+.22*lv.mouth) *(1+run.throat));
-  P.reach  = Math.round(T.def.reach  *(1+.14*lv.power) *(1+run.reach)*vs);
+  P.reach  = Math.round(Math.min(T.def.reach*(1+.14*lv.power)*(1+run.reach)*vs,
+                                 Math.max(80,Math.min(W,H)*.45)));
   P.power  = Math.round(T.def.power  *(1+.09*lv.power) *(1+run.power));
   P.ceiling= Math.round(T.def.ceiling*(1+.18*lv.crush) *(1+run.ceiling));
   P.count=Math.round(T.def.count*vs*vs*(1+.15*loops));
@@ -1125,22 +1126,65 @@ function render(){
 
   // nozzle — points along travel
   ctx.save(); ctx.translate(mx,my); ctx.rotate(mang);
+  // the rig visibly grows with what you have bought, run cards included
+  const mLv=Math.min(10,lv.mouth+Math.round(run.throat/.45));
+  const pLv=Math.min(10,lv.power+Math.round(run.reach/.30));
+  const cLv=Math.min(10,lv.crush+Math.round(run.ceiling/.40));
+  const tot=lv.mouth+lv.power+lv.crush+lv.batt+lv.eff+lv.luck;
   const fw=Math.max(12,capR*1.05);
+  const fl=1+mLv*.085;               // flare opens up with Mouth
+  const hh=.48*(1+pLv*.06);          // hose thickens with Power
+
   ctx.save(); if('filter' in ctx) ctx.filter='blur(5px)';
   ctx.globalAlpha=.24; ctx.fillStyle='#3A2A16';
-  ctx.beginPath(); ctx.ellipse(-fw*1.9,fw*.8,fw*2.9,fw*.8,0,0,6.2832); ctx.fill(); ctx.restore();
+  ctx.beginPath(); ctx.ellipse(-fw*1.9,fw*.8,fw*2.9,fw*.9,0,0,6.2832); ctx.fill(); ctx.restore();
   ctx.globalAlpha=1;
-  ctx.fillStyle='#B4BAC2'; rr(ctx,-fw*4.5,-fw*.48,fw*2.9,fw*.96,fw*.3); ctx.fill();
+
+  // intake glow, brighter the more rig you own
+  if(tot>0){
+    const gr=ctx.createRadialGradient(0,0,0,0,0,fw*1.9);
+    gr.addColorStop(0,'rgba(255,190,110,'+Math.min(.34,.045+tot*.011)+')');
+    gr.addColorStop(1,'rgba(255,170,80,0)');
+    ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(0,0,fw*1.9,0,6.2832); ctx.fill();
+  }
+
+  // hose
+  ctx.fillStyle='#B4BAC2'; rr(ctx,-fw*4.6,-fw*hh,fw*3.0,fw*hh*2,fw*.3); ctx.fill();
   ctx.strokeStyle='#8B9099'; ctx.lineWidth=1.1;
-  for(let i=1;i<6;i++){ const rx=-fw*4.5+i*fw*.48;
-    ctx.beginPath(); ctx.moveTo(rx,-fw*.44); ctx.lineTo(rx,fw*.44); ctx.stroke(); }
-  ctx.beginPath(); ctx.moveTo(0,-fw); ctx.lineTo(-fw*1.7,-fw*.5);
-  ctx.lineTo(-fw*1.7,fw*.5); ctx.lineTo(0,fw); ctx.closePath();
+  const ribs=5+Math.floor(pLv/2);
+  for(let i=1;i<ribs;i++){ const rx=-fw*4.6+i*(fw*3.0/ribs);
+    ctx.beginPath(); ctx.moveTo(rx,-fw*hh*.92); ctx.lineTo(rx,fw*hh*.92); ctx.stroke(); }
+  // charge cells along the hose, one per two Battery levels
+  const cells=Math.min(6,Math.ceil(lv.batt*.75));
+  for(let i=0;i<cells;i++){
+    ctx.fillStyle=(battery/batMax())>(i/Math.max(1,cells))?'#63C356':'#4A5450';
+    rr(ctx,-fw*4.3+i*fw*.36,-fw*hh*.34,fw*.2,fw*hh*.68,1); ctx.fill();
+  }
+
+  // flare
+  ctx.beginPath(); ctx.moveTo(0,-fw*fl); ctx.lineTo(-fw*1.7,-fw*hh);
+  ctx.lineTo(-fw*1.7,fw*hh); ctx.lineTo(0,fw*fl); ctx.closePath();
   ctx.fillStyle='#CFD5DC'; ctx.fill();
   ctx.strokeStyle='#8B9099'; ctx.lineWidth=1.3; ctx.lineJoin='round'; ctx.stroke();
   ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=1.7;
-  ctx.beginPath(); ctx.moveTo(-fw*1.7,-fw*.5); ctx.lineTo(0,-fw); ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(0,0,fw*.24,fw,0,0,6.2832);
+  ctx.beginPath(); ctx.moveTo(-fw*1.7,-fw*hh); ctx.lineTo(0,-fw*fl); ctx.stroke();
+  // Fortune trims the rig in gold
+  if(lv.luck>=2){ ctx.strokeStyle='#E8B23A'; ctx.lineWidth=1.6+lv.luck*.18;
+    ctx.beginPath(); ctx.moveTo(0,-fw*fl); ctx.lineTo(0,fw*fl); ctx.stroke(); }
+
+  // crusher jaws bolt on once Crush is worth something
+  if(cLv>=2){
+    const nT=Math.min(9,1+cLv);
+    for(let i=0;i<nT;i++){
+      const yy=-fw*fl+(2*fw*fl)*(i+.5)/nT, th=fw*fl*.42/nT;
+      ctx.fillStyle=i%2?'#E9EEF3':'#C3CAD1';
+      ctx.beginPath(); ctx.moveTo(fw*.04,yy-th); ctx.lineTo(fw*(.2+cLv*.026),yy);
+      ctx.lineTo(fw*.04,yy+th); ctx.closePath(); ctx.fill();
+    }
+  }
+
+  // aperture
+  ctx.beginPath(); ctx.ellipse(0,0,fw*.24,fw*fl*.96,0,0,6.2832);
   ctx.fillStyle='#241C15'; ctx.fill();
   ctx.strokeStyle='rgba(255,255,255,.28)'; ctx.lineWidth=1.2; ctx.stroke();
   ctx.restore();
