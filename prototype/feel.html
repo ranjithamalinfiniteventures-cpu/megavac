@@ -261,6 +261,49 @@ button:focus-visible{outline:3px solid #e8a331;outline-offset:3px}button:disable
 #shopBtn:hover,#rigBtn:hover{background:#dce6d9;border-color:#98b49b}
 #rigBuy.on{color:#3d6249;background:#d3deca;border-color:#b5c9a9}
 @media(max-width:540px){#card{padding:23px 20px;border-radius:20px;max-height:94dvh}#card h1{font-size:40px}#journeyPanel{padding:15px;margin-top:15px}#card .btns button{padding:12px}}
+/* Card-select menu: title/coins strip, three mode cards, icon row, big rig art. */
+#card{max-width:620px}
+#mmMenu[hidden],#oInfo[hidden]{display:none}
+.mmTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:15px}
+.mmTitle{font:900 21px system-ui,sans-serif;letter-spacing:-.03em;color:#203c3a;
+  background:#e8ece3;border:1px solid #c8d5ca;border-radius:10px;padding:8px 14px;white-space:nowrap}
+.mmCoins{display:flex;align-items:center;gap:8px;font:700 16px system-ui,sans-serif;
+  color:#55715b;background:#fff;border:1px solid #e0dcc9;border-radius:99px;padding:8px 16px 8px 9px;
+  box-shadow:0 2px 0 #e7e2ce;font-variant-numeric:tabular-nums}
+.mmCoins i{width:19px;height:19px;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 35% 30%,#ffe58c,#e8b23a 60%,#a97c12)}
+.mmPrompt{text-align:center;font:700 11px system-ui,sans-serif;letter-spacing:.14em;
+  text-transform:uppercase;color:#7f9084;margin:0 0 12px}
+.mmCards{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.mmCard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;
+  padding:16px 10px 14px;border-radius:16px;background:#eef1e6;border:2px solid #d3ddcb;
+  cursor:pointer;min-height:152px;font-family:system-ui,sans-serif}
+.mmCard:hover{background:#e4e9da;border-color:#b7c8b4}
+.mmCard.pri{background:#e2ebdd;border-color:#246859;box-shadow:0 3px 0 #b9d1bd}
+.mmCard .mi{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:#fff;color:#246859;flex:none}
+.mmCard .mi svg{width:21px;height:21px}
+.mmCard .mn{font:750 13.5px system-ui,sans-serif;color:#213b3b}
+.mmCard .ms{font:11.5px/1.4 system-ui,sans-serif;color:#6a7c68}
+.mmCard:disabled{opacity:.5;cursor:default}
+.mmIcons{display:flex;justify-content:center;gap:26px;margin:18px 0 2px}
+.mmIconBtn{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:none;
+  width:auto;margin:0;padding:0;color:#4a6154;font:600 10px system-ui,sans-serif;letter-spacing:.03em}
+.mmIconBtn .ic{width:44px;height:44px;border-radius:50%;background:#fff;border:1px solid #dbe3d2;
+  display:flex;align-items:center;justify-content:center;color:#2e5849}
+.mmIconBtn .ic svg{width:20px;height:20px}
+.mmIconBtn:hover .ic{background:#e2ebdd;border-color:#98b49b}
+#mmRigWrap{display:flex;justify-content:center;margin-top:-4px}
+#mmRigArt{width:180px;height:114px}
+.infoList{margin:6px 0 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:11px}
+.infoList li{font:13px/1.55 system-ui,sans-serif;color:#3d564e}
+.infoList b{color:#1f3d35}
+@media(max-width:600px){
+  .mmCards{grid-template-columns:1fr}
+  .mmCard{flex-direction:row;text-align:left;min-height:0;padding:12px}
+  .mmTitle{font-size:17px;padding:7px 11px}
+  .mmCoins{font-size:14px}
+}
 </style>
 
 <div id="app">
@@ -270,6 +313,51 @@ button:focus-visible{outline:3px solid #e8a331;outline-offset:3px}button:disable
     <button id="pauseBtn" hidden aria-label="Pause"><i></i><i></i></button>
     <div id="over"><div id="card">
       <button id="closeX" hidden aria-label="Close">&times;</button>
+      <div id="mmMenu" hidden>
+        <div class="mmTop">
+          <span class="mmTitle">MEGAVAC</span>
+          <span class="mmCoins"><i></i><b id="mmCoinsN">0</b></span>
+        </div>
+        <p class="mmPrompt">Choose how to clean</p>
+        <div class="mmCards">
+          <button class="mmCard pri" id="mmJourney">
+            <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 20 14 10"/><path d="M12.5 8.5 15.5 5.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L15.5 11.5"/>
+              <path d="M4 20l1.6-4.4L9 19z"/></svg></span>
+            <span class="mn">Cleaning Journey</span>
+            <span class="ms" id="mmJourneySub"></span>
+          </button>
+          <button class="mmCard" id="mmDaily">
+            <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3.5" y="5" width="17" height="15" rx="2.4"/><path d="M3.5 9.5h17"/>
+              <path d="M8 3v3.4M16 3v3.4"/></svg></span>
+            <span class="mn">Mess of the Day</span>
+            <span class="ms" id="mmDailySub"></span>
+          </button>
+          <button class="mmCard" id="mmChallenge">
+            <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.8" stroke-linecap="round"><rect x="2.5" y="7.5" width="16" height="11" rx="2.4"/>
+              <path d="M21 11v3"/><rect x="5.2" y="10" width="7" height="5.8" rx="1.1"
+              fill="currentColor" stroke="none"/></svg></span>
+            <span class="mn">Battery Challenge</span>
+            <span class="ms" id="mmChallengeSub"></span>
+          </button>
+        </div>
+        <div class="mmIcons">
+          <button class="mmIconBtn" id="mmShop"><span class="ic"><svg viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M5.5 8h13l-1 12h-11z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg></span>Shop</button>
+          <button class="mmIconBtn" id="mmGarage"><span class="ic"><svg viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path
+            d="M3 10.5h8l6-4.5v12l-6-4.5H3z"/><circle cx="19.5" cy="12" r="1.6"/></svg></span>Garage</button>
+          <button class="mmIconBtn" id="mmInfo"><span class="ic"><svg viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.6"/>
+            <path d="M12 11v5"/><circle cx="12" cy="7.7" r="1" fill="currentColor" stroke="none"/></svg></span>How to play</button>
+        </div>
+        <div id="mmRigWrap"><canvas id="mmRigArt" width="360" height="228"></canvas></div>
+      </div>
       <h1 id="oTitle">MEGAVAC</h1>
       <p class="sub" id="oSub">crumbs to orbit</p>
       <div id="journeyPanel" hidden></div>
@@ -281,6 +369,15 @@ button:focus-visible{outline:3px solid #e8a331;outline-offset:3px}button:disable
         d="M3 10.5h8l6-4.5v12l-6-4.5H3z"/><circle cx="19.5" cy="12" r="1.6"/></svg></span>
         <span class="rn">Dust-buster</span>
         <span class="lbl">Rigs</span><span class="chev"></span></button>
+      <div id="oInfo" hidden><ul class="infoList">
+        <li><b>Move</b> the mouse, or drag on touch, to steer the nozzle.</li>
+        <li>Suck up debris and clean the floor — a room finishes when both are done.</li>
+        <li>Something too heavy to lift shows a red tether. Upgrade <b>Crush</b> to break it down.</li>
+        <li>Chain pickups without pausing to build a <b>combo</b> multiplier for more coins.</li>
+        <li><b>Battery Challenge</b> drains as you play. Clear rooms and buy Battery or Efficiency to last longer.</li>
+        <li><b>Mess of the Day</b> is the same room for everyone — three tries, best time kept.</li>
+        <li>Coins earned anywhere spend in the <b>Shop</b> on permanent upgrades, or on a new <b>Rig</b> in the Garage.</li>
+      </ul></div>
       <div id="oUpg" hidden><div id="uList"></div></div>
       <div id="oRigs" hidden>
         <div id="rigStage">
@@ -2125,11 +2222,28 @@ const over=document.getElementById('over'), oTitle=document.getElementById('oTit
       bC=document.getElementById('bC'), bD=document.getElementById('bD'),
       shopBtn=document.getElementById('shopBtn'), rigBtn=document.getElementById('rigBtn'),
       closeX=document.getElementById('closeX'),
+      mmMenu=document.getElementById('mmMenu'), mmCoinsN=document.getElementById('mmCoinsN'),
+      mmJourney=document.getElementById('mmJourney'), mmJourneySub=document.getElementById('mmJourneySub'),
+      mmDaily=document.getElementById('mmDaily'), mmDailySub=document.getElementById('mmDailySub'),
+      mmChallenge=document.getElementById('mmChallenge'), mmChallengeSub=document.getElementById('mmChallengeSub'),
+      mmRigArt=document.getElementById('mmRigArt'), oInfo=document.getElementById('oInfo'),
       oRigs=document.getElementById('oRigs'), rigArt=document.getElementById('rigArt'),
       rigName=document.getElementById('rigName'), rigPerk=document.getElementById('rigPerk'),
       rigDesc=document.getElementById('rigDesc'), rigStats=document.getElementById('rigStats'),
       rigBuy=document.getElementById('rigBuy'), rigDots=document.getElementById('rigDots');
 document.getElementById('rigPrev').onclick=()=>{ rigView--; renderRigs(); };
+document.getElementById('mmShop').onclick=()=>showOver('upg');
+document.getElementById('mmGarage').onclick=()=>showOver('rigs');
+document.getElementById('mmInfo').onclick=()=>showOver('info');
+function drawMenuRig(){
+  const c=mmRigArt.getContext('2d'), CW=mmRigArt.width, CH=mmRigArt.height, G=RIG();
+  c.clearRect(0,0,CW,CH);
+  c.save(); c.translate(CW/2,CH/2+CH*.06);
+  c.save(); if('filter' in c) c.filter='blur(10px)';
+  c.globalAlpha=.2; c.fillStyle='#7A5A34';
+  c.beginPath(); c.ellipse(0,CH*.3,CW*.22,CH*.06,0,0,6.2832); c.fill(); c.restore();
+  c.globalAlpha=1; c.rotate(-.15); paintVacuum(c,CH*.4,G); c.restore();
+}
 document.getElementById('rigNext').onclick=()=>{ rigView++; renderRigs(); };
 shopBtn.onclick=()=>showOver('upg');
 rigBtn.onclick=()=>showOver('rigs');
@@ -2193,12 +2307,14 @@ function renderRigs(){
   [...rigDots.children].forEach(d=>d.onclick=()=>{ rigView=+d.dataset.i; renderRigs(); });
 }
 function showOver(k){
-  if((k==='upg'||k==='rigs') && view!=='upg' && view!=='rigs') prevView=view;
+  const shopLike=v=>v==='upg'||v==='rigs'||v==='info';
+  if(shopLike(k) && !shopLike(view)) prevView=view;
   view=k; over.hidden=false;
-  document.getElementById('journeyPanel').hidden=k!=='menu';
+  document.getElementById('journeyPanel').hidden=true;
   oCoins.textContent=scrap.toLocaleString();
-  oUpg.hidden=(k!=='upg'); oRigs.hidden=(k!=='rigs');
-  oRecs.hidden=(k==='upg'||k==='rigs'); oBtns.hidden=false;
+  oUpg.hidden=(k!=='upg'); oRigs.hidden=(k!=='rigs'); oInfo.hidden=(k!=='info');
+  oRecs.hidden=(k==='upg'||k==='rigs'||k==='info'); oBtns.hidden=false;
+  mmMenu.hidden=(k!=='menu'); oTitle.hidden=(k==='menu'); oSub.hidden=(k==='menu');
   rigBtn.hidden=true; rigBtn.querySelector('.rn').textContent=RIG().n;
   bA.hidden=false; bB.hidden=false; bC.hidden=false; bD.hidden=true;
   bA.disabled=false; stripEl.hidden=true; shopBtn.hidden=true; closeX.hidden=true;
@@ -2206,28 +2322,27 @@ function showOver(k){
   if(k!=='cards'){ bB.className=''; bA.className=''; }
   document.querySelector('#card .coins').hidden=(k!=='upg'&&k!=='rigs');
   bC.hidden=false;
-  const owned=LINES.reduce((a,L)=>a+lv[L.k],0);
   if(k==='menu'){
     journey.job=journey.resume;
-    oTitle.textContent='MEGAVAC'; oSub.textContent='A little mess. A lot of satisfaction.';
-    document.getElementById('journeyPanel').innerHTML='<div class="eyebrow">Your cleaning journey · Job '+(journey.job+1)+' / 25</div><h2>'+jobName()+'</h2><p>'+TIERS[Math.floor(journey.job/5)].name+' · '+PATTERNS[journey.job%5]+' · no timer, no pressure</p><div class="route">'+TIERS.map((t,i)=>'<span title="'+t.name+'" class="'+(journey.cleared>=(i+1)*5?'done':i===Math.floor(journey.job/5)?'current':'')+'"></span>').join('')+'</div><p>Kitchen → Garage → Street → Skyline → Orbit · '+journey.cleared+' jobs · '+Object.values(journey.stars).reduce((a,b)=>a+b,0)+' stars collected</p>';
+    oBtns.hidden=true; shopBtn.hidden=true; rigBtn.hidden=true; stripEl.hidden=true;
+    mmCoinsN.textContent=scrap.toLocaleString();
+    const jStars=Object.values(journey.stars).reduce((a,b)=>a+b,0);
+    mmJourneySub.textContent=jobName()+' \u00b7 Job '+(journey.job+1)+'/25'
+      +(jStars?' \u00b7 '+jStars+'\u2605':'');
+    mmJourney.onclick=()=>startJourney(true);
     const left=3-dailyTries(), doneToday=dailyBest()!==undefined;
-    shopBtn.hidden=false; rigBtn.hidden=false;
-    bB.innerHTML=(journey.cleared?'Continue cleaning':'Start cleaning')+' &nbsp; →'; bB.className='pri'; bB.hidden=false;
-    bB.onclick=()=>startJourney(true);
-    bA.className='sec'; bA.hidden=false;
-    bA.innerHTML='Mess of the Day'
-      +(daily.streak?'  &nbsp;\u00b7&nbsp; '+daily.streak+'\u2011day streak':'')
-      +(doneToday?'  &nbsp;\u00b7&nbsp; '+fmtT(dailyBest()):'');
-    bA.disabled=left<=0;
-    bA.onclick=()=>{ if(left>0) startRun('daily'); };
-    bD.hidden=false; bD.className='sec';
-    bD.innerHTML='Battery challenge'; bD.onclick=()=>startRun('challenge');
-    bC.hidden=true;
-    drawStrip();
-    oRecs.innerHTML=rec('Deepest',TIERS[deepest].name)
-      +rec('Best clear',best[0]?fmtT(best[0].t)+'  '+'\u2605'.repeat(best[0].s||0):'\u2014')
-      +rec('Streak',daily.streak?daily.streak+'d':'\u2014');
+    mmDailySub.textContent=(daily.streak?daily.streak+'\u2011day streak':'no streak yet')
+      +(doneToday?' \u00b7 best '+fmtT(dailyBest()):'')+' \u00b7 '+left+' left today';
+    mmDaily.disabled=left<=0;
+    mmDaily.onclick=()=>{ if(left>0) startRun('daily'); };
+    mmChallengeSub.textContent='Deepest '+TIERS[deepest].name
+      +(bestRoom>1?' \u00b7 best room '+bestRoom:'');
+    mmChallenge.onclick=()=>startRun('challenge');
+    drawMenuRig();
+  } else if(k==='info'){
+    oTitle.textContent='HOW TO PLAY'; oSub.textContent='the short version';
+    bA.hidden=true; bB.hidden=true; bC.hidden=true; bD.hidden=true;
+    closeX.hidden=false; closeX.onclick=()=>showOver(prevView);
   } else if(k==='jobdone'){
     oTitle.textContent=journey.job===24?'BEAUTIFULLY DONE':'ALL FRESH.';
     oSub.textContent=jobName()+' · '+'★'.repeat(stars);
