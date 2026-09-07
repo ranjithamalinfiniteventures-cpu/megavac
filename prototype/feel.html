@@ -94,7 +94,38 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #rigBtn .chev{width:7px;height:7px;flex:none;transform:rotate(45deg);
   border-right:2px solid #93B8CE;border-top:2px solid #93B8CE}
 #rigBtn[hidden]{display:none}
-#rList{margin:14px 0 0;max-height:46vh;overflow-y:auto;text-align:left}
+#rigStage{position:relative;margin:14px 0 0;border-radius:6px;overflow:hidden;
+  background:#F6E7C8;
+  background-image:radial-gradient(rgba(160,135,95,.32) 1.3px,transparent 1.4px);
+  background-size:17px 17px}
+#rigArt{display:block;width:100%;height:auto}
+#rigStage button{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;
+  margin:0;padding:0;border-radius:50%;font-size:19px;line-height:1;
+  background:rgba(28,22,12,.5);border:1px solid rgba(255,240,210,.3);color:#F6EAD0}
+#rigStage button:hover{background:rgba(50,38,18,.8);border-color:#F0B429;color:#FFD98A}
+#rigPrev{left:9px} #rigNext{right:9px}
+#rigName{margin:15px 0 0;font-size:20px;font-weight:700;color:#F4EAD4}
+#rigPerk{display:inline-block;margin:7px 0 0;padding:4px 10px;border-radius:99px;
+  font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+  background:rgba(240,180,41,.14);border:1px solid rgba(240,180,41,.4);color:#F0C86A}
+#rigDesc{margin:10px 0 0;font-size:11.5px;line-height:1.5;color:#9A9280}
+#rigStats{margin:15px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
+.sbar{text-align:left}
+.sbar span{display:block;font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:#7E7768;margin-bottom:4px}
+.sbar u{display:block;height:5px;border-radius:3px;background:rgba(255,236,200,.12);
+  text-decoration:none;overflow:hidden}
+.sbar u i{display:block;height:100%;border-radius:3px;background:#F0B429}
+.sbar u i.dn{background:#B4603A}
+#rigBuy{margin:17px 0 0;padding:14px;font-size:12px;letter-spacing:.14em;border-radius:4px}
+#rigBuy.can{border-color:#FF8A4A;color:#FFE0C6;background:rgba(74,36,14,.5)}
+#rigBuy.on{border-color:#63C356;color:#CFF0C6;background:rgba(28,58,24,.5)}
+#rigBuy.no{opacity:.45;cursor:default}
+#rigDots{display:flex;justify-content:center;gap:6px;margin:14px 0 0;flex-wrap:wrap}
+#rigDots i{width:7px;height:7px;border-radius:50%;background:rgba(255,236,200,.18);cursor:pointer}
+#rigDots i.sel{background:#F0B429}
+#rigDots i.have{background:rgba(99,195,86,.75)}
+#rigDots i.sel.have{background:#F0B429;box-shadow:0 0 0 2px rgba(99,195,86,.6)}
 .rrow{display:grid;grid-template-columns:44px 1fr auto;gap:4px 12px;
   padding:12px 2px;border-bottom:1px solid rgba(255,236,200,.08);align-items:center}
 .rrow .swatch{grid-row:1/3;grid-column:1;width:40px;height:40px;border-radius:4px;
@@ -177,7 +208,16 @@ button:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
       <button id="rigBtn"><span class="rn">Dust-buster</span>
         <span class="lbl">Rigs</span><span class="chev"></span></button>
       <div id="oUpg" hidden><div id="uList"></div></div>
-      <div id="oRigs" hidden><div id="rList"></div></div>
+      <div id="oRigs" hidden>
+        <div id="rigStage">
+          <canvas id="rigArt" width="620" height="300"></canvas>
+          <button id="rigPrev" aria-label="Previous">&lsaquo;</button>
+          <button id="rigNext" aria-label="Next">&rsaquo;</button>
+        </div>
+        <div id="rigName"></div><div><span id="rigPerk"></span></div>
+        <div id="rigDesc"></div><div id="rigStats"></div>
+        <button id="rigBuy"></button><div id="rigDots"></div>
+      </div>
       <div class="btns" id="oBtns">
         <button id="bB"></button>
         <button id="bA"></button>
@@ -536,19 +576,102 @@ const LINES=[
   cost:[16200,50400,144000], eff:l=>l+' drone'+(l===1?'':'s')}
 ];
 const lv={mouth:0,power:0,crush:0,drone:0,batt:0,eff:0,scav:0,luck:0};
+function baseRig(x,R,c){
+  x.lineJoin='round';
+  // grip
+  x.fillStyle=c.trim; rr(x,-R*1.02,-R*.34,R*.60,R*.68,R*.18); x.fill();
+  x.fillStyle='rgba(0,0,0,.14)'; rr(x,-R*.98,-R*.06,R*.52,R*.30,R*.10); x.fill();
+  // motor body
+  x.fillStyle=c.body; rr(x,-R*.62,-R*.46,R*1.02,R*.92,R*.28); x.fill();
+  // collection tank
+  x.fillStyle=c.tank; rr(x,-R*.06,-R*.38,R*.78,R*.76,R*.26); x.fill();
+  x.strokeStyle='rgba(255,255,255,.35)'; x.lineWidth=R*.03;
+  rr(x,-R*.06,-R*.38,R*.78,R*.76,R*.26); x.stroke();
+  for(let i=0;i<3;i++){ x.strokeStyle='rgba(255,255,255,.22)'; x.lineWidth=R*.045;
+    x.beginPath(); x.moveTo(R*.06,-R*.18+i*R*.18); x.lineTo(R*.6,-R*.24+i*R*.18); x.stroke(); }
+  // nozzle
+  x.fillStyle=c.trim; x.beginPath();
+  x.moveTo(R*.66,-R*.30); x.lineTo(R*1.04,-R*.56);
+  x.lineTo(R*1.04,R*.56); x.lineTo(R*.66,R*.30); x.closePath(); x.fill();
+  x.fillStyle='#241C15'; x.beginPath(); x.ellipse(R*1.04,0,R*.08,R*.54,0,0,6.2832); x.fill();
+  // sheen
+  x.fillStyle='rgba(255,255,255,.3)'; rr(x,-R*.56,-R*.42,R*.9,R*.17,R*.08); x.fill();
+}
 const RIGS=[
- {id:'vac', n:'Dust-buster', cost:0,
-  d:'Balanced. Steady pull, honest jaws.',
-  m:{reach:1,power:1,throat:1,ceiling:1,swirl:1,grip:1}, body:'#CFD5DC', trim:'#8B9099'},
- {id:'cyc', n:'Cyclone', cost:12000,
+ {id:'vac', n:'Dust-buster', cost:0, body:'#D96A3C', trim:'#B4502A', tank:'rgba(150,140,210,.72)',
+  d:'Balanced. Steady pull, honest jaws.', perk:'No trade-offs',
+  m:{reach:1,power:1,throat:1,ceiling:1,swirl:1,grip:1},
+  paint:(x,R)=>{ baseRig(x,R,{body:'#D96A3C',trim:'#B4502A',tank:'rgba(150,140,210,.72)'});
+    x.strokeStyle='#8E3E1E'; x.lineWidth=R*.045;
+    for(let i=0;i<3;i++){ x.beginPath(); x.moveTo(-R*.34+i*R*.1,-R*.44);
+      x.lineTo(-R*.24+i*R*.1,-R*.2); x.stroke(); } }},
+
+ {id:'cyc', n:'Cyclone', cost:12000, body:'#3F7EA8', trim:'#2A5A7C', tank:'rgba(150,205,235,.65)',
   d:'A huge loose vortex. Crumbs spiral in from far away; heavy things wander.',
-  m:{reach:1.4,power:1.1,throat:.85,ceiling:.8,swirl:2.6,grip:.5}, body:'#BACADA', trim:'#6E8098'},
- {id:'blow', n:'Blower', cost:30000,
+  perk:'2.6x swirl, half grip',
+  m:{reach:1.4,power:1.1,throat:.85,ceiling:.8,swirl:2.6,grip:.5},
+  paint:(x,R)=>{ baseRig(x,R,{body:'#3F7EA8',trim:'#2A5A7C',tank:'rgba(150,205,235,.65)'});
+    x.strokeStyle='rgba(255,255,255,.7)'; x.lineWidth=R*.05;
+    x.beginPath(); for(let a=0;a<10;a+=.25){ const rr2=R*.06*a;
+      x[a?'lineTo':'moveTo'](R*.32+Math.cos(a)*rr2*.6,Math.sin(a)*rr2*.6); } x.stroke(); }},
+
+ {id:'blow', n:'Blower', cost:30000, body:'#D6A63C', trim:'#9A7226', tank:'rgba(240,220,160,.6)',
   d:'Blasts the far field away and devours what is close. Herd piles, then eat them.',
-  m:{reach:1.3,power:1.2,throat:1.05,ceiling:1,swirl:.5,grip:1.1}, body:'#DCBE86', trim:'#9A7C42', push:1},
- {id:'ram', n:'Ram', cost:55000,
+  perk:'Pushes instead of pulls',
+  m:{reach:1.3,power:1.2,throat:1.05,ceiling:1,swirl:.5,grip:1.1,push:1}, push:1,
+  paint:(x,R)=>{ baseRig(x,R,{body:'#D6A63C',trim:'#9A7226',tank:'rgba(240,220,160,.6)'});
+    x.strokeStyle='rgba(255,255,255,.55)'; x.lineWidth=R*.05; x.lineCap='round';
+    for(let i=-1;i<2;i++){ x.beginPath(); x.moveTo(R*1.12,i*R*.3);
+      x.lineTo(R*1.42,i*R*.42); x.stroke(); } x.lineCap='butt'; }},
+
+ {id:'ram', n:'Ram', cost:55000, body:'#7C838B', trim:'#4E555D', tank:'rgba(190,198,206,.6)',
   d:'Short reach, enormous jaws. Drive into a pile and chew straight through it.',
-  m:{reach:.62,power:.85,throat:2.3,ceiling:2.6,swirl:.15,grip:1.7}, body:'#9EA6AE', trim:'#5E666E'}
+  perk:'2.3x mouth, 2.6x crush',
+  m:{reach:.62,power:.85,throat:2.3,ceiling:2.6,swirl:.15,grip:1.7},
+  paint:(x,R)=>{ baseRig(x,R,{body:'#7C838B',trim:'#4E555D',tank:'rgba(190,198,206,.6)'});
+    for(let i=0;i<5;i++){ const yy=-R*.44+i*R*.22;
+      x.fillStyle=i%2?'#E4E9EE':'#B8BFC6'; x.beginPath();
+      x.moveTo(R*1.02,yy-R*.07); x.lineTo(R*1.3,yy); x.lineTo(R*1.02,yy+R*.07);
+      x.closePath(); x.fill(); } }},
+
+ {id:'turb', n:'Turbine', cost:90000, body:'#2E3238', trim:'#16191D', tank:'rgba(120,200,190,.6)',
+  d:'Overdriven impeller. Everything comes in fast and stays fast.',
+  perk:'1.5x pull speed',
+  m:{reach:1.05,power:1.5,throat:1.1,ceiling:1.05,swirl:.9,grip:1.25},
+  paint:(x,R)=>{ baseRig(x,R,{body:'#2E3238',trim:'#16191D',tank:'rgba(120,200,190,.6)'});
+    x.fillStyle='#5FD9C4';
+    for(let i=0;i<6;i++){ const a=i*1.047; x.beginPath();
+      x.ellipse(R*.32,0,R*.3,R*.07,a,0,6.2832); x.fill(); } }},
+
+ {id:'mag', n:'Magnetron', cost:140000, body:'#8C4BA8', trim:'#5F2F76', tank:'rgba(216,170,240,.6)',
+  d:'Field coils drag debris in from across the room.',
+  perk:'1.8x reach',
+  m:{reach:1.8,power:1.05,throat:1,ceiling:1.2,swirl:1.2,grip:.85},
+  paint:(x,R)=>{ baseRig(x,R,{body:'#8C4BA8',trim:'#5F2F76',tank:'rgba(216,170,240,.6)'});
+    x.strokeStyle='#E6C2F5'; x.lineWidth=R*.07;
+    for(let i=1;i<4;i++){ x.beginPath();
+      x.arc(R*1.04,0,R*(.2*i+.5),-1.0,1.0); x.stroke(); } }},
+
+ {id:'prime', n:'Vortex Prime', cost:220000, body:'#2B3E8C', trim:'#1A2660', tank:'rgba(140,170,255,.62)',
+  d:'Everything, more. There is no downside and no bargain either.',
+  perk:'Strong across the board',
+  m:{reach:1.45,power:1.35,throat:1.5,ceiling:1.6,swirl:1.3,grip:1.2},
+  paint:(x,R)=>{ baseRig(x,R,{body:'#2B3E8C',trim:'#1A2660',tank:'rgba(140,170,255,.62)'});
+    x.fillStyle='#9FB4FF'; x.beginPath();
+    for(let i=0;i<10;i++){ const a=i*.6283, rad=i%2?R*.1:R*.3;
+      x[i?'lineTo':'moveTo'](R*.32+Math.cos(a)*rad,Math.sin(a)*rad); }
+    x.closePath(); x.fill(); }},
+
+ {id:'gold', n:'Golden Hoover', cost:400000, body:'#D9A82C', trim:'#A97C12', tank:'rgba(255,232,150,.66)',
+  d:'Ostentatious, and it pays. Every object is worth half again as much.',
+  perk:'+50% coins',
+  m:{reach:1.2,power:1.15,throat:1.2,ceiling:1.2,swirl:1,grip:1,coin:.5},
+  paint:(x,R)=>{ baseRig(x,R,{body:'#D9A82C',trim:'#A97C12',tank:'rgba(255,232,150,.66)'});
+    x.fillStyle='#FFF3C4';
+    for(const p of [[-R*.3,-R*.5],[R*.5,-R*.44],[R*.15,R*.5]]){
+      x.beginPath(); for(let i=0;i<8;i++){ const a=i*.7854, rad=i%2?R*.03:R*.11;
+        x[i?'lineTo':'moveTo'](p[0]+Math.cos(a)*rad,p[1]+Math.sin(a)*rad); }
+      x.closePath(); x.fill(); } }}
 ];
 let rig='vac'; const owned={vac:1};
 const RIG=()=>RIGS.find(r=>r.id===rig)||RIGS[0];
@@ -786,7 +909,7 @@ function puff(x,y,r){const p=puffs[puffP=(puffP+1)%puffs.length];
 // the single place coins are minted. every source goes through here.
 function award(mass,bonus){
   const gain=Math.round((1+Math.round(mass*4))*(bonus||1)
-    *(1+(mult-1)*.45)*(1+.1*lv.luck+run.coin)*(1+.5*loops));
+    *(1+(mult-1)*.45)*(1+.1*lv.luck+run.coin+(RIG().m.coin||0))*(1+.5*loops));
   if(phase==='menu') return 0;
   scrap+=gain; roomScrap+=gain; runScrap+=gain; return gain;
 }
@@ -1655,7 +1778,12 @@ const over=document.getElementById('over'), oTitle=document.getElementById('oTit
       bA=document.getElementById('bA'), bB=document.getElementById('bB'),
       bC=document.getElementById('bC'), bD=document.getElementById('bD'),
       shopBtn=document.getElementById('shopBtn'), rigBtn=document.getElementById('rigBtn'),
-      oRigs=document.getElementById('oRigs'), rList=document.getElementById('rList');
+      oRigs=document.getElementById('oRigs'), rigArt=document.getElementById('rigArt'),
+      rigName=document.getElementById('rigName'), rigPerk=document.getElementById('rigPerk'),
+      rigDesc=document.getElementById('rigDesc'), rigStats=document.getElementById('rigStats'),
+      rigBuy=document.getElementById('rigBuy'), rigDots=document.getElementById('rigDots');
+document.getElementById('rigPrev').onclick=()=>{ rigView--; renderRigs(); };
+document.getElementById('rigNext').onclick=()=>{ rigView++; renderRigs(); };
 shopBtn.onclick=()=>showOver('upg');
 rigBtn.onclick=()=>showOver('rigs');
 let view='menu';
@@ -1678,26 +1806,39 @@ function renderUpgrades(){
     row.appendChild(b); uList.appendChild(row);
   }
 }
+let rigView=0;
+const STATS=[['reach','Reach'],['power','Power'],['throat','Mouth'],['ceiling','Crush']];
 function renderRigs(){
   oCoins.textContent=scrap.toLocaleString();
-  rList.innerHTML='';
-  for(const G of RIGS){
-    const have=!!owned[G.id], on=rig===G.id, can=!have&&scrap>=G.cost;
-    const row=document.createElement('div'); row.className='rrow';
-    row.innerHTML='<div class="swatch" style="background:'+G.trim+'33">'
-      +'<i style="border-left-color:'+G.body+'"></i></div>'
-      +'<div class="rn">'+G.n+'</div><div class="rd">'+G.d+'</div>';
-    const b=document.createElement('button');
-    b.textContent = on?'Equipped' : have?'Equip' : G.cost.toLocaleString();
-    b.className = on?'on' : (have||can)?'can' : '';
-    b.disabled = on || (!have && !can);
-    b.onclick=()=>{
-      if(!have){ if(scrap<G.cost) return; scrap-=G.cost; owned[G.id]=1; sBuy(); }
-      rig=G.id; applyStats(); saveGame(); renderRigs();
-      rigBtn.querySelector('.rn').textContent=RIG().n;
-    };
-    row.appendChild(b); rList.appendChild(row);
-  }
+  rigView=(rigView+RIGS.length)%RIGS.length;
+  const G=RIGS[rigView], have=!!owned[G.id], on=rig===G.id, can=!have&&scrap>=G.cost;
+  const c=rigArt.getContext('2d'), CW=rigArt.width, CH=rigArt.height;
+  c.clearRect(0,0,CW,CH);
+  c.save(); c.translate(CW/2,CH/2+CH*.04);
+  c.save(); if('filter' in c) c.filter='blur(11px)';
+  c.globalAlpha=.22; c.fillStyle='#7A5A34';
+  c.beginPath(); c.ellipse(0,CH*.3,CW*.29,CH*.07,0,0,6.2832); c.fill(); c.restore();
+  c.globalAlpha=1; c.rotate(-.15); G.paint(c,CH*.36); c.restore();
+  rigName.textContent=G.n;
+  rigPerk.textContent=G.perk;
+  rigDesc.textContent=G.d;
+  rigStats.innerHTML=STATS.map(([k,lbl])=>{
+    const v=G.m[k]||1, pct=Math.max(6,Math.min(100,v/2.2*100));
+    return '<div class="sbar"><span>'+lbl+'</span><u><i class="'+(v<1?'dn':'')
+      +'" style="width:'+pct.toFixed(0)+'%"></i></u></div>';
+  }).join('');
+  rigBuy.textContent = on?'Equipped' : have?'Equip this rig' : can?('Buy \u00b7 '+G.cost.toLocaleString()+' coins')
+    : (G.cost-scrap).toLocaleString()+' coins short';
+  rigBuy.className = on?'on' : (have||can)?'can' : 'no';
+  rigBuy.disabled = on || (!have && !can);
+  rigBuy.onclick=()=>{
+    if(!have){ if(scrap<G.cost) return; scrap-=G.cost; owned[G.id]=1; sBuy(); }
+    rig=G.id; applyStats(); saveGame(); renderRigs();
+    rigBtn.querySelector('.rn').textContent=RIG().n;
+  };
+  rigDots.innerHTML=RIGS.map((r,i)=>'<i data-i="'+i+'" class="'
+    +(i===rigView?'sel ':'')+(owned[r.id]?'have':'')+'"></i>').join('');
+  [...rigDots.children].forEach(d=>d.onclick=()=>{ rigView=+d.dataset.i; renderRigs(); });
 }
 function showOver(k){
   view=k; over.hidden=false;
@@ -1760,7 +1901,7 @@ function showOver(k){
       +rec('This run','+'+runScrap.toLocaleString());
   } else if(k==='rigs'){
     oTitle.textContent='RIGS'; oSub.textContent='pick your machine';
-    renderRigs();
+    rigView=Math.max(0,RIGS.findIndex(r=>r.id===rig)); renderRigs();
     bA.innerHTML='Back'; bA.className='sec'; bA.hidden=false;
     bB.hidden=true; bC.hidden=true; bD.hidden=true;
     bA.onclick=()=>{ bB.hidden=false; showOver(deadPending?'dead':'menu'); };
