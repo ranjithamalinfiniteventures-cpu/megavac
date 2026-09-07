@@ -1066,7 +1066,7 @@ function bossBurst(){
     bvx[j]=Math.cos(a)*(140+Math.random()*220); bvy[j]=Math.sin(a)*(140+Math.random()*220);
   }
   for(let k=0;k<22;k++) puff(x,y,R0*.32);
-  kill(i); boss.i=-1; shake=10; sBoss();
+  kill(i); boss.i=-1; shake=10; sBoss(); CG.happy();
 }
 function crunch(){
   const i=jam.i, r=jam.r, x=bx[i], y=by[i];
@@ -1115,7 +1115,8 @@ function outAdvance(dt){
   if(ph>=4.9){ phase='play'; snap=null; ph=0; }
 }
 function endRun(){
-  phase='dead'; deepest=Math.max(deepest,tier); deadPending=true; saveGame(); sDead(); showOver('dead');
+  phase='dead'; deepest=Math.max(deepest,tier); deadPending=true; dblClaimed=false;
+  CG.stop(); saveGame(); sDead(); showOver('dead');
 }
 function startRun(m){
   mode=m; hideOver(); resetRun();
@@ -1124,13 +1125,13 @@ function startRun(m){
   if(m==='daily'){
     const k=dayKey(0); daily.tries[k]=(daily.tries[k]||0)+1; saveGame();
     applyTier(0); rnd=mulberry32(seedOf(k)); phase='play'; roomOver=false;
-    generate(); rnd=Math.random; initAudio(); return;
+    generate(); rnd=Math.random; initAudio(); CG.start(); return;
   }
   applyTier(m==='challenge'?0:tier); phase='play'; roomOver=false;
-  generate(); initAudio();
+  generate(); initAudio(); CG.start();
 }
 const keys={};
-let paused=false, pauseVis=null;
+let paused=false, pauseVis=null, dblClaimed=false;
 function step(dt){
   if(paused) return;
   now+=dt;
@@ -1676,6 +1677,33 @@ function hud(){
   }
 }
 
+/* ---------------- portal ---------------- */
+const CG={ ready:false, sdk:null,
+  init(){ try{ const k=window.CrazyGames&&window.CrazyGames.SDK; if(!k) return;
+    this.sdk=k; Promise.resolve(k.init&&k.init()).then(()=>{this.ready=true;}).catch(()=>{});
+  }catch(e){} },
+  call(fn){ try{ if(this.ready&&this.sdk.game&&this.sdk.game[fn]) this.sdk.game[fn](); }catch(e){} },
+  start(){ this.call('gameplayStart'); },
+  stop(){ this.call('gameplayStop'); },
+  happy(){ this.call('happytime'); },
+  hasAds(){ return this.ready && this.sdk.ad && typeof this.sdk.ad.requestAd==='function'; },
+  rewarded(done){
+    if(!this.hasAds()){ done(false); return; }
+    let settled=false; const end=ok=>{ if(settled) return; settled=true; this.start(); done(ok); };
+    try{ this.stop(); this.sdk.ad.requestAd('rewarded',{
+      adFinished:()=>end(true), adError:()=>end(false), adStarted:()=>{} });
+    }catch(e){ end(false); }
+  },
+  midgame(){ if(!this.hasAds()) return;
+    try{ this.stop(); this.sdk.ad.requestAd('midgame',{
+      adFinished:()=>this.start(), adError:()=>this.start(), adStarted:()=>{} });
+    }catch(e){ this.start(); } }
+};
+(function(){ const sc=document.createElement('script');
+  sc.src='https://sdk.crazygames.com/crazygames-sdk-v3.js';
+  sc.async=true; sc.onload=()=>CG.init(); sc.onerror=()=>{};
+  document.head.appendChild(sc); })();
+
 /* ---------------- audio ---------------- */
 let AC=null,master=null,revIn=null,noiseBuf=null,
     muted=false,lastTick=0,noteI=0,lastNote=0;
@@ -1952,7 +1980,7 @@ document.getElementById('rigPrev').onclick=()=>{ rigView--; renderRigs(); };
 document.getElementById('rigNext').onclick=()=>{ rigView++; renderRigs(); };
 shopBtn.onclick=()=>showOver('upg');
 rigBtn.onclick=()=>showOver('rigs');
-let view='menu';
+let view='menu', prevView='menu';
 function rec(l,v){ return '<div>'+l+'<b>'+v+'</b></div>'; }
 function pips(l,max){ let h='<div class="pips">';
   for(let i=0;i<max;i++) h+='<span class="pip'+(i<l?' on':'')+'"></span>'; return h+'</div>'; }
@@ -2008,6 +2036,7 @@ function renderRigs(){
   [...rigDots.children].forEach(d=>d.onclick=()=>{ rigView=+d.dataset.i; renderRigs(); });
 }
 function showOver(k){
+  if((k==='upg'||k==='rigs') && view!=='upg' && view!=='rigs') prevView=view;
   view=k; over.hidden=false;
   oCoins.textContent=scrap.toLocaleString();
   oUpg.hidden=(k!=='upg'); oRigs.hidden=(k!=='rigs');
@@ -2083,25 +2112,31 @@ function showOver(k){
     rigView=Math.max(0,RIGS.findIndex(r=>r.id===rig)); renderRigs();
     bA.innerHTML='Back'; bA.className='sec'; bA.hidden=false;
     bB.hidden=true; bC.hidden=true; bD.hidden=true;
-    bA.onclick=()=>{ bB.hidden=false; showOver(deadPending?'dead':'menu'); };
+    bA.onclick=()=>{ bB.hidden=false; showOver(prevView); };
   } else if(k==='upg'){
     oTitle.textContent='UPGRADES'; oSub.textContent='spend what you collected';
     renderUpgrades();
     bA.innerHTML='Back'; bA.className='sec';
     bB.hidden=true; bC.hidden=true;
-    bA.onclick=()=>{ bB.hidden=false; showOver(deadPending?'dead':'menu'); };
+    bA.onclick=()=>{ bB.hidden=false; showOver(prevView); };
   } else {
     oTitle.textContent='BATTERY DEAD'; oSub.textContent='you reached the '+T.name;
     const nx=TIERS[Math.min(tier+1,TIERS.length-1)];
     oRecs.innerHTML=rec('Room reached',(roomN-1)+(bestRoom>roomN-1?'  (best '+bestRoom+')':''))
       +rec('This run','+'+runScrap.toLocaleString())
       +rec('Objects',runEaten.toLocaleString());
-    const windCost=500, canWind=!usedWind && scrap>=windCost && mode==='challenge';
+    const windCost=500, adWind=CG.hasAds() && !usedWind && mode==='challenge';
+    const canWind=adWind || (!usedWind && scrap>=windCost && mode==='challenge');
+    const revive=()=>{ usedWind=true; deadPending=false;
+      battery=batMax()*.4; phase='play'; roomOver=false; lowWarn=0;
+      hideOver(); saveGame(); sCharge(); CG.start(); };
     if(canWind){
-      bB.innerHTML='Second Wind &nbsp;\u00b7&nbsp; '+windCost+' coins'; bB.className='pri';
-      bB.onclick=()=>{ scrap-=windCost; usedWind=true; deadPending=false;
-        battery=batMax()*.4; phase='play'; roomOver=false; lowWarn=0;
-        hideOver(); saveGame(); sCharge(); };
+      bB.innerHTML=adWind?'Second Wind &nbsp;\u00b7&nbsp; watch an ad'
+                        :'Second Wind &nbsp;\u00b7&nbsp; '+windCost+' coins';
+      bB.className='pri';
+      bB.onclick=()=>{
+        if(adWind){ CG.rewarded(ok=>{ if(ok) revive(); }); }
+        else { scrap-=windCost; revive(); } };
       bA.innerHTML='Run again'; bA.className='sec';
       bA.onclick=()=>{ deadPending=false; startRun('challenge'); };
     } else {
@@ -2110,6 +2145,12 @@ function showOver(k){
       bA.hidden=true;
     }
     shopBtn.hidden=false; rigBtn.hidden=false;
+    if(CG.hasAds() && !dblClaimed && runScrap>0){
+      bD.hidden=false; bD.className='sec';
+      bD.innerHTML='Double this run &nbsp;\u00b7&nbsp; watch an ad';
+      bD.onclick=()=>CG.rewarded(ok=>{ if(ok){ dblClaimed=true; scrap+=runScrap;
+        runScrap*=2; saveGame(); sBuy(); showOver('dead'); } });
+    }
     bB.hidden=false; bC.innerHTML='Menu'; bC.className='ter';
     bC.onclick=()=>{ deadPending=false; phase='menu'; mode='relax';
       applyTier(0); generate(); showOver('menu'); };
@@ -2130,8 +2171,8 @@ function drawStrip(){
 }
 function hideOver(){ over.hidden=true; }
 function togglePause(){
-  if(paused){ paused=false; hideOver(); }
-  else { paused=true; showOver('pause'); }
+  if(paused){ paused=false; hideOver(); CG.start(); }
+  else { paused=true; CG.stop(); showOver('pause'); }
 }
 document.getElementById('pauseBtn').onclick=()=>togglePause();
 const sndBtn=document.getElementById('sndBtn');
