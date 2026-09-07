@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEGAVAC · Music Preview Station</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@400;600;800;900&display=swap">
+<style>
+:root {
+  --bg: #0d1219;
+  --panel: #161e2a;
+  --card: #1c2636;
+  --card-hover: #222f42;
+  --border: rgba(255,255,255,0.08);
+  --accent: #ff7e36;
+  --accent-glow: rgba(255,126,54,0.3);
+  --cyan: #38bdf8;
+  --green: #22c55e;
+  --gold: #fbbf24;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  padding: 36px 20px 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.container {
+  width: 100%;
+  max-width: 820px;
+}
+header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.tag {
+  display: inline-block;
+  background: rgba(255,126,54,0.14);
+  border: 1px solid rgba(255,126,54,0.35);
+  color: var(--accent);
+  padding: 5px 14px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+h1 {
+  font-size: clamp(32px, 6vw, 48px);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #fff, #ffd2b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+p.sub {
+  color: var(--muted);
+  font-size: 15px;
+  max-width: 560px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+.notice-box {
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13px;
+  color: #86efac;
+}
+.notice-box svg { flex-shrink: 0; }
+
+.track-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.track-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px 22px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.track-card:hover {
+  border-color: rgba(255,255,255,0.18);
+  background: var(--card-hover);
+}
+.track-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 8px 32px var(--accent-glow);
+  background: #192433;
+}
+.track-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.play-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s;
+  flex-shrink: 0;
+}
+.track-card.active .play-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  transform: scale(1.05);
+}
+.play-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.08);
+}
+.play-btn svg { width: 20px; height: 20px; }
+
+.track-info {
+  flex: 1;
+  min-width: 0;
+}
+.track-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.track-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.badge-vibe {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  background: rgba(56,189,248,0.12);
+  color: var(--cyan);
+  border: 1px solid rgba(56,189,248,0.25);
+}
+.badge-license {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-weight: 600;
+  background: rgba(34,197,94,0.12);
+  color: var(--green);
+  border: 1px solid rgba(34,197,94,0.25);
+}
+
+.track-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track-desc {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.scrub-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.scrub-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 99px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.scrub-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 99px;
+}
+.time-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  width: 70px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.tools-bar {
+  margin-top: 32px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.tools-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tools-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.vol-slider {
+  accent-color: var(--accent);
+  cursor: pointer;
+  width: 110px;
+}
+.toggle-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.toggle-btn.on {
+  background: rgba(255,126,54,0.18);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 12px 20px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.back-btn:hover {
+  color: #fff;
+  border-color: rgba(255,255,255,0.3);
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <span class="tag">Audition Station</span>
+    <h1>MEGAVAC Music Showcase</h1>
+    <p class="sub">Listen to 6 curated, commercial-license background music tracks. None of these have been added to the game yet—audition each and choose your favorite.</p>
+  </header>
+
+  <div class="notice-box">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <div>
+      <strong>100% Free for Commercial Games:</strong> All tracks are licensed under Creative Commons (CC-BY 4.0 or CC0 Public Domain), fully cleared for monetization on CrazyGames, Poki, and YouTube gameplay streams.
+    </div>
+  </div>
+
+  <div class="track-list" id="trackList">
+    <!-- Tracks will be rendered here -->
+  </div>
+
+  <div class="tools-bar">
+    <div class="tools-group">
+      <span class="tools-label">Master Volume</span>
+      <input type="range" class="vol-slider" id="volSlider" min="0" max="1" step="0.05" value="0.75">
+    </div>
+
+    <div class="tools-group">
+      <button class="toggle-btn" id="sfxSimBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Simulate Vacuum SFX: OFF
+      </button>
+      <button class="toggle-btn on" id="loopBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+        Loop Track: ON
+      </button>
+    </div>
+  </div>
+
+  <div style="text-align: center;">
+    <a href="/feel.html" class="back-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Back to Game
+    </a>
+  </div>
+</div>
+
+<script>
+const TRACKS = [
+  {
+    id: 1,
+    title: "Wallpaper",
+    artist: "Kevin MacLeod",
+    file: "music_previews/01_Wallpaper_FunkyGroove.mp3",
+    vibe: "Funky Arcade Groove",
+    license: "CC-BY 4.0 (Commercial Free)",
+    desc: "Chill, upbeat electronic groove with an infectious walking bassline and smooth keyboard stabs. Keeps players in a focused, highly satisfying cleaning flow state without ear fatigue."
+  },
+  {
+    id: 2,
+    title: "Carefree",
+    artist: "Kevin MacLeod",
+    file: "music_previews/02_Carefree_AcousticBounce.mp3",
+    vibe: "Bouncy & Cozy",
+    license: "CC-BY 4.0 (Commercial Free)",
+    desc: "Bright, whistling acoustic melody with happy ukulele strumming and a light drum beat. Fits the friendly, satisfying 'Kitchen & Home' cleaning fantasy like Donut County."
+  },
+  {
+    id: 3,
+    title: "The Builder",
+    artist: "Kevin MacLeod",
+    file: "music_previews/03_TheBuilder_PlayfulMarimba.mp3",
+    vibe: "Quirky Marimba",
+    license: "CC-BY 4.0 (Commercial Free)",
+    desc: "Playful, energetic marimba melody and light percussion. Gives a comedic, mischievous DIY feel—perfect for devouring screws, bolts, and tools."
+  },
+  {
+    id: 4,
+    title: "Pixel Peeker Polka (Faster)",
+    artist: "Kevin MacLeod",
+    file: "music_previews/04_PixelPeeker_RetroArcade.mp3",
+    vibe: "Retro 8-Bit Polka",
+    license: "CC-BY 4.0 (Commercial Free)",
+    desc: "High-tempo, jaunty 8-bit retro arcade track. Drives high-energy urgency and rapid vacuuming maneuvers, great for Challenge Mode and speedruns."
+  },
+  {
+    id: 5,
+    title: "Sneaky Snitch",
+    artist: "Kevin MacLeod",
+    file: "music_previews/05_SneakySnitch_PlayfulStrings.mp3",
+    vibe: "Playful Pizzicato",
+    license: "CC-BY 4.0 (Commercial Free)",
+    desc: "Iconic comedic tiptoe music with plucked strings and bassoon. Makes vacuuming crumbs feel like a cheeky stealth heist."
+  },
+  {
+    id: 6,
+    title: "Megavac Groove",
+    artist: "Procedural Synth Loop (Generated)",
+    file: "music_previews/06_MegavacGroove_SynthLoop.wav",
+    vibe: "Custom Chiptune Beat",
+    license: "CC0 (Public Domain)",
+    desc: "A custom 124 BPM synthesized electronic loop created specifically for Megavac. Bouncy bassline, crisp kick/clap, and airy triangle arpeggios that seamlessly loop forever."
+  }
+];
+
+let audio = new Audio();
+let currentTrackId = null;
+let isLooping = true;
+let sfxInterval = null;
+let sfxContext = null;
+
+const trackListEl = document.getElementById('trackList');
+const volSlider = document.getElementById('volSlider');
+const loopBtn = document.getElementById('loopBtn');
+const sfxSimBtn = document.getElementById('sfxSimBtn');
+
+audio.volume = parseFloat(volSlider.value);
+audio.loop = isLooping;
+
+function fmt(sec) {
+  if (isNaN(sec)) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}
+
+function render() {
+  trackListEl.innerHTML = TRACKS.map(t => `
+    <div class="track-card ${currentTrackId === t.id ? 'active' : ''}" id="card-${t.id}">
+      <div class="track-top">
+        <button class="play-btn" onclick="togglePlay(${t.id})" aria-label="Play ${t.title}">
+          ${currentTrackId === t.id && !audio.paused ? `
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+          ` : `
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          `}
+        </button>
+        <div class="track-info">
+          <div class="track-meta">
+            <span class="track-num">TRACK 0${t.id}</span>
+            <span class="badge-vibe">${t.vibe}</span>
+            <span class="badge-license">${t.license}</span>
+          </div>
+          <div class="track-title">${t.title} <span style="font-weight:400; font-size:14px; color:var(--muted)">by ${t.artist}</span></div>
+          <div class="track-desc">${t.desc}</div>
+        </div>
+      </div>
+      <div class="scrub-container" id="scrub-${t.id}" style="${currentTrackId === t.id ? '' : 'opacity:0.3; pointer-events:none;'}">
+        <div class="scrub-bar" onclick="seek(event)">
+          <div class="scrub-fill" id="fill-${t.id}"></div>
+        </div>
+        <div class="time-label" id="time-${t.id}">0:00 / 0:00</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function togglePlay(id) {
+  if (currentTrackId === id) {
+    if (audio.paused) {
+      audio.play();
+    } else {
+      audio.pause();
+    }
+  } else {
+    currentTrackId = id;
+    const t = TRACKS.find(x => x.id === id);
+    audio.src = t.file;
+    audio.play();
+  }
+  render();
+}
+
+function seek(e) {
+  if (!audio.duration) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const ratio = (e.clientX - rect.left) / rect.width;
+  audio.currentTime = ratio * audio.duration;
+}
+
+audio.addEventListener('timeupdate', () => {
+  if (!currentTrackId) return;
+  const fill = document.getElementById(`fill-${currentTrackId}`);
+  const time = document.getElementById(`time-${currentTrackId}`);
+  if (fill) fill.style.width = ((audio.currentTime / audio.duration) * 100) + '%';
+  if (time) time.textContent = `${fmt(audio.currentTime)} / ${fmt(audio.duration)}`;
+});
+
+audio.addEventListener('ended', () => {
+  if (!isLooping) {
+    currentTrackId = null;
+    render();
+  }
+});
+
+audio.addEventListener('play', render);
+audio.addEventListener('pause', render);
+
+volSlider.addEventListener('input', e => {
+  audio.volume = parseFloat(e.target.value);
+});
+
+loopBtn.addEventListener('click', () => {
+  isLooping = !isLooping;
+  audio.loop = isLooping;
+  loopBtn.classList.toggle('on', isLooping);
+  loopBtn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+    Loop Track: ${isLooping ? 'ON' : 'OFF'}
+  `;
+});
+
+// SFX Simulator (simulates crumb suction ticks and motor hum so user can test mixing)
+let sfxActive = false;
+sfxSimBtn.addEventListener('click', () => {
+  sfxActive = !sfxActive;
+  sfxSimBtn.classList.toggle('on', sfxActive);
+  sfxSimBtn.textContent = `Simulate Vacuum SFX: ${sfxActive ? 'ON' : 'OFF'}`;
+  
+  if (sfxActive) {
+    if (!sfxContext) sfxContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (sfxContext.state === 'suspended') sfxContext.resume();
+    sfxInterval = setInterval(() => {
+      if (!sfxActive) return;
+      const t = sfxContext.currentTime;
+      const o = sfxContext.createOscillator();
+      const g = sfxContext.createGain();
+      const notes = [440, 554, 659, 880, 1108];
+      o.type = 'sine';
+      o.frequency.value = notes[Math.floor(Math.random() * notes.length)];
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.06, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      o.connect(g);
+      g.connect(sfxContext.destination);
+      o.start(t);
+      o.stop(t + 0.14);
+    }, 120);
+  } else {
+    clearInterval(sfxInterval);
+  }
+});
+
+render();
+</script>
+</body>
+</html>
