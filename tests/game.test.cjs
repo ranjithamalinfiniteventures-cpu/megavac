@@ -420,3 +420,8 @@ test('the menu still confirms a tap when music is off, but stays silent when sou
  assert.equal(run('window.__osc'),0,'the click sound played even though sound effects are muted');
  run('muted=false;bgmMuted=false;');
 });
+test('pressing or holding space always prevents browser page scrolling',()=>{
+ let prevented=0;
+ listeners.keydown.forEach(f=>f({key:' ',repeat:true,preventDefault(){prevented++;}}));
+ assert.ok(prevented>0,'holding space did not prevent page scroll');
+});

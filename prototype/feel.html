@@ -2730,12 +2730,13 @@ document.getElementById('bCopy').onclick=async()=>{
   try{await navigator.clipboard.writeText(j);say('tuning copied')}catch(e){say('copy blocked \u2014 see console');console.log(j)}
 };
 addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(k===' '||k==='spacebar'||k.slice(0,5)==='arrow') e.preventDefault();
   if(CG.adBusy)return;
   // Held keys repeat. Without this, leaning on P strobes the pause menu and a
   // held M flips the mute preference - and saves it - dozens of times a second.
   if(e.repeat)return;
   initAudio();
-  const k=e.key.toLowerCase();
   if(k==='r'&&DEV){generate();say('mess refilled')}
   else if(k==='d'&&DEV){debug=!debug;say('debug '+(debug?'on':'off'))}
   else if(k==='escape'||k==='p'){ if(phase==='play') togglePause(); }
@@ -2744,7 +2745,9 @@ addEventListener('keydown',e=>{
     if(muted)pauseBGM();else if(!bgmMuted&&!paused&&phase!=='dead')playBGM();
     drawSnd();drawMusic();saveGame();say(muted?'muted':'unmuted')}
   else if(k==='b'){toggleMusic()}
-  else if(k===' '||k==='shift'){ if(over.hidden) fireSurge(); }
+  else if(k===' '||k==='shift'){
+    if(over.hidden) fireSurge();
+  }
 });
 const COARSE=(window.matchMedia&&matchMedia('(pointer:coarse)').matches)||('ontouchstart' in window);
 function pt(e){
@@ -2763,7 +2766,7 @@ const unlock=()=>{try{initAudio()}catch(e){}};
 addEventListener('pointerdown',unlock,{capture:true});
 addEventListener('touchstart',unlock,{capture:true,passive:true});
 addEventListener('keydown',e=>{ const k=e.key.toLowerCase(); keys[k]=1;
-  if(k.slice(0,5)==='arrow') e.preventDefault(); });
+  if(k===' '||k==='spacebar'||k.slice(0,5)==='arrow') e.preventDefault(); });
 addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=0; });
 addEventListener('blur',()=>{ for(const k in keys) keys[k]=0; });
 addEventListener('keydown',unlock,{capture:true});
