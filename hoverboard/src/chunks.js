@@ -113,7 +113,6 @@ export class ChunkManager {
     this.terrainMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95, metalness: 0 });
     this.roadMat = new THREE.MeshStandardMaterial({
       map: tex.road, roughnessMap: tex.rough, roughness: 1, metalness: 0.1, envMapIntensity: 0.9,
-      emissiveMap: tex.glow, emissive: new THREE.Color(THEME.edgeGlow), emissiveIntensity: 2.2,
     });
     this.treeGeo = pineGeometry();
     this.treeMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 });

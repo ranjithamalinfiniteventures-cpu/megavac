@@ -44,7 +44,7 @@ const fill = new THREE.DirectionalLight(THEME.skyHorizon, 0.9); scene.add(fill, 
 const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: LOWQ ? 0 : 4 });
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.4, 0.5, 0.95);
+const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.2, 0.4, 0.98);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const fxPass = new ShaderPass({
@@ -176,11 +176,11 @@ const obstacleMats = {};
 function obstacleAssets() {
   const concrete = canvasNoise('#b9b4aa', 256);
   obstacleMats.barrier = new THREE.MeshStandardMaterial({ color: THEME.barrier, roughness: 0.8, map: concrete });
-  obstacleMats.stripe = new THREE.MeshStandardMaterial({ color: THEME.barrierStripe, emissive: THEME.barrierStripe, emissiveIntensity: 1.6 });
+  obstacleMats.stripe = new THREE.MeshStandardMaterial({ color: THEME.barrierStripe, roughness: 0.6 });
   obstacleMats.rock = new THREE.MeshStandardMaterial({ color: THEME.rock, roughness: 0.9, flatShading: true });
-  obstacleMats.ring = new THREE.MeshStandardMaterial({ color: 0x001018, emissive: 0x2ef2ff, emissiveIntensity: 5, metalness: 0.2, roughness: 0.3 });
+  obstacleMats.ring = new THREE.MeshStandardMaterial({ color: THEME.barrierStripe, roughness: 0.5 });
   obstacleMats.ringFrame = new THREE.MeshStandardMaterial({ color: 0x2b2f36, metalness: 0.9, roughness: 0.35 });
-  obstacleMats.orb = new THREE.MeshStandardMaterial({ color: 0x442a00, emissive: 0xffb21e, emissiveIntensity: 1.8 });
+  obstacleMats.orb = new THREE.MeshStandardMaterial({ color: 0xffc247, metalness: 0.6, roughness: 0.25 });
   // jersey barrier profile
   const s = new THREE.Shape();
   s.moveTo(-0.33, 0); s.lineTo(0.33, 0); s.lineTo(0.3, 0.08); s.lineTo(0.14, 0.33); s.lineTo(0.1, 0.85); s.lineTo(-0.1, 0.85); s.lineTo(-0.14, 0.33); s.lineTo(-0.3, 0.08); s.closePath();
@@ -331,7 +331,7 @@ function gameOver() {
 // ---------------- update ----------------
 const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3(), fwd = new THREE.Vector3(), right = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
-const cyan = new THREE.Color(0.1, 0.9, 1), orange = new THREE.Color(1, 0.55, 0.15), gold = new THREE.Color(1, 0.75, 0.2);
+const cyan = new THREE.Color(0.35, 0.3, 0.28), orange = new THREE.Color(1, 0.55, 0.15), gold = new THREE.Color(1, 0.75, 0.2);
 let sparks, thrust, speedLines, dustP;
 
 let realDt = 0.016;
@@ -473,9 +473,6 @@ function update(dt, rdt = dt) {
     else board.pose(dt, crouch, -lean, G.drift, Math.min(1, G.v / 70));
   }
   // thrusters
-  const glowAmt = 0.45 + G.boost * 0.5 + Math.sin(G.time * 30) * 0.05;
-  board.glow.material.opacity = glowAmt;
-  board.ringMat.emissiveIntensity = 5 + G.boost * 10;
   if (G.mode === 'play' || G.mode === 'menu') {
     for (const pod of board.pods) {
       pod.getWorldPosition(tmp);
@@ -521,7 +518,7 @@ function update(dt, rdt = dt) {
   fxPass.uniforms.uSpeed.value = Math.max(0, speedN - 0.9) * 0.8 + G.boost * 0.6;
   fxPass.uniforms.uHit.value = G.hit;
   fxPass.uniforms.uTime.value = G.time;
-  bloom.strength = 0.38 + G.boost * 0.3;
+  bloom.strength = 0.2 + G.boost * 0.1;
   sfx.update(G.v, G.boost);
 
   // ---------- HUD ----------
@@ -634,7 +631,7 @@ async function boot() {
   board = makeBoard(); scene.add(board.root);
   board.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
   if (gltf) { rider = makeRider(gltf, 0.11); board.rider.visible = false; board.tilt.add(rider.object); }
-  thrust = new Particles(1200, radialTex());
+  thrust = new Particles(1200, radialTex('rgba(255,255,255,0.5)'), THREE.NormalBlending); thrust.mat.uniforms.opacity.value = 0.18;
   sparks = new Particles(800, radialTex());
   dustP = new Particles(300, radialTex('rgba(255,255,255,0.5)'), THREE.NormalBlending); dustP.mat.uniforms.opacity.value = 0.12;
   scene.add(camera); speedLines = new SpeedLines();

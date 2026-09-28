@@ -27,7 +27,7 @@ export function makeBoard() {
   grip.position.y = 0.109; tilt.add(grip);
 
   // accent stripe + underglow emitters
-  const accent = new THREE.MeshStandardMaterial({ color: 0x00131a, emissive: 0x19e6ff, emissiveIntensity: 3.2 });
+  const accent = new THREE.MeshStandardMaterial({ color: 0xff6a3d, roughness: 0.5 });
   const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.02, L * 0.78), accent);
   stripe.position.set(0, 0.112, 0); tilt.add(stripe);
   const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, L * 0.7), accent);
@@ -36,7 +36,7 @@ export function makeBoard() {
 
   // two thruster pods underneath
   const podMat = new THREE.MeshStandardMaterial({ color: 0x2a2d33, metalness: 0.9, roughness: 0.3 });
-  const ringMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x19e6ff, emissiveIntensity: 6 });
+  const ringMat = new THREE.MeshStandardMaterial({ color: 0x3a3d48, metalness: 0.8, roughness: 0.35 });
   const pods = [];
   for (const z of [-0.55, 0.55]) {
     const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.1, 24), podMat);
@@ -48,14 +48,14 @@ export function makeBoard() {
   // soft glow card under the board (additive)
   const glowTex = radialTex();
   const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 3.0), new THREE.MeshBasicMaterial({ map: glowTex, color: 0x19e6ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
-  glow.rotation.x = -Math.PI / 2; glow.position.y = -0.55; root.add(glow);
+  glow.rotation.x = -Math.PI / 2; glow.position.y = -0.55; glow.visible = false; root.add(glow);
 
   // ---------- rider ----------
   const rider = new THREE.Group(); tilt.add(rider);
   const suit = new THREE.MeshStandardMaterial({ color: 0xff5a1f, roughness: 0.55 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.7 });
   const white = new THREE.MeshStandardMaterial({ color: 0xe9e9ee, roughness: 0.45 });
-  const visor = new THREE.MeshPhysicalMaterial({ color: 0x111111, metalness: 1, roughness: 0.05, clearcoat: 1, emissive: 0x0a2a33, emissiveIntensity: 0.6 });
+  const visor = new THREE.MeshPhysicalMaterial({ color: 0x111111, metalness: 1, roughness: 0.05, clearcoat: 1, });
   const limb = (r, len, mat) => { const g = new THREE.CapsuleGeometry(r, len, 6, 12); const m = new THREE.Mesh(g, mat); m.castShadow = true; return m; };
   const joint = (parent, x, y, z) => { const j = new THREE.Group(); j.position.set(x, y, z); parent.add(j); return j; };
 
