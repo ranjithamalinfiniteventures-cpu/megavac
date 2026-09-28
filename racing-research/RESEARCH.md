@@ -28,13 +28,30 @@ Long-running hits on CrazyGames' Driving / Racing / Drifting categories:
 5. **Meta progression**: coins unlock boards, skates and cars, so every run earns something.
 6. **Small and fast to load**, which CrazyGames' QA and ranking reward.
 
-## Recommended concept: "Downhill Rush"
-An endless downhill racer on an icy/neon mountain. Hold to carve and release to drift. The vehicle is a skin: skateboard, sled, bike or car, so it appeals to all four niches.
-- Near-miss combo multiplier, boost pads, and ramps that trigger an auto-trick for score
-- Biome changes every 1,000 m (snow, ice cave, neon city, lava)
-- Coins buy vehicles and trails. A rewarded ad gives a revive (CrazyGames SDK)
-- Daily seeded track and CrazyGames leaderboard
-- Tech: single HTML5 file (like MEGAVAC), Canvas or Three.js low-poly, 60fps on mobile
+## Decision: one vehicle, the downhill longboard (no cars, no motorbikes)
+Of sled, skateboard and bicycle, **skateboard** is the pick:
+- **Sled**: Snow Rider 3D already owns this on CrazyGames, so a sled game would read as a copy.
+- **Bicycle**: bike-rush and stunt-bike clones are everywhere, and bike physics looks stiff at low poly.
+- **Downhill longboard**: few browser games do it. Carving, sparks from slides and a crouched rider at speed look great in screenshots and thumbnails.
+
+## Concept: "GRAVITY LINE" (working title)
+A night downhill longboard run on an endless mountain road, with a neon/synthwave look, headlight trails and wheel sparks.
+
+**Original core mechanic: Carve to charge, slide to release**
+- Hold and drag to carve left/right. Each clean carve charges a *Flow* meter.
+- Release a hard slide (hands down, sparks) to dump Flow into a speed burst.
+- Speed is your score and also your danger: the faster you go, the tighter the turns feel.
+- Near misses with guardrails, cones and falling rocks give Flow bonuses. A crash costs the run.
+- Hitting a hairpin at exactly the right line triggers a **Perfect Line** with slow-mo, a camera swing and a big bonus. This is the shareable, clip-worthy moment.
+
+**Hooks for "one more run"**
+- Restart in under 1 second, with a ghost of your best run to race
+- Distance milestones switch the time of day (dusk, midnight, storm, dawn)
+- Coins unlock board decks, wheel colours and spark/trail effects. Everything is cosmetic, one rider
+- Daily seeded road and CrazyGames leaderboard. A rewarded ad gives one revive per run
+
+**Why it isn't a copy cat**
+No existing top CrazyGames title uses a carve-charge / slide-release speed economy on a longboard. Slope is a ball, Snow Rider is a sled, Drift Boss is a car.
 
 ## Sources
 - https://www.crazygames.com/c/driving
