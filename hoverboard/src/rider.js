@@ -2,6 +2,7 @@
 // shifts), with IK layered on top to plant the feet on the deck, crouch, lean into
 // carves and reach down during slides.
 import * as THREE from 'three';
+import { THEME } from './theme.js';
 
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
@@ -40,6 +41,40 @@ function twoBone(root, target, a, b, pole, out) {
   return out.copy(root).addScaledVector(d, x).addScaledVector(p, h);
 }
 
+// Repaint the rig in the game's palette: pick each vertex's colour from the bone that
+// drives it most, and keep the original texture only as light/dark panel detail.
+function restyle(mesh) {
+  const bones = mesh.skeleton.bones;
+  const pick = name => {
+    if (/Visor/i.test(mesh.name)) return THEME.glove;
+    if (/Head/.test(name)) return THEME.helmet;
+    if (/Neck/.test(name)) return THEME.suitDark;
+    if (/Hand|Thumb|Index|Middle|Ring|Pinky/.test(name)) return THEME.glove;
+    if (/Foot|Toe/.test(name)) return THEME.boot;
+    if (/UpLeg|Leg|Hips/.test(name)) return THEME.suitDark;
+    return THEME.suit;
+  };
+  const g = mesh.geometry, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+  const cols = new Float32Array(si.count * 3), c = new THREE.Color();
+  for (let i = 0; i < si.count; i++) {
+    let best = 0, bw = -1;
+    for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; best = si.getComponent(i, k); } }
+    c.set(pick(bones[best]?.name || ''));
+    cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  const old = mesh.material;
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: old.map || null, roughness: 0.5, metalness: 0.05, envMapIntensity: 0.8 });
+  mat.onBeforeCompile = sh => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `
+      #ifdef USE_MAP
+        float lum = dot(texture2D(map, vMapUv).rgb, vec3(0.299, 0.587, 0.114));
+        diffuseColor.rgb *= 0.72 + lum * 0.7;
+      #endif`);
+  };
+  mesh.material = mat;
+}
+
 export function makeRider(gltf, deckTopY) {
   const model = gltf.scene;
   const B = n => model.getObjectByName('mixamorig' + n) || model.getObjectByName('mixamorig:' + n);
@@ -50,6 +85,7 @@ export function makeRider(gltf, deckTopY) {
 
   model.traverse(o => {
     if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; }
+    if (o.isSkinnedMesh) restyle(o);
   });
   // normalise height to ~1.78 m
   const box = new THREE.Box3().setFromObject(model);

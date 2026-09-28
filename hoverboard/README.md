@@ -19,8 +19,13 @@ Fly through boost gates (dead centre gives a **Perfect Line** with slow-mo). Thr
 gaps in the barrier lines, dodge boulders, grab energy shards. Near misses feed Flow.
 
 ## Tech
-- Three.js r186 WebGL, ACES tone mapping, image-based lighting from a Poly Haven HDRI,
-  soft shadows, MSAA, bloom, speed blur, chromatic split, vignette and grain.
+- Art direction: golden-hour mountain pass, one palette in `src/theme.js` driving sky, fog,
+  terrain, props and rider. A single warm sun against a low violet fill light gives the
+  faceted terrain its form. The gradient sky dome also generates the reflections, so the
+  glossy road picks up the sunset.
+- Layered faceted peaks and a cloud sea (`src/atmosphere.js`); one side of the pass
+  alternates between mountain wall and cliff edge.
+- Three.js r186 WebGL, ACES tone mapping, shadows, MSAA, restrained bloom, boost-only speed blur.
 - Endless procedural mountain: streamed terrain chunks, built a few milliseconds per
   frame so they never hitch, plus instanced pines, rocks, and guard posts.
 - Rider: a rigged human (Mixamo skeleton) playing a mocap idle clip, with IK layered on
@@ -28,13 +33,10 @@ gaps in the barrier lines, dodge boulders, grab energy shards. Near misses feed 
 - Adaptive resolution keeps the frame rate near 60 fps on weaker devices.
 - CrazyGames SDK v3 hooks: loading, gameplay start/stop, rewarded revive.
 
-Debug URL flags: `?autoplay`, `?god`, `?orbit=<angle>` (camera orbits the rider), `?sky=venice|quarry|blouberg|spruit`, `?low`.
+Debug URL flags: `?autoplay`, `?god`, `?orbit=<angle>` (camera orbits the rider), `?low`.
 
 ## Asset credits
-- HDRIs: `spruit_sunrise`, `venice_sunset`, `quarry_01`, `blouberg_sunrise_2` from
-  [Poly Haven](https://polyhaven.com) (CC0), taken from the three.js examples.
-- `grasslight-big.jpg`: opengameart.org (CC-BY 3.0), via the three.js examples.
 - `rider.glb`: the three.js example "Soldier" character (Mixamo rig and animations).
   **Before commercial release, swap it for a character you own or license**, for example
   your own Mixamo download (Mixamo's terms allow use in games).
-- Everything else (road, rocks, trees, board, sound) is generated in code.
+- Everything else (sky, mountains, clouds, terrain, road, trees, props, board, sound) is generated in code.

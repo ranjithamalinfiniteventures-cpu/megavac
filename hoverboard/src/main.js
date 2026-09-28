@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -10,17 +9,12 @@ import { ChunkManager, makeTextures } from './chunks.js';
 import { makeBoard, radialTex } from './board.js';
 import { Sfx } from './audio.js';
 import { makeRider } from './rider.js';
+import { THEME } from './theme.js';
+import { makeSky, makeScenery, SUN_DIR } from './atmosphere.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const qs = new URLSearchParams(location.search);
 const DEBUG_CAM = qs.has('orbit') ? parseFloat(qs.get('orbit')) : 0;
-const SKIES = {
-  venice: { file: 'venice_sunset_1k.hdr', rot: 0.0, sun: [-0.55, 0.22, -0.8], sunColor: 0xffc58a, fog: 0xc9a88a, exposure: 0.85 },
-  quarry: { file: 'quarry_01_1k.hdr', rot: 0.0, sun: [0.4, 0.55, -0.6], sunColor: 0xfff0dd, fog: 0xb9c3cc, exposure: 0.9 },
-  blouberg: { file: 'blouberg_sunrise_2_1k.hdr', rot: 0.0, sun: [0.3, 0.2, -0.9], sunColor: 0xffd2a0, fog: 0xc6b8a8, exposure: 0.85 },
-  spruit: { file: 'spruit_sunrise_1k.hdr', rot: 0.0, sun: [0.2, 0.18, -0.95], sunColor: 0xffc890, fog: 0xbfb2a4, exposure: 0.8 },
-};
-const SKY = SKIES[qs.get('sky')] || SKIES.spruit;
 
 // ---------------- renderer ----------------
 const canvas = document.getElementById('c');
@@ -28,37 +22,29 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPrefer
 const LOWQ = /Mobi|Android/i.test(navigator.userAgent) || qs.has('low');
 renderer.setPixelRatio(Math.min(devicePixelRatio, LOWQ ? 1.25 : 1.75));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = SKY.exposure;
+renderer.toneMappingExposure = THEME.exposure;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(SKY.fog, 0.0019);
-const camera = new THREE.PerspectiveCamera(64, 1, 0.1, 3000);
+const camera = new THREE.PerspectiveCamera(64, 1, 0.1, 5000);
 
-const hemi = new THREE.HemisphereLight(0xbfd6ff, 0x3a3020, 0.35); scene.add(hemi);
-const sun = new THREE.DirectionalLight(SKY.sunColor, 3.2);
-const SUN_DIR = new THREE.Vector3(...SKY.sun).normalize();
+const hemi = new THREE.HemisphereLight(THEME.hemiSky, THEME.hemiGround, THEME.hemi); scene.add(hemi);
+const sun = new THREE.DirectionalLight(THEME.sun, THEME.sunIntensity);
 sun.castShadow = true;
 sun.shadow.mapSize.set(LOWQ ? 1024 : 2048, LOWQ ? 1024 : 2048);
-Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 400 });
+Object.assign(sun.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 500 });
+sun.shadow.radius = 3;
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
-
-// horizon haze: blends the far terrain into the sky and hides the photo's ground
-const haze = new THREE.Mesh(new THREE.SphereGeometry(2400, 48, 24), new THREE.ShaderMaterial({
-  uniforms: { col: { value: new THREE.Color(SKY.fog) } },
-  vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
-  fragmentShader: `uniform vec3 col; varying vec3 vDir; void main(){ float a = 1. - smoothstep(-0.02, 0.22, vDir.y); gl_FragColor = vec4(col, a); }`,
-  side: THREE.BackSide, transparent: true, depthWrite: false, fog: false,
-}));
-haze.renderOrder = -1; haze.frustumCulled = false; scene.add(haze);
+// soft key from behind the camera so the backlit rider still shows colour
+const fill = new THREE.DirectionalLight(THEME.skyHorizon, 0.9); scene.add(fill, fill.target);
 
 // ---------------- post ----------------
 const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: LOWQ ? 0 : 4 });
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.6, 0.92);
+const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.4, 0.5, 0.95);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const fxPass = new ShaderPass({
@@ -81,9 +67,9 @@ const fxPass = new ShaderPass({
         w += 1.;
       }
       col /= w;
-      col *= 1.0 - smoothstep(0.45, 0.95, d) * 0.55;       // vignette
+      col *= 1.0 - smoothstep(0.5, 1.0, d) * 0.35;       // vignette
       col = mix(col, vec3(1.0, 0.25, 0.15), uHit * 0.35 * smoothstep(0.2, 0.8, d));
-      col += (hash(vUv * 900. + uTime) - 0.5) * 0.018;     // film grain
+      
       gl_FragColor = vec4(col, 1.);
     }`,
 });
@@ -101,7 +87,7 @@ addEventListener('resize', resize);
 const qp = qs.has('fixedq');
 
 // ---------------- world ----------------
-let chunks, board, rider = null;
+let chunks, board, rider = null, sky, scenery;
 const particles = [];
 
 class Particles {
@@ -189,22 +175,22 @@ class SpeedLines {
 const obstacleMats = {};
 function obstacleAssets() {
   const concrete = canvasNoise('#b9b4aa', 256);
-  obstacleMats.barrier = new THREE.MeshStandardMaterial({ color: 0xd8d2c6, roughness: 0.9, map: concrete });
-  obstacleMats.stripe = new THREE.MeshStandardMaterial({ color: 0x220000, emissive: 0xff2a10, emissiveIntensity: 2.5 });
-  obstacleMats.rock = new THREE.MeshStandardMaterial({ color: 0x6f665e, roughness: 0.95, map: canvasNoise('#8a8076', 256) });
+  obstacleMats.barrier = new THREE.MeshStandardMaterial({ color: THEME.barrier, roughness: 0.8, map: concrete });
+  obstacleMats.stripe = new THREE.MeshStandardMaterial({ color: THEME.barrierStripe, emissive: THEME.barrierStripe, emissiveIntensity: 1.6 });
+  obstacleMats.rock = new THREE.MeshStandardMaterial({ color: THEME.rock, roughness: 0.9, flatShading: true });
   obstacleMats.ring = new THREE.MeshStandardMaterial({ color: 0x001018, emissive: 0x2ef2ff, emissiveIntensity: 5, metalness: 0.2, roughness: 0.3 });
   obstacleMats.ringFrame = new THREE.MeshStandardMaterial({ color: 0x2b2f36, metalness: 0.9, roughness: 0.35 });
-  obstacleMats.orb = new THREE.MeshStandardMaterial({ color: 0x221400, emissive: 0xffb21e, emissiveIntensity: 4 });
+  obstacleMats.orb = new THREE.MeshStandardMaterial({ color: 0x442a00, emissive: 0xffb21e, emissiveIntensity: 1.8 });
   // jersey barrier profile
   const s = new THREE.Shape();
   s.moveTo(-0.33, 0); s.lineTo(0.33, 0); s.lineTo(0.3, 0.08); s.lineTo(0.14, 0.33); s.lineTo(0.1, 0.85); s.lineTo(-0.1, 0.85); s.lineTo(-0.14, 0.33); s.lineTo(-0.3, 0.08); s.closePath();
   const bg = new THREE.ExtrudeGeometry(s, { depth: 3.0, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2 });
   bg.translate(0, 0, -1.5); bg.rotateY(Math.PI / 2);
   obstacleMats.barrierGeo = bg;
-  const rg = new THREE.IcosahedronGeometry(1, 3), v = new THREE.Vector3(), pa = rg.attributes.position;
+  const rg = new THREE.IcosahedronGeometry(1, 1), v = new THREE.Vector3(), pa = rg.attributes.position;
   for (let i = 0; i < pa.count; i++) { v.fromBufferAttribute(pa, i); v.multiplyScalar(1 + fbm(v.x * 1.3 + 9, v.y * 1.3 + v.z, 4) * 0.5); pa.setXYZ(i, v.x, v.y * 0.8, v.z); }
   rg.computeVertexNormals(); obstacleMats.rockGeo = rg;
-  obstacleMats.orbGeo = new THREE.OctahedronGeometry(0.32, 0);
+  obstacleMats.orbGeo = new THREE.OctahedronGeometry(0.24, 0);
 }
 function canvasNoise(base, size) {
   const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d');
@@ -499,7 +485,7 @@ function update(dt, rdt = dt) {
     // road dust kicked up behind the board
     if (Math.random() < 0.6) {
       tmp.set(p.x + (Math.random() - 0.5) * 1.2, roadY(s) + 0.1, p.z + 1);
-      dustP.emit(tmp, tmp2.set((Math.random() - 0.5) * 3, 0.6 + Math.random(), 4), new THREE.Color(0.75, 0.7, 0.62), 1.6, 0.8);
+      dustP.emit(tmp, tmp2.set((Math.random() - 0.5) * 3, 0.6 + Math.random(), 4), new THREE.Color(THEME.skyHorizon), 1.6, 0.8);
     }
   }
   thrust.update(dt, 0.92); sparks.update(dt, 0.96, 18); dustP.update(dt, 0.95, -0.5);
@@ -523,16 +509,19 @@ function update(dt, rdt = dt) {
   const targetFov = camera.userData.baseFov + speedN * 16 + G.boost * 10;
   camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix();
 
-  haze.position.copy(camera.position);
+  sky.position.copy(camera.position);
+  scenery.group.position.set(camera.position.x, roadY(s), camera.position.z);
+  scenery.cloudMat.uniforms.t.value = G.time;
   // sun + shadow camera follow the player
   sun.target.position.copy(p);
-  sun.position.copy(p).addScaledVector(SUN_DIR, 150);
+  fill.target.position.copy(p); fill.position.copy(camera.position).add(tmp.set(0, 3, 0));
+  sun.position.copy(p).addScaledVector(SUN_DIR, 200);
 
   speedLines.update(dt, G.v, Math.max(0, speedN - 0.75) * 2 + G.boost);
-  fxPass.uniforms.uSpeed.value = Math.max(0, speedN - 0.55) * 1.2 + G.boost * 0.8;
+  fxPass.uniforms.uSpeed.value = Math.max(0, speedN - 0.9) * 0.8 + G.boost * 0.6;
   fxPass.uniforms.uHit.value = G.hit;
   fxPass.uniforms.uTime.value = G.time;
-  bloom.strength = 0.5 + G.boost * 0.35;
+  bloom.strength = 0.38 + G.boost * 0.3;
   sfx.update(G.v, G.boost);
 
   // ---------- HUD ----------
@@ -634,21 +623,12 @@ function frame(t) {
 async function boot() {
   try { if (window.CrazyGames?.SDK) { await window.CrazyGames.SDK.init(); SDK.cg = window.CrazyGames.SDK; SDK.cg.game.loadingStart(); } } catch { SDK.cg = null; }
   resize();
-  const loadImg = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
-  const [hdr, grassImg, gltf] = await Promise.all([
-    new HDRLoader().loadAsync('assets/' + SKY.file),
-    loadImg('assets/grasslight-big.jpg'),
-    new GLTFLoader().loadAsync('assets/rider.glb').catch(() => null),
-  ]);
-  hdr.mapping = THREE.EquirectangularReflectionMapping;
-  scene.background = hdr;
-  scene.backgroundRotation.y = SKY.rot; scene.environmentRotation.y = SKY.rot;
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromEquirectangular(hdr).texture;
-  scene.environmentIntensity = 0.6;
-  scene.backgroundIntensity = 1.0;
+  const gltf = await new GLTFLoader().loadAsync('assets/rider.glb').catch(() => null);
+  sky = makeSky(scene, renderer);
+  scenery = makeScenery(scene);
+  scene.environmentIntensity = 0.9;
 
-  const tex = makeTextures(grassImg);
+  const tex = makeTextures();
   chunks = new ChunkManager(scene, tex);
   obstacleAssets();
   board = makeBoard(); scene.add(board.root);

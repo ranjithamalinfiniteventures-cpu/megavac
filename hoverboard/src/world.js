@@ -46,18 +46,29 @@ export function roadDX(s) { return (roadX(s + 0.5) - roadX(s - 0.5)); }
 export function roadDY(s) { return (roadY(s + 0.5) - roadY(s - 0.5)); }
 
 // ---------- terrain ----------
+// How open each side is: 0 = mountain wall, 1 = cliff dropping to the cloud sea.
+export function openness(side, s) {
+  const v = Math.sin(s / 620 + side * 1.9) * 1.6 + Math.sin(s / 233 + side) * 0.35;
+  return smooth(-0.2, 0.6, v);
+}
 export function terrainRel(u, s) {
   const a = Math.abs(u);
   const side = u > 0 ? 1 : -1;
   if (a < ROAD_HALF + 1.5) return -0.35;
   const shoulder = smooth(ROAD_HALF + 1, ROAD_HALF + 5, a);
-  // canyon walls: ridged cliffs close in, big mountains further out
+  const detail = fbm(u * 0.045, s * 0.045, 3) * 3.5 * shoulder;
+  // mountain wall
   const wallN = fbm(s * 0.0035 + side * 17.3, a * 0.006, 4) * 0.5 + 0.5;
-  const wall = smooth(14, 90, a) * (18 + 95 * wallN * wallN);
-  const cliff = smooth(30, 140, a) * ridged(s * 0.006 + side * 5, a * 0.01, 5) * 90;
-  const far = smooth(120, 520, a) * (160 + 180 * (fbm(s * 0.0012 + side * 3, a * 0.002, 3) * 0.5 + 0.5));
-  const detail = fbm(u * 0.045, s * 0.045, 4) * 4.5 * shoulder;
-  return -0.35 + shoulder * (0.8 + detail) + wall + cliff + far;
+  const wall = smooth(14, 90, a) * (14 + 90 * wallN * wallN)
+    + smooth(30, 140, a) * ridged(s * 0.006 + side * 5, a * 0.01, 4) * 80
+    + smooth(120, 520, a) * (140 + 160 * (fbm(s * 0.0012 + side * 3, a * 0.002, 3) * 0.5 + 0.5));
+  // cliff edge: a grassy lip, then a broken rock face down into the clouds
+  const lip = smooth(ROAD_HALF + 2, 22, a) * (1.5 + fbm(s * 0.02, a * 0.05, 2) * 2);
+  const fall = Math.pow(smooth(22, 190, a), 0.7) * (330 + 60 * fbm(s * 0.004 + side * 9, a * 0.01, 3));
+  const crags = smooth(24, 80, a) * ridged(s * 0.01 + side * 3, a * 0.03, 3) * 26;
+  const cliff = lip - fall + crags;
+  const o = openness(side, s);
+  return -0.35 + shoulder * (0.8 + detail) + wall * (1 - o) + cliff * o;
 }
 export function terrainH(u, s) { return roadY(s) + terrainRel(u, s); }
 
@@ -76,26 +87,22 @@ export function lateralSamples(outer, maxU) {
 }
 
 // ---------- colours ----------
+import { THEME } from './theme.js';
 const C = {
-  grass: new THREE.Color(0.20, 0.27, 0.10),
-  grassDry: new THREE.Color(0.42, 0.38, 0.19),
-  dirt: new THREE.Color(0.36, 0.28, 0.20),
-  rock: new THREE.Color(0.40, 0.35, 0.31),
-  rockDark: new THREE.Color(0.22, 0.20, 0.19),
-  snow: new THREE.Color(0.92, 0.94, 0.98),
+  grass: new THREE.Color(THEME.meadow), grassDry: new THREE.Color(THEME.meadowDry), dirt: new THREE.Color(THEME.dirt),
+  rock: new THREE.Color(THEME.rock), rockDark: new THREE.Color(THEME.rockDark), snow: new THREE.Color(THEME.snow), snowShade: new THREE.Color(THEME.snowShade),
 };
 const tmpC = new THREE.Color();
 export function terrainColor(u, s, rel, slope, out) {
   const a = Math.abs(u);
-  const n = fbm(u * 0.02 + 40, s * 0.02, 3);
-  out.copy(C.grass).lerp(C.grassDry, smooth(-0.2, 0.4, n));
-  // shoulder dirt
-  out.lerp(C.dirt, 1 - smooth(ROAD_HALF + 1, ROAD_HALF + 6, a));
-  // rock on steep faces
-  tmpC.copy(C.rock).lerp(C.rockDark, smooth(-0.3, 0.3, fbm(u * 0.05, s * 0.05, 3)));
-  out.lerp(tmpC, smooth(0.28, 0.5, slope));
-  // snow on high, gentle-ish areas
-  const snowLine = 150 + 40 * fbm(s * 0.003, u * 0.003, 2);
-  out.lerp(C.snow, smooth(snowLine, snowLine + 30, rel) * (1 - smooth(0.55, 0.8, slope)));
+  const n = fbm(u * 0.015 + 40, s * 0.015, 3);
+  out.copy(C.grass).lerp(C.grassDry, smooth(-0.25, 0.35, n));
+  out.lerp(C.dirt, 1 - smooth(ROAD_HALF + 1, ROAD_HALF + 5, a));
+  tmpC.copy(C.rock).lerp(C.rockDark, smooth(-0.2, 0.3, fbm(u * 0.03, s * 0.03, 2)) * 0.8 + smooth(-40, -200, rel) * 0.5);
+  out.lerp(tmpC, smooth(0.42, 0.62, slope));
+  const snowLine = 140 + 40 * fbm(s * 0.003, u * 0.003, 2);
+  const snow = smooth(snowLine, snowLine + 25, rel);
+  tmpC.copy(C.snow).lerp(C.snowShade, smooth(0.5, 0.8, slope));
+  out.lerp(tmpC, snow);
   return out;
 }
