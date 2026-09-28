@@ -9,7 +9,7 @@ import { ChunkManager, makeTextures } from './chunks.js';
 import { makeBoard, radialTex } from './board.js';
 import { Sfx } from './audio.js';
 import { makeRider } from './rider.js';
-import { THEME } from './theme.js';
+import { THEME, TRACKS } from './theme.js';
 import { makeSky, makeScenery, SUN_DIR } from './atmosphere.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -171,6 +171,39 @@ class SpeedLines {
   }
 }
 
+// snow / pollen / dust drifting through the air around the camera
+class Air {
+  constructor(cfg) {
+    this.cfg = cfg; this.n = LOWQ ? cfg.count >> 1 : cfg.count;
+    this.box = new THREE.Vector3(90, 40, 110);
+    const g = new THREE.BufferGeometry();
+    this.p = new Float32Array(this.n * 3); this.ph = new Float32Array(this.n);
+    for (let i = 0; i < this.n; i++) { this.p[i * 3] = Math.random() * this.box.x; this.p[i * 3 + 1] = Math.random() * this.box.y; this.p[i * 3 + 2] = Math.random() * this.box.z; this.ph[i] = Math.random() * 6.28; }
+    this.world = new Float32Array(this.n * 3);
+    g.setAttribute('position', new THREE.BufferAttribute(this.world, 3));
+    this.points = new THREE.Points(g, new THREE.PointsMaterial({ color: cfg.color, size: cfg.size * 6, map: radialTex(), transparent: true, depthWrite: false, opacity: 0.85, sizeAttenuation: true }));
+    this.points.frustumCulled = false; scene.add(this.points);
+    this.t = 0;
+  }
+  update(dt, cam, vel) {
+    this.t += dt;
+    const B = this.box, p = this.p, w = this.world;
+    for (let i = 0; i < this.n; i++) {
+      const k = i * 3;
+      p[k] += (Math.sin(this.t * 0.7 + this.ph[i]) * 0.6 - vel.x) * dt;
+      p[k + 1] += (-this.cfg.fall + Math.cos(this.t * 0.9 + this.ph[i]) * 0.3 - vel.y) * dt;
+      p[k + 2] += -vel.z * dt;
+      // wrap into a box centred on the camera
+      w[k] = cam.x - B.x / 2 + (((p[k] - cam.x) % B.x) + B.x * 2) % B.x;
+      w[k + 1] = cam.y - B.y / 2 + (((p[k + 1] - cam.y) % B.y) + B.y * 2) % B.y;
+      w[k + 2] = cam.z - B.z / 2 + (((p[k + 2] - cam.z) % B.z) + B.z * 2) % B.z;
+    }
+    this.points.geometry.attributes.position.needsUpdate = true;
+  }
+}
+let air;
+const airVel = new THREE.Vector3();
+
 // ---------------- obstacles / pickups ----------------
 const obstacleMats = {};
 function obstacleAssets() {
@@ -272,7 +305,7 @@ const store = {
 };
 const G = {
   mode: 'loading', s: 0, u: 0, vu: 0, v: 0, flow: 0, mult: 1, score: 0, shards: 0, drift: 0, driftHeld: 0,
-  boost: 0, time: 0, shake: 0, hit: 0, crashT: 0, revived: false, best: store.get('best', 0), bank: store.get('shards', 0),
+  boost: 0, time: 0, shake: 0, hit: 0, crashT: 0, revived: false, best: store.get('best.' + THEME.id, 0), bank: store.get('shards', 0),
   hover: 0, yaw: 0, camPos: new THREE.Vector3(), camLook: new THREE.Vector3(), slowmo: 1, lastSteer: 0, combo: 0,
 };
 const input = { left: 0, right: 0, drift: false, touches: new Map(), pointerX: null };
@@ -317,7 +350,7 @@ function gameOver() {
   G.mode = 'over';
   const final = Math.floor(G.score);
   const isBest = final > G.best;
-  if (isBest) { G.best = final; store.set('best', final); }
+  if (isBest) { G.best = final; store.set('best.' + THEME.id, final); }
   G.bank += G.shards; store.set('shards', G.bank);
   ui.final.textContent = final.toLocaleString();
   ui.finalBest.textContent = G.best.toLocaleString();
@@ -514,6 +547,7 @@ function update(dt, rdt = dt) {
   fill.target.position.copy(p); fill.position.copy(camera.position).add(tmp.set(0, 3, 0));
   sun.position.copy(p).addScaledVector(SUN_DIR, 200);
 
+  if (air) { airVel.copy(fwd).multiplyScalar(-0.0); air.update(dt, camera.position, airVel); }
   speedLines.update(dt, G.v, Math.max(0, speedN - 0.75) * 2 + G.boost);
   fxPass.uniforms.uSpeed.value = Math.max(0, speedN - 0.9) * 0.8 + G.boost * 0.6;
   fxPass.uniforms.uHit.value = G.hit;
@@ -635,10 +669,24 @@ async function boot() {
   sparks = new Particles(800, radialTex());
   dustP = new Particles(300, radialTex('rgba(255,255,255,0.5)'), THREE.NormalBlending); dustP.mat.uniforms.opacity.value = 0.12;
   scene.add(camera); speedLines = new SpeedLines();
+  air = new Air(THEME.air);
   chunks.prime(0);
   renderer.compile(scene, camera);
   G.mode = 'menu';
   ui.best.textContent = G.best.toLocaleString();
+  const tl = document.getElementById('tracks');
+  for (const t of TRACKS) {
+    const b = document.createElement('button');
+    b.className = 'trk' + (t.id === THEME.id ? ' on' : '');
+    b.innerHTML = `<b>${t.name}</b><span>${t.blurb}</span>`;
+    b.style.setProperty('--a', t.skyHorizon); b.style.setProperty('--b', t.skyTop);
+    b.addEventListener('click', () => {
+      if (t.id === THEME.id) return;
+      try { localStorage.setItem('hoverline.track', t.id); } catch { }
+      location.hash = t.id; location.reload();
+    });
+    tl.appendChild(b);
+  }
   ui.loading.classList.add('hidden'); ui.menu.classList.remove('hidden');
   try { SDK.cg?.game.loadingStop(); } catch { }
   if (qs.has('autoplay')) startRun();

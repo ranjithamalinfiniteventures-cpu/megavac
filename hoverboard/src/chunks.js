@@ -1,13 +1,13 @@
 // Streams terrain, road, scenery and trackside props in chunks along the track.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ROAD_HALF, roadX, roadY, terrainRel, terrainH, terrainColor, lateralSamples, fbm } from './world.js';
+import { ROAD_HALF, roadX, roadY, terrainRel, terrainH, terrainColor, lateralSamples, fbm, openness } from './world.js';
 import { THEME } from './theme.js';
 
 export const CHUNK_LEN = 160;
 const ROWS = 32;
 const LAT = lateralSamples(20, 700);
-const MAX_TREES = 360, MAX_ROCKS = 60, MAX_POLES = 24;
+const MAX_TREES = 360, MAX_ROCKS = 60, MAX_POLES = 24, MAX_TUFTS = 500, MAX_POSTS = 2 * (ROWS / 2 + 1);
 
 function rng(seed) {
   let t = seed >>> 0;
@@ -106,6 +106,17 @@ function buntingGeometry() {
   return mergeGeometries(parts);
 }
 
+function tuftGeometry() {
+  const parts = [];
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2;
+    const blade = new THREE.ConeGeometry(0.06, 0.55 + (i % 3) * 0.18, 3, 1);
+    blade.translate(0, 0.3, 0); blade.rotateZ(Math.cos(a) * 0.35); blade.rotateX(Math.sin(a) * 0.35);
+    parts.push(paint(blade, col(THEME.grass).multiplyScalar(0.8 + (i % 2) * 0.3)));
+  }
+  return mergeGeometries(parts);
+}
+
 export class ChunkManager {
   constructor(scene, tex) {
     this.scene = scene;
@@ -121,6 +132,10 @@ export class ChunkManager {
     this.poleGeo = poleGeometry();
     this.propMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, side: THREE.DoubleSide });
     this.buntingGeo = buntingGeometry();
+    this.tuftGeo = tuftGeometry();
+    this.tuftMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true });
+    this.railMat = new THREE.MeshStandardMaterial({ color: '#b9bfc8', metalness: 0.75, roughness: 0.38, side: THREE.DoubleSide });
+    this.railPostGeo = new THREE.BoxGeometry(0.12, 0.9, 0.12).translate(0, 0.45, 0);
     this.job = null;
   }
 
@@ -156,11 +171,24 @@ export class ChunkManager {
     const rocks = inst(this.rockGeo, this.rockMat, MAX_ROCKS);
     const poles = inst(this.poleGeo, this.propMat, MAX_POLES);
     const bunting = new THREE.Mesh(this.buntingGeo, this.propMat); bunting.castShadow = true;
+    const tufts = inst(this.tuftGeo, this.tuftMat, MAX_TUFTS, false);
+    // W-beam guard rail: a ribbon per side (top/bottom edge per row), shown only along cliff edges
+    const railGeo = new THREE.BufferGeometry();
+    const rv = 2 * 2 * (ROWS + 1);
+    railGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(rv * 3), 3));
+    const rIdx = [];
+    for (let side = 0; side < 2; side++) for (let j = 0; j < ROWS; j++) {
+      const a = side * 2 * (ROWS + 1) + j * 2;
+      rIdx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+    railGeo.setIndex(rIdx);
+    const rail = new THREE.Mesh(railGeo, this.railMat); rail.castShadow = true; rail.frustumCulled = false;
+    const railPosts = inst(this.railPostGeo, this.railMat, MAX_POSTS);
     const group = new THREE.Group();
-    group.add(terrain, road, trees, rocks, poles, bunting);
+    group.add(terrain, road, trees, rocks, poles, bunting, tufts, rail, railPosts);
     group.visible = false;
     this.scene.add(group);
-    return { group, terrain, road, trees, rocks, poles, bunting, index: -1, s0: 0 };
+    return { group, terrain, road, trees, rocks, poles, bunting, tufts, rail, railPosts, index: -1, s0: 0 };
   }
 
   *build(ch, index) {
@@ -206,7 +234,7 @@ export class ChunkManager {
     const r = rng(index * 7919 + 13), m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3();
     const up = new THREE.Vector3(0, 1, 0);
     let t = 0;
-    for (let tries = 0; tries < 1600 && t < MAX_TREES; tries++) {
+    for (let tries = 0; tries < 1600 * THEME.trees && t < MAX_TREES; tries++) {
       const s = s0 + r() * CHUNK_LEN;
       const side = r() < 0.5 ? -1 : 1;
       const u = side * (ROAD_HALF + 4 + Math.pow(r(), 1.5) * 240);
@@ -217,7 +245,7 @@ export class ChunkManager {
       if (slope > 0.75 || rel > 130 || rel < -120 || dens < -0.05) continue;
       const k = 0.8 + r() * 0.9;
       q.setFromAxisAngle(up, r() * 6.28);
-      m.compose(p.set(roadX(s) + u, roadY(s) + rel - 0.3, -s), q, sc.set(k, k * (0.85 + r() * 0.5), k));
+      m.compose(p.set(roadX(s) + u, roadY(s) + rel - 0.3, -s), q, sc.set(k * (THEME.treeHeight < 1 ? 1.3 : 1), k * (0.85 + r() * 0.5) * THEME.treeHeight, k * (THEME.treeHeight < 1 ? 1.3 : 1)));
       ch.trees.setMatrixAt(t, m);
       const tone = 0.85 + r() * 0.3;
       ch.trees.setColorAt(t, c.setRGB(tone, tone * (0.95 + r() * 0.1), tone));
@@ -236,6 +264,39 @@ export class ChunkManager {
       ch.rocks.setMatrixAt(rk++, m);
     }
     ch.rocks.count = rk; ch.rocks.instanceMatrix.needsUpdate = true;
+    yield;
+
+    let tk = 0;
+    for (let tries = 0; tries < 900 && tk < MAX_TUFTS; tries++) {
+      const s = s0 + r() * CHUNK_LEN;
+      const side = r() < 0.5 ? -1 : 1;
+      const u = side * (ROAD_HALF + 1.6 + Math.pow(r(), 1.7) * 30);
+      const rel = terrainRel(u, s);
+      if (Math.abs(terrainRel(u + 1, s) - terrainRel(u - 1, s)) > 1.2 || fbm(u * 0.08, s * 0.08, 2) < -0.1) continue;
+      const k = 0.7 + r() * 0.9;
+      q.setFromAxisAngle(up, r() * 6.28);
+      m.compose(p.set(roadX(s) + u, roadY(s) + rel - 0.05, -s), q, sc.set(k, k, k));
+      ch.tufts.setMatrixAt(tk++, m);
+    }
+    ch.tufts.count = tk; ch.tufts.instanceMatrix.needsUpdate = true;
+
+    const ra = ch.rail.geometry.attributes.position.array;
+    let rpk = 0;
+    for (let side = 0; side < 2; side++) {
+      const sg = side ? 1 : -1, u = sg * (ROAD_HALF + 0.95);
+      for (let j = 0; j <= ROWS; j++) {
+        const s = s0 + j * CHUNK_LEN / ROWS, x = roadX(s) + u, y = roadY(s);
+        const on = openness(sg, s) > 0.45 ? 1 : 0;
+        const k = side * 2 * (ROWS + 1) + j * 2;
+        const top = on ? 0.82 : -2, bot = on ? 0.5 : -2.2;
+        ra[k * 3] = x; ra[k * 3 + 1] = y + top; ra[k * 3 + 2] = -s;
+        ra[k * 3 + 3] = x; ra[k * 3 + 4] = y + bot; ra[k * 3 + 5] = -s;
+        if (on && j % 2 === 0 && rpk < MAX_POSTS) { m.makeTranslation(x + sg * 0.08, y, -s); ch.railPosts.setMatrixAt(rpk++, m); }
+      }
+    }
+    ch.rail.geometry.attributes.position.needsUpdate = true;
+    ch.rail.geometry.computeVertexNormals();
+    ch.railPosts.count = rpk; ch.railPosts.instanceMatrix.needsUpdate = true;
 
     // marker poles alternate sides every 14 m
     let pk = 0;

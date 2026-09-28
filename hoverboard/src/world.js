@@ -100,9 +100,16 @@ export function terrainColor(u, s, rel, slope, out) {
   out.lerp(C.dirt, 1 - smooth(ROAD_HALF + 1, ROAD_HALF + 5, a));
   tmpC.copy(C.rock).lerp(C.rockDark, smooth(-0.2, 0.3, fbm(u * 0.03, s * 0.03, 2)) * 0.8 + smooth(-40, -200, rel) * 0.5);
   out.lerp(tmpC, smooth(0.42, 0.62, slope));
-  const snowLine = 140 + 40 * fbm(s * 0.003, u * 0.003, 2);
+  if (THEME.strata) {
+    // sandstone bands: colour follows absolute height so layers line up across the canyon
+    const band = Math.sin((roadY(s) + rel) * 0.22 + fbm(u * 0.01, s * 0.01, 2) * 2.5);
+    tmpC.copy(C.rock).lerp(C.rockDark, smooth(-0.2, 0.9, band));
+    tmpC.lerp(C.snow, smooth(0.75, 0.95, -band) * 0.6);
+    out.lerp(tmpC, smooth(0.25, 0.5, slope) * 0.95);
+  }
+  const snowLine = THEME.snowLine + 40 * fbm(s * 0.003, u * 0.003, 2);
   const snow = smooth(snowLine, snowLine + 25, rel);
   tmpC.copy(C.snow).lerp(C.snowShade, smooth(0.5, 0.8, slope));
-  out.lerp(tmpC, snow);
+  out.lerp(tmpC, snow * (1 - smooth(0.55, 0.85, slope)));
   return out;
 }

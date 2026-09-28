@@ -73,7 +73,7 @@ function addPeak(pos, col, px, py, pz, radius, height, detail, rnd) {
     const bx = verts[f + 6] - verts[f], by = verts[f + 7] - verts[f + 1], bz = verts[f + 8] - verts[f + 2];
     const nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
     const steep = 1 - Math.abs(ny) / Math.hypot(nx, ny, nz);
-    const line = 0.4 + steep * 0.4 + (rnd() - 0.5) * 0.12;
+    const line = THEME.peakSnowLine + steep * 0.4 + (rnd() - 0.5) * 0.12;
     c.copy(hN > line ? (steep > 0.55 ? snowS : snow) : (hN > line - 0.22 ? rock : rockD));
     for (let k = 0; k < 3; k++) col.push(c.r, c.g, c.b);
   }
@@ -127,6 +127,28 @@ export function makeScenery(scene) {
   const cloud = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000, 1, 1).rotateX(-Math.PI / 2), cloudMat);
   cloud.position.y = -300; cloud.frustumCulled = false;
   group.add(cloud);
+  // soft cumulus banks in the sky: canvas puffs, lit on top, shaded underneath
+  const puff = document.createElement('canvas'); puff.width = 256; puff.height = 128;
+  const pg = puff.getContext('2d');
+  for (let i = 0; i < 38; i++) {
+    const x = 30 + Math.random() * 196, y = 50 + Math.random() * 40 - Math.abs(x - 128) * 0.15, r = 16 + Math.random() * 30;
+    const gr = pg.createRadialGradient(x, y - r * 0.3, r * 0.1, x, y, r);
+    gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.6, 'rgba(236,236,245,0.55)'); gr.addColorStop(1, 'rgba(220,220,235,0)');
+    pg.fillStyle = gr; pg.beginPath(); pg.arc(x, y, r, 0, 7); pg.fill();
+  }
+  const shade = pg.createLinearGradient(0, 0, 0, 128);
+  shade.addColorStop(0, 'rgba(0,0,0,0)'); shade.addColorStop(1, 'rgba(90,80,120,0.35)');
+  pg.globalCompositeOperation = 'source-atop'; pg.fillStyle = shade; pg.fillRect(0, 0, 256, 128);
+  const puffTex = new THREE.CanvasTexture(puff); puffTex.colorSpace = THREE.SRGBColorSpace;
+  for (let i = 0; i < 26; i++) {
+    const a = rnd() * Math.PI * 2, r = 2200 + rnd() * 1300;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: THEME.skyCloud, fog: false, depthWrite: false, transparent: true, opacity: 0.55 + rnd() * 0.35 }));
+    const w = 500 + rnd() * 900;
+    sp.scale.set(w, w * 0.4, 1);
+    sp.position.set(Math.cos(a) * r, 350 + rnd() * 650, Math.sin(a) * r);
+    sp.renderOrder = -1;
+    group.add(sp);
+  }
   scene.add(group);
   return { group, cloud, cloudMat };
 }
