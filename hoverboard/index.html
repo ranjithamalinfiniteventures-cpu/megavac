@@ -55,6 +55,41 @@
   .stats { margin-top: 12px; display: flex; gap: 28px; justify-content: center; font-size: 14px; letter-spacing: 2px; opacity: .9; }
   .stats b { display: block; font-size: 24px; letter-spacing: 0; }
   #newbest { margin-top: 8px; color: var(--cyan); font-weight: 900; letter-spacing: 4px; animation: pulse .5s infinite alternate; }
+  .btnrow { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; align-items: center; }
+  .btn.ghost { background: rgba(255,255,255,.14); color: #fff; box-shadow: inset 0 0 0 2px rgba(255,255,255,.4); font-size: 18px; padding: 14px 30px; }
+  #levels { margin-top: 22px; display: grid; grid-template-columns: repeat(3, minmax(0, 190px)); gap: 12px; max-width: 100%; }
+  .lcol { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 16px; background: linear-gradient(180deg, var(--b), var(--a)); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+  .lhead { font-weight: 900; font-size: 14px; letter-spacing: 1px; text-shadow: 0 1px 6px rgba(0,0,0,.45); padding: 2px 4px 4px; text-align: left; }
+  .lvl { pointer-events: auto; cursor: pointer; position: relative; text-align: left; border: 0; border-radius: 10px; padding: 8px 10px 8px 34px; color: #fff; font: inherit;
+    background: rgba(10,12,22,.42); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); transition: transform .1s, background .1s; }
+  .lvl b { display: block; font-size: 13px; }
+  .lvl .lm { display: block; font-size: 11px; opacity: .8; font-variant-numeric: tabular-nums; }
+  .lvl .ln { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-weight: 900; font-size: 16px; opacity: .8; }
+  .lvl .lock { position: absolute; right: 8px; top: 8px; font-size: 9px; letter-spacing: 1px; opacity: .8; }
+  .lvl.on { background: rgba(255,255,255,.92); color: #1b1d2a; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+  .lvl.locked { opacity: .45; cursor: default; }
+  .lvl:not(.locked):hover { transform: translateX(3px); }
+  .lvl:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  #hud:not(.racing) .racebox, #hud:not(.racing) #prog { display: none; }
+  .racebox { position: absolute; top: 14px; right: 18px; text-align: right; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
+  #pos { font-size: 30px; font-weight: 900; font-style: italic; line-height: 1; }
+  #pos b { font-size: 56px; }
+  #pos small { font-size: 20px; opacity: .8; }
+  #rtime { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 4px; }
+  #draft { margin-top: 4px; font-size: 12px; font-weight: 800; letter-spacing: 3px; color: #ffb347; opacity: 0; transition: opacity .2s; }
+  #draft.on { opacity: 1; }
+  #prog { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); width: min(420px, 50vw); height: 6px; border-radius: 4px; background: rgba(255,255,255,.2); }
+  #progfill { height: 100%; width: 0; border-radius: 4px; background: #fff; }
+  #prog .dot { position: absolute; top: -4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; border: 2px solid #fff; }
+  #count { position: fixed; top: 38%; left: 50%; transform: translate(-50%, -50%) scale(.6); font-size: 130px; font-weight: 900; font-style: italic; color: #fff; opacity: 0; pointer-events: none; text-shadow: 0 6px 30px rgba(0,0,0,.45); transition: transform .25s, opacity .25s; }
+  #count.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  #count.go { color: #ffb347; }
+  #restable { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; width: min(380px, 90vw); }
+  .rrow { display: grid; grid-template-columns: 28px 14px 1fr auto; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; background: rgba(10,12,22,.45); font-variant-numeric: tabular-nums; }
+  .rrow.you { background: rgba(255,255,255,.9); color: #1b1d2a; font-weight: 800; }
+  .rp { font-weight: 900; } .rc { width: 12px; height: 12px; border-radius: 50%; } .rn { text-align: left; }
+  #results .btn { margin-top: 18px; }
+  @media (max-width: 640px) { #levels { grid-template-columns: 1fr; } .lcol { flex-direction: row; flex-wrap: wrap; } .lhead { width: 100%; } .lvl { flex: 1 1 30%; } #pos b { font-size: 40px; } #count { font-size: 90px; } }
   #tracks { margin-top: 26px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .trk { pointer-events: auto; cursor: pointer; border: 2px solid rgba(255,255,255,.25); border-radius: 14px; padding: 12px 16px; min-width: 150px; text-align: left; color: #fff;
     background: linear-gradient(180deg, var(--b), var(--a)); box-shadow: 0 6px 20px rgba(0,0,0,.25); font: inherit; transition: transform .12s; }
@@ -74,17 +109,29 @@
 <div id="hud" class="layer hidden">
   <div class="tl"><div><span id="score">0</span><span id="mult">x1</span></div><div id="dist">0 m</div><div class="shardrow">◆ <b id="shards">0</b></div></div>
   <div id="pops"></div>
+  <div class="racebox"><div id="pos"></div><div id="rtime">0:00.0</div><div id="draft">DRAFTING</div></div>
+  <div id="prog"><div id="progfill"></div><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
   <div id="flow"><div class="lbl">FLOW</div><div class="bar"><div id="flowfill"></div></div></div>
   <div class="speedo"><div id="speed">0</div><div class="unit">KM/H</div></div>
 </div>
 
+<div id="count"></div>
+
 <div id="loading" class="panel">LOADING</div>
+
+<div id="results" class="panel hidden">
+  <div class="tag" id="restitle">FINISHED</div>
+  <div class="big" id="resplace">1st</div>
+  <div id="restable"></div>
+  <div id="resnote" class="bestline"></div>
+  <div class="btnrow"><button id="resnext" class="btn hidden">NEXT RACE</button><button id="resagain" class="btn ghost">RETRY</button><button id="resmenu" class="btn ghost">MENU</button></div>
+</div>
 
 <div id="menu" class="panel hidden">
   <div class="logo">HOVERLINE</div>
   <div class="tag">CARVE · SLIDE · BOOST</div>
-  <div id="tracks"></div>
-  <button id="play" class="btn">RIDE</button>
+  <div id="levels"></div>
+  <div class="btnrow"><button id="play" class="btn">RACE</button><button id="free" class="btn ghost">FREE RIDE</button></div>
   <div class="help">
     <span class="desk"><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd> / mouse</span><span class="desk">Carve (fills Flow)</span>
     <span class="desk"><kbd>Space</kbd> / <kbd>Shift</kbd> / click</span><span class="desk">Hold to slide, release to boost</span>
@@ -92,7 +139,7 @@
     <span class="mob">Hold both sides</span><span class="mob">Slide, let go to boost</span>
     <span>Fly through gates</span><span>Dead centre = Perfect Line</span>
   </div>
-  <div class="bestline">BEST <span id="best">0</span></div>
+  <div class="bestline">FREE RIDE BEST <span id="best">0</span></div>
 </div>
 
 <div id="over" class="panel hidden">
@@ -100,7 +147,7 @@
   <div class="big" id="final">0</div>
   <div id="newbest" class="hidden">NEW BEST</div>
   <div class="stats"><div>BEST<b id="finalbest">0</b></div><div>SHARDS<b id="finalshards">0</b></div></div>
-  <button id="again" class="btn">RIDE AGAIN</button>
+  <div class="btnrow"><button id="again" class="btn">RIDE AGAIN</button><button id="overmenu" class="btn ghost">MENU</button></div>
   <button id="revive" class="btn alt hidden">▶ REVIVE</button>
 </div>
 

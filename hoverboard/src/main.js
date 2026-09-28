@@ -4,7 +4,9 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { ROAD_HALF, roadX, roadY, roadDX, roadDY, fbm } from './world.js';
+import { ROAD_HALF, roadX, roadY, roadDX, roadDY, fbm, rampH, segmentFeature, SEG } from './world.js';
+import { Features } from './features.js';
+import { LEVELS, Rival, stepAir, makeGantry, placeOnRoad, ordinal } from './race.js';
 import { ChunkManager, makeTextures } from './chunks.js';
 import { makeBoard, radialTex } from './board.js';
 import { Sfx } from './audio.js';
@@ -87,7 +89,8 @@ addEventListener('resize', resize);
 const qp = qs.has('fixedq');
 
 // ---------------- world ----------------
-let chunks, board, rider = null, sky, scenery;
+let chunks, board, rider = null, sky, scenery, features, gltfRider = null;
+let rivals = [], gantries = [];
 const particles = [];
 
 class Particles {
@@ -181,7 +184,7 @@ class Air {
     for (let i = 0; i < this.n; i++) { this.p[i * 3] = Math.random() * this.box.x; this.p[i * 3 + 1] = Math.random() * this.box.y; this.p[i * 3 + 2] = Math.random() * this.box.z; this.ph[i] = Math.random() * 6.28; }
     this.world = new Float32Array(this.n * 3);
     g.setAttribute('position', new THREE.BufferAttribute(this.world, 3));
-    this.points = new THREE.Points(g, new THREE.PointsMaterial({ color: cfg.color, size: cfg.size * 6, map: radialTex(), transparent: true, depthWrite: false, opacity: 0.85, sizeAttenuation: true }));
+    this.points = new THREE.Points(g, new THREE.PointsMaterial({ color: cfg.color, size: cfg.size * 3, map: radialTex(), transparent: true, depthWrite: false, opacity: 0.85, sizeAttenuation: true }));
     this.points.frustumCulled = false; scene.add(this.points);
     this.t = 0;
   }
@@ -242,6 +245,8 @@ function spawnObstacles(untilS, difficulty) {
   while (nextSpawn < untilS) {
     const s = nextSpawn;
     const r = Math.random();
+    const f = segmentFeature(Math.floor(s / SEG));
+    if ((f?.type === 'jump' && s > f.s0 - 40 && s < f.lip + 50) || (G.race && s > G.race.length - 60)) { nextSpawn += 30; continue; }
     if (r < 0.36) {                             // barrier line with a gap
       const gapW = Math.max(3.2, 6.5 - difficulty * 2.5);
       const gapC = (Math.random() * 2 - 1) * (ROAD_HALF - gapW / 2 - 0.5);
@@ -297,7 +302,7 @@ const ui = {
   mult: document.getElementById('mult'), pop: document.getElementById('pops'), menu: document.getElementById('menu'),
   over: document.getElementById('over'), best: document.getElementById('best'), final: document.getElementById('final'),
   finalBest: document.getElementById('finalbest'), shards: document.getElementById('shards'), finalShards: document.getElementById('finalshards'),
-  revive: document.getElementById('revive'), newbest: document.getElementById('newbest'), loading: document.getElementById('loading'),
+  revive: document.getElementById('revive'), results: document.getElementById('results'), resTitle: document.getElementById('restitle'), resPlace: document.getElementById('resplace'), resTable: document.getElementById('restable'), resNext: document.getElementById('resnext'), resNote: document.getElementById('resnote'), count: document.getElementById('count'), pos: document.getElementById('pos'), time: document.getElementById('rtime'), prog: document.getElementById('prog'), progFill: document.getElementById('progfill'), draft: document.getElementById('draft'), levels: document.getElementById('levels'), newbest: document.getElementById('newbest'), loading: document.getElementById('loading'),
 };
 const store = {
   get(k, d) { try { const v = localStorage.getItem('hoverline.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -306,7 +311,7 @@ const store = {
 const G = {
   mode: 'loading', s: 0, u: 0, vu: 0, v: 0, flow: 0, mult: 1, score: 0, shards: 0, drift: 0, driftHeld: 0,
   boost: 0, time: 0, shake: 0, hit: 0, crashT: 0, revived: false, best: store.get('best.' + THEME.id, 0), bank: store.get('shards', 0),
-  hover: 0, yaw: 0, camPos: new THREE.Vector3(), camLook: new THREE.Vector3(), slowmo: 1, lastSteer: 0, combo: 0,
+  hover: 0, yaw: 0, y: 0, vy: 0, air: false, airT: 0, race: null, raceT: 0, countT: 0, finishT: 0, invuln: 0, place: 1, camPos: new THREE.Vector3(), camLook: new THREE.Vector3(), slowmo: 1, lastSteer: 0, combo: 0,
 };
 const input = { left: 0, right: 0, drift: false, touches: new Map(), pointerX: null };
 const sfx = new Sfx();
@@ -317,25 +322,67 @@ function pop(text, cls = '') {
   ui.pop.appendChild(el); setTimeout(() => el.remove(), 1100);
 }
 
-function startRun(revive = false) {
+function startRun(revive = false, level = G.race) {
   if (!revive) {
+    G.race = level;
     G.s = 0; G.u = 0; G.score = 0; G.shards = 0; G.flow = 0.2; G.mult = 1; G.revived = false; G.time = 0;
-    clearObjects(); nextSpawn = 260; chunks.reset(); chunks.prime(0);
+    clearObjects(); nextSpawn = 260; chunks.reset(); features.clear();
+    for (const r of rivals) r.dispose(scene); rivals = [];
+    for (const g of gantries) scene.remove(g); gantries = [];
     G.v = 30;
+    if (level) {
+      G.s = 20; G.v = 0; G.raceT = 0; G.countT = 3.2; G.finishT = 0;
+      const grid = [[-6, 32], [0, 36], [6, 32], [-3, 26], [3, 26]];
+      for (let i = 0; i < 5; i++) { const r = new Rival(scene, gltfRider, i, level.skill); r.reset(grid[i][1], grid[i][0]); rivals.push(r); }
+      const st = makeGantry('START', false); placeOnRoad(st, 40); gantries.push(st);
+      const fin = makeGantry('FINISH', true); placeOnRoad(fin, level.length); gantries.push(fin);
+      for (const g of gantries) scene.add(g);
+    }
+    chunks.prime(G.s);
   } else {
     G.revived = true; G.v = 30; clearObjects(G.s + 60); nextSpawn = Math.max(nextSpawn, G.s + 120);
     G.u = 0;
   }
   G.vu = 0; G.boost = 0; G.drift = 0; G.driftHeld = 0; G.hit = 0; G.crashT = 0; G.slowmo = 1; G.combo = 0;
+  G.y = 0; G.vy = 0; G.air = false; G.invuln = 0;
   board.root.visible = true; board.tilt.rotation.set(0, 0, 0); board.tilt.position.set(0, 0, 0);
-  G.mode = 'play';
-  ui.menu.classList.add('hidden'); ui.over.classList.add('hidden'); ui.hud.classList.remove('hidden');
+  G.mode = G.race && !revive ? 'countdown' : 'play';
+  ui.menu.classList.add('hidden'); ui.over.classList.add('hidden'); ui.results.classList.add('hidden'); ui.hud.classList.remove('hidden');
+  ui.hud.classList.toggle('racing', !!G.race);
   sfx.start();
   try { SDK.cg?.game.gameplayStart(); } catch { }
 }
 
+function finishRace() {
+  G.mode = 'finished'; G.finishT = G.raceT; G.resultsIn = 2.6;
+  pop(ordinal(G.place) + ' PLACE', 'big');
+}
+function showResults() {
+  G.mode = 'results';
+  const rows = [{ name: 'You', color: THEME.suit, t: G.finishT, you: true }];
+  for (const r of rivals) rows.push({ name: r.name, color: r.color, t: r.finish || (G.raceT + Math.max(0, G.race.length - r.s) / Math.max(10, r.v)) });
+  rows.sort((a, b) => a.t - b.t);
+  const place = rows.findIndex(r => r.you) + 1;
+  const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
+  ui.resTitle.textContent = place === 1 ? 'VICTORY' : place <= 3 ? 'PODIUM' : 'FINISHED';
+  ui.resPlace.textContent = ordinal(place);
+  ui.resTable.innerHTML = rows.map((r, i) => `<div class="rrow${r.you ? ' you' : ''}"><span class="rp">${i + 1}</span><span class="rc" style="background:${r.color}"></span><span class="rn">${r.name}</span><span class="rt">${fmt(r.t)}</span></div>`).join('');
+  const idx = LEVELS.indexOf(G.race);
+  const unlocked = store.get('unlocked', 1);
+  if (place <= 3 && idx + 2 > unlocked) { store.set('unlocked', idx + 2); }
+  const bestKey = 'place.' + G.race.id, prev = store.get(bestKey, 99);
+  if (place < prev) store.set(bestKey, place);
+  const next = LEVELS[idx + 1];
+  ui.resNext.classList.toggle('hidden', !(place <= 3 && next));
+  ui.resNote.textContent = place <= 3 ? (next ? `Unlocked: ${next.name}` : 'You won the final cup!') : 'Finish top 3 to unlock the next race';
+  ui.results.classList.remove('hidden'); ui.hud.classList.add('hidden');
+  sfx.stop();
+  try { SDK.cg?.game.gameplayStop(); if (place === 1) SDK.cg?.game.happytime(); } catch { }
+}
+
 function crash(reason) {
   if (G.mode !== 'play' || qs.has('god')) return;
+  if (G.invuln > 0) return;
   G.mode = 'crash'; G.crashT = 0; G.hit = 1; G.shake = 1.2;
   sfx.crash();
   const p = board.root.position;
@@ -371,19 +418,28 @@ let realDt = 0.016;
 function update(dt, rdt = dt) {
   realDt = rdt;
   G.time += dt;
-  const playing = G.mode === 'play';
-  const difficulty = Math.min(1, G.s / 6000);
+  const playing = G.mode === 'play' || G.mode === 'finished';
+  const difficulty = G.race ? Math.min(1, G.race.diff + (G.s / G.race.length) * 0.25) : Math.min(1, G.s / 6000);
+  if (G.mode === 'countdown') {
+    const before = Math.ceil(G.countT);
+    G.countT -= dt;
+    const now = Math.ceil(G.countT);
+    if (now !== before && now > 0) { ui.count.textContent = now; ui.count.className = 'show'; sfx.ring(false); }
+    if (G.countT <= 0) { G.mode = 'play'; G.v = 26; ui.count.textContent = 'GO!'; ui.count.className = 'show go'; sfx.ring(true); setTimeout(() => { ui.count.className = ''; }, 700); for (const r of rivals) r.v = 22 + Math.random() * 4; }
+  }
+  if (G.race && (G.mode === 'play' || G.mode === 'finished' || G.mode === 'crash')) G.raceT += dt;
+  G.invuln = Math.max(0, G.invuln - dt);
 
   if (G.mode === 'menu') {
     // attract mode: autopilot cruises down the mountain behind the title
     G.v = 30; G.s += G.v * dt; G.u = Math.sin(G.time * 0.5) * 4; G.vu = Math.cos(G.time * 0.5) * 2;
   }
   if (playing) {
-    const steer = (input.right - input.left) + (input.pointerX ?? 0);
+    const steer = G.mode === 'finished' ? -G.u * 0.2 : (input.right - input.left) + (input.pointerX ?? 0);
     const st = Math.max(-1, Math.min(1, steer));
     const baseV = 34 + 42 * difficulty;
     const latMax = 11 + G.v * 0.12;
-    const drifting = input.drift && G.v > 20;
+    const drifting = input.drift && G.v > 20 && G.mode === 'play';
 
     if (drifting) {
       G.driftHeld += dt;
@@ -417,7 +473,22 @@ function update(dt, rdt = dt) {
     G.v += (baseV - G.v) * dt * (G.v > baseV ? 0.35 : 0.5);
     G.boost = Math.max(0, G.boost - dt * 0.7);
 
+    // drafting: tucked in behind a rival cuts drag
+    let drafting = false;
+    for (const r of rivals) { const ds = r.s - G.s; if (ds > 2 && ds < 16 && Math.abs(r.u - G.u) < 2.2) drafting = true; }
+    if (drafting) { G.v += dt * 4; G.flow = Math.min(1, G.flow + dt * 0.08); }
+    G.drafting = drafting;
+    const prevS = G.s;
     G.s += G.v * dt; G.u += G.vu * dt;
+    const wasAir = G.air;
+    stepAir(G, dt, prevS);
+    if (!wasAir && G.air) { pop('AIR', ''); sfx.boost(0.2); }
+    if (wasAir && !G.air) {
+      G.shake = Math.max(G.shake, 0.4);
+      if (G.airT > 0.6) { const bonus = Math.round(G.airT * 300); G.score += bonus * G.mult; G.flow = Math.min(1, G.flow + 0.25); pop(G.airT > 1.1 ? 'BIG AIR +' + bonus : 'AIR +' + bonus, G.airT > 1.1 ? 'big' : 'near'); }
+      for (let i = 0; i < 20; i++) dustP.emit(tmp.set(roadX(G.s) + G.u + (Math.random() - 0.5) * 2, roadY(G.s) + 0.2, -G.s), tmp2.set((Math.random() - 0.5) * 8, 1 + Math.random() * 2, (Math.random() - 0.5) * 8), new THREE.Color(THEME.skyHorizon), 2.2, 1.0);
+    }
+    if (G.race && G.mode === 'play' && G.s >= G.race.length) finishRace();
     const lim = ROAD_HALF - 0.7;
     if (Math.abs(G.u) > lim) {
       G.u = Math.sign(G.u) * lim;
@@ -430,9 +501,10 @@ function update(dt, rdt = dt) {
     G.combo = Math.max(0, G.combo - dt);
     if (G.combo <= 0 && G.mult > 1) G.mult = Math.max(1, G.mult - dt * 0.25);
 
-    // collisions
+    // collisions (a jump carries you over barriers and rocks)
     for (const o of objects) {
       const ds = o.s - G.s;
+      if ((G.y > 1.0 || G.invuln > 0 || G.mode === 'finished') && (o.type === 'barrier' || o.type === 'rock')) continue;
       if (o.type === 'barrier') {
         if (!o.hit && ds < 0.4 && ds > -0.8) {
           if (Math.abs(G.u - o.gapC) > o.gapW / 2 - 0.35) { crash('barrier'); break; }
@@ -472,13 +544,43 @@ function update(dt, rdt = dt) {
     G.crashT += dt;
     G.v *= Math.pow(0.2, dt); G.s += G.v * dt;
     board.tilt.rotation.x += dt * 8; board.tilt.rotation.z += dt * 5; board.tilt.position.y += dt * (3 - G.crashT * 9);
-    if (G.crashT > 1.6) gameOver();
+    if (G.crashT > 1.6) {
+      if (G.race) {   // races keep going: back on the board with a short grace period
+        G.mode = 'play'; G.v = 22; G.u *= 0.5; G.vu = 0; G.invuln = 1.6; G.y = 0; G.air = false;
+        board.tilt.rotation.set(0, 0, 0); board.tilt.position.set(0, 0, 0);
+        clearObjects(G.s + 25);
+      } else gameOver();
+    }
   }
   if (G.mode === 'over') { G.v *= Math.pow(0.3, dt); G.s += G.v * dt; }
 
   G.slowmo += (1 - G.slowmo) * Math.min(1, dt * 1.6);
   G.hit = Math.max(0, G.hit - dt * 1.2);
   G.shake = Math.max(0, G.shake - dt * 2);
+
+  // rivals
+  if (G.race) {
+    const baseV = 34 + 42 * difficulty;
+    const racing = G.mode !== 'countdown';
+    let ahead = 0;
+    for (const r of rivals) {
+      if (racing) r.update(dt, objects, baseV, G, G.time);
+      if (!r.finish && r.s >= G.race.length) r.finish = G.raceT;
+      r.near = Math.abs(r.s - G.s) < 70;
+      r.place(dt, realDt);
+      r.tag.visible = r.s - G.s > 3 && r.s - G.s < 90;
+      if ((r.finish && (!G.finishT || r.finish < G.finishT)) || (!r.finish && !G.finishT && r.s > G.s)) ahead++;
+      // shoulder-to-shoulder contact nudges both riders apart
+      const ds = r.s - G.s, du = r.u - G.u;
+      if (G.mode === 'play' && Math.abs(ds) < 1.6 && Math.abs(du) < 1.1 && Math.abs(r.y - G.y) < 1) {
+        const push = Math.sign(du || 1) * 5;
+        r.vu += push; G.vu -= push; G.shake = Math.max(G.shake, 0.3); sfx.scrape();
+      }
+    }
+    if (!G.finishT) G.place = ahead + 1;
+    if (G.mode === 'finished') { G.resultsIn -= realDt; if (G.resultsIn <= 0) showResults(); }
+  }
+  features.update(G.s);
 
   // spawn / cull
   spawnObstacles(G.s + 900, difficulty);
@@ -494,13 +596,13 @@ function update(dt, rdt = dt) {
   fwd.set(roadDX(s), roadDY(s), -1).normalize();
   right.crossVectors(fwd, UP).normalize();
   G.hover = 0.55 + Math.sin(G.time * 5.3) * 0.05 + Math.sin(G.time * 11.7) * 0.02;
-  const p = board.root.position.set(roadX(s) + G.u, roadY(s) + G.hover, -s);
+  const p = board.root.position.set(roadX(s) + G.u, roadY(s) + G.hover + G.y, -s);
   tmp.copy(p).sub(fwd); board.root.lookAt(tmp);
   if (G.mode !== 'crash') {
     const lean = -G.vu / 16;
     board.tilt.rotation.z += (lean * 0.55 - board.tilt.rotation.z) * Math.min(1, dt * 8);
     board.tilt.rotation.y += (G.drift * -0.9 - board.tilt.rotation.y) * Math.min(1, dt * 8);
-    board.tilt.rotation.x = Math.sin(G.time * 3.1) * 0.02;
+    board.tilt.rotation.x = G.air ? Math.min(0.35, G.vy * 0.03) : Math.sin(G.time * 3.1) * 0.02;
     const crouch = 0.35 + Math.min(1, G.v / 70) * 0.45 + (input.drift && G.mode === 'play' ? 0.25 : 0) + G.boost * 0.15;
     if (rider) rider.update(realDt, board.tilt, Math.min(1, crouch), -lean, Math.abs(G.drift), Math.min(1, G.v / 70));
     else board.pose(dt, crouch, -lean, G.drift, Math.min(1, G.v / 70));
@@ -525,7 +627,7 @@ function update(dt, rdt = dt) {
   const back = 3.4 + speedN * 1.0, height = 1.55 + speedN * 0.15;
   const sAhead = s + 10;
   tmp.set(p.x, p.y, p.z).addScaledVector(fwd, -back); tmp.y = Math.max(tmp.y, roadY(s - back) + height) + 0.0;
-  tmp.y = p.y + height;
+  tmp.y = p.y - G.y * 0.4 + height;
   tmp2.set(roadX(sAhead) + G.u * 0.75, roadY(sAhead) + 1.25, -sAhead);
   const k = Math.min(1, dt * 7);
   if (G.camPos.lengthSq() === 0) { G.camPos.copy(tmp); G.camLook.copy(tmp2); }
@@ -565,6 +667,14 @@ function update(dt, rdt = dt) {
     ui.mult.textContent = 'x' + Math.floor(G.mult);
     ui.mult.classList.toggle('hot', G.mult >= 3);
     ui.shards.textContent = G.shards;
+    if (G.race) {
+      ui.pos.innerHTML = `${ordinal(G.place).replace(/(\d+)/, '<b>$1</b>')}<small>/${rivals.length + 1}</small>`;
+      ui.time.textContent = `${Math.floor(G.raceT / 60)}:${(G.raceT % 60).toFixed(1).padStart(4, '0')}`;
+      const L = G.race.length;
+      ui.progFill.style.width = Math.min(100, G.s / L * 100) + '%';
+      ui.prog.querySelectorAll('.dot').forEach((d, i) => { const r = rivals[i]; if (r) { d.style.left = Math.min(100, r.s / L * 100) + '%'; d.style.background = r.color; } });
+      ui.draft.classList.toggle('on', !!G.drafting);
+    }
   }
 }
 function nearMiss() {
@@ -578,10 +688,11 @@ addEventListener('keydown', e => {
   if (keys[e.code]) input[keys[e.code]] = 1;
   if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'ArrowDown' || e.code === 'KeyS') {
     e.preventDefault();
-    if (G.mode === 'menu' || G.mode === 'over') { if (e.code === 'Space' && !e.repeat) startRun(); return; }
+    if (G.mode === 'menu' || G.mode === 'over' || G.mode === 'results') { if (e.code === 'Space' && !e.repeat) startRun(false, G.mode === 'menu' ? selectedLevel : G.race); return; }
+    if (G.mode === 'countdown') return;
     input.drift = true;
   }
-  if (e.code === 'KeyR' && G.mode === 'over') startRun();
+  if (e.code === 'KeyR' && (G.mode === 'over' || G.mode === 'results' || (G.race && G.mode === 'play'))) startRun(false, G.race);
   if (e.code === 'KeyM') sfx.toggle();
 });
 addEventListener('keyup', e => {
@@ -619,8 +730,44 @@ const endTouch = e => {
 canvas.addEventListener('pointerup', endTouch); canvas.addEventListener('pointercancel', endTouch);
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('keydown', () => { input.pointerX = null; input.mouseActive = false; }, true);
-document.getElementById('play').addEventListener('click', () => { sfx.unlock(); startRun(); });
-document.getElementById('again').addEventListener('click', () => startRun());
+let selectedLevel = null;
+document.getElementById('play').addEventListener('click', () => { sfx.unlock(); startRun(false, selectedLevel); });
+document.getElementById('free').addEventListener('click', () => { sfx.unlock(); startRun(false, null); });
+document.getElementById('again').addEventListener('click', () => startRun(false, null));
+document.getElementById('resagain').addEventListener('click', () => startRun(false, G.race));
+document.getElementById('resmenu').addEventListener('click', () => { ui.results.classList.add('hidden'); for (const r of rivals) r.dispose(scene); rivals = []; G.race = null; G.mode = 'menu'; buildLevels(); ui.menu.classList.remove('hidden'); });
+document.getElementById('overmenu').addEventListener('click', () => { ui.over.classList.add('hidden'); G.mode = 'menu'; ui.menu.classList.remove('hidden'); });
+document.getElementById('resnext').addEventListener('click', () => {
+  const next = LEVELS[LEVELS.indexOf(G.race) + 1];
+  if (!next) return;
+  if (next.track !== THEME.id) { store.set('level', next.id); try { localStorage.setItem('hoverline.track', next.track); } catch { } location.hash = next.id; location.reload(); return; }
+  selectedLevel = next; startRun(false, next);
+});
+function buildLevels() {
+  const unlocked = store.get('unlocked', 1);
+  const wantId = (location.hash || '').slice(1);
+  if (!selectedLevel) selectedLevel = LEVELS.find(l => l.id === wantId) || LEVELS.find(l => l.id === store.get('level', '') && l.track === THEME.id) || LEVELS.filter((l, i) => l.track === THEME.id && i < unlocked).pop() || LEVELS.find(l => l.track === THEME.id);
+  ui.levels.innerHTML = '';
+  for (const t of TRACKS) {
+    const col = document.createElement('div'); col.className = 'lcol';
+    col.style.setProperty('--a', t.skyHorizon); col.style.setProperty('--b', t.skyTop);
+    col.innerHTML = `<div class="lhead">${t.name}</div>`;
+    for (const l of LEVELS.filter(l => l.track === t.id)) {
+      const i = LEVELS.indexOf(l), locked = i >= unlocked, best = store.get('place.' + l.id, 0);
+      const b = document.createElement('button');
+      b.className = 'lvl' + (l === selectedLevel ? ' on' : '') + (locked ? ' locked' : '');
+      b.disabled = locked;
+      b.innerHTML = `<span class="ln">${i + 1}</span><b>${l.name}</b><span class="lm">${locked ? 'Locked · top 3 in race ' + i : (l.length / 1000).toFixed(1) + ' km' + (best ? ' · best ' + ordinal(best) : '')}</span>`;
+      b.addEventListener('click', () => {
+        if (l.track !== THEME.id) { store.set('level', l.id); try { localStorage.setItem('hoverline.track', l.track); } catch { } location.hash = l.id; location.reload(); return; }
+        selectedLevel = l; store.set('level', l.id); buildLevels();
+      });
+      col.appendChild(b);
+    }
+    ui.levels.appendChild(col);
+  }
+  document.getElementById('play').textContent = selectedLevel ? `RACE · ${selectedLevel.name.toUpperCase()}` : 'RACE';
+}
 ui.revive.addEventListener('click', () => {
   if (!SDK.cg) return;
   SDK.cg.ad.requestAd('rewarded', {
@@ -655,6 +802,8 @@ async function boot() {
   try { if (window.CrazyGames?.SDK) { await window.CrazyGames.SDK.init(); SDK.cg = window.CrazyGames.SDK; SDK.cg.game.loadingStart(); } } catch { SDK.cg = null; }
   resize();
   const gltf = await new GLTFLoader().loadAsync('assets/rider.glb').catch(() => null);
+  gltfRider = gltf;
+  features = new Features(scene);
   sky = makeSky(scene, renderer);
   scenery = makeScenery(scene);
   scene.environmentIntensity = 0.9;
@@ -674,23 +823,11 @@ async function boot() {
   renderer.compile(scene, camera);
   G.mode = 'menu';
   ui.best.textContent = G.best.toLocaleString();
-  const tl = document.getElementById('tracks');
-  for (const t of TRACKS) {
-    const b = document.createElement('button');
-    b.className = 'trk' + (t.id === THEME.id ? ' on' : '');
-    b.innerHTML = `<b>${t.name}</b><span>${t.blurb}</span>`;
-    b.style.setProperty('--a', t.skyHorizon); b.style.setProperty('--b', t.skyTop);
-    b.addEventListener('click', () => {
-      if (t.id === THEME.id) return;
-      try { localStorage.setItem('hoverline.track', t.id); } catch { }
-      location.hash = t.id; location.reload();
-    });
-    tl.appendChild(b);
-  }
+  buildLevels();
   ui.loading.classList.add('hidden'); ui.menu.classList.remove('hidden');
   try { SDK.cg?.game.loadingStop(); } catch { }
-  if (qs.has('autoplay')) startRun();
+  if (qs.has('autoplay')) startRun(false, qs.has('race') ? selectedLevel : null);
   requestAnimationFrame(frame);
-  window.__G = G; window.__input = input; window.__step = (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) update(dt); }; window.__dbg = () => ({ cam: camera.position.toArray().map(v=>v|0), p: board.root.position.toArray().map(v=>v|0), ch: chunks.chunks.map(c=>c.index), fov: camera.fov|0 });
+  window.__G = G; window.__input = input; window.__riv = () => rivals.map(r => [r.name, r.s | 0, r.v | 0, +r.u.toFixed(1), +r.crashT.toFixed(1), +r.skill.toFixed(2)]); window.__step = (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) update(dt); }; window.__dbg = () => ({ cam: camera.position.toArray().map(v=>v|0), p: board.root.position.toArray().map(v=>v|0), ch: chunks.chunks.map(c=>c.index), fov: camera.fov|0 });
 }
 boot();

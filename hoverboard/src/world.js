@@ -45,16 +45,50 @@ export function roadY(s) {
 export function roadDX(s) { return (roadX(s + 0.5) - roadX(s - 0.5)); }
 export function roadDY(s) { return (roadY(s + 0.5) - roadY(s - 0.5)); }
 
+// ---------- set pieces ----------
+// The course is cut into 420 m segments; each gets one deterministic set piece.
+export const SEG = 420;
+const hash = k => { const x = Math.sin(k * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+export function segmentFeature(k) {
+  if (k < 1) return null;
+  // a designed rhythm (air, cover, exposure) rotated per track so each course reads differently
+  const PATTERN = ['jump', 'tunnel', 'bridge', 'jump', 'bridge', 'none', 'tunnel', 'jump'];
+  const off = { sunset: 0, alpine: 3, canyon: 5 }[THEME.id] || 0;
+  const type = PATTERN[(k - 1 + off) % PATTERN.length], b = k * SEG + (hash(k) - 0.5) * 60;
+  if (type === 'tunnel') return { type, s0: b + 90, s1: b + 250 + hash(k + 7) * 60 };
+  if (type === 'bridge') return { type, s0: b + 110, s1: b + 230 + hash(k + 3) * 40 };
+  if (type === 'jump') return { type, s0: b + 190, s1: b + 206, lip: b + 204 };
+  return null;
+}
+function zoneWeight(type, s, fade) {
+  const f = segmentFeature(Math.floor(s / SEG));
+  if (!f || f.type !== type) return 0;
+  return smooth(f.s0 - fade, f.s0 + 4, s) * (1 - smooth(f.s1 - 4, f.s1 + fade, s));
+}
+export const tunnelW = s => zoneWeight('tunnel', s, 30);
+export const bridgeW = s => zoneWeight('bridge', s, 35);
+// kicker ramp height above the road (quadratic transition, 2.4 m lip)
+export const RAMP_LEN = 14, RAMP_H = 2.4;
+export function rampH(s) {
+  const f = segmentFeature(Math.floor(s / SEG));
+  if (!f || f.type !== 'jump') return 0;
+  const t = (s - (f.lip - RAMP_LEN)) / RAMP_LEN;
+  return t > 0 && t <= 1 ? RAMP_H * t * t : 0;
+}
+
 // ---------- terrain ----------
 // How open each side is: 0 = mountain wall, 1 = cliff dropping to the cloud sea.
 export function openness(side, s) {
   const v = Math.sin(s / 620 + side * 1.9) * 1.6 + Math.sin(s / 233 + side) * 0.35;
-  return smooth(-0.2, 0.6, v);
+  let o = smooth(-0.2, 0.6, v);
+  o += (0 - o) * tunnelW(s);
+  o += (1 - o) * bridgeW(s);
+  return o;
 }
 export function terrainRel(u, s) {
   const a = Math.abs(u);
   const side = u > 0 ? 1 : -1;
-  if (a < ROAD_HALF + 1.5) return -0.35;
+  if (a < ROAD_HALF + 1.5) { const bw0 = bridgeW(s); return bw0 > 0 ? -0.35 - bw0 * 240 : -0.35; }
   const shoulder = smooth(ROAD_HALF + 1, ROAD_HALF + 5, a);
   const detail = fbm(u * 0.045, s * 0.045, 3) * 3.5 * shoulder;
   // mountain wall
@@ -68,7 +102,18 @@ export function terrainRel(u, s) {
   const crags = smooth(24, 80, a) * ridged(s * 0.01 + side * 3, a * 0.03, 3) * 26;
   const cliff = lip - fall + crags;
   const o = openness(side, s);
-  return -0.35 + shoulder * (0.8 + detail) + wall * (1 - o) + cliff * o;
+  let rel = -0.35 + shoulder * (0.8 + detail) + wall * (1 - o) + cliff * o;
+  // tunnel: the mountain closes in right at the road edge
+  const tw = tunnelW(s);
+  if (tw > 0) rel += tw * smooth(ROAD_HALF + 1.5, 16, a) * (26 + 20 * fbm(s * 0.03, a * 0.05, 2));
+  // bridge: the ground falls away straight from the deck into a chasm
+  const bw = bridgeW(s);
+  if (bw > 0) {
+    // a wide gorge: void under the deck, rock walls rising from ~70 m out
+    const chasm = -240 + smooth(55, 150, a) * (240 + wall * 0.6) + smooth(50, 110, a) * ridged(s * 0.01 + side * 3, a * 0.03, 3) * 50;
+    rel += (chasm - rel) * bw;
+  }
+  return rel;
 }
 export function terrainH(u, s) { return roadY(s) + terrainRel(u, s); }
 

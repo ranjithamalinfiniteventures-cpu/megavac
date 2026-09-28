@@ -9,7 +9,7 @@ const SUNSET = {
   hemiSky: '#a9b6ff', hemiGround: '#4a3044', hemi: 0.75, sunIntensity: 3.1, exposure: 0.92,
   meadow: '#5f7f34', meadowDry: '#a1924a', dirt: '#7b5a44',
   rock: '#77697a', rockDark: '#4b4257', snow: '#f0e9f0', snowShade: '#b9b0d6', snowLine: 140,
-  pine: '#1f4a3c', pineLight: '#3f7a4a', trunk: '#4a3328', trees: 1, treeHeight: 1,
+  pine: '#1f4a3c', pineLight: '#3f7a4a', trunk: '#4a3328', trees: 1, bridge: '#b8452f', aspen: '#f0b440', aspenDark: '#c2702a',
   peakRock: '#6b5c78', peakRockDark: '#3e3550', peakSnow: '#fbeee8', peakSnowShade: '#b8a9d4', peakSnowLine: 0.4,
   cloud: '#f3c3a6', skyCloud: '#ffd9c2',
   road: '#2c2e3b', roadLine: '#f4efe6', roadDash: '#ffc247',
@@ -48,7 +48,7 @@ const CANYON = {
   hemiSky: '#bcd4f0', hemiGround: '#6a3a26', hemi: 0.7, sunIntensity: 3.0, exposure: 0.82,
   meadow: '#b9854f', meadowDry: '#cf9a5c', dirt: '#9c6a45',
   rock: '#b0573a', rockDark: '#7a3526', snow: '#e8c99a', snowShade: '#c9a47a', snowLine: 99999,
-  pine: '#4f5a2c', pineLight: '#77803f', trunk: '#5a3b26', trees: 0.3, treeHeight: 0.45,
+  pine: '#3f4a26', pineLight: '#6f7a3a', trunk: '#5a3b26', trees: 0.35, bridge: '#3d6b8a',
   peakRock: '#b8603f', peakRockDark: '#7c3a28', peakSnow: '#e6b98a', peakSnowShade: '#c28a60', peakSnowLine: 0.75,
   cloud: '#efd2aa', skyCloud: '#ffffff',
   road: '#34302e', roadLine: '#f4efe6', roadDash: '#ffd23f',
@@ -60,5 +60,5 @@ const CANYON = {
 
 export const TRACKS = [SUNSET, ALPINE, CANYON];
 let pick = 'sunset';
-try { pick = (location.hash || '').replace('#', '') || localStorage.getItem('hoverline.track') || 'sunset'; } catch { }
+try { pick = (location.hash || '').replace('#', '').split('-')[0] || localStorage.getItem('hoverline.track') || 'sunset'; } catch { }
 export const THEME = TRACKS.find(t => t.id === pick) || SUNSET;

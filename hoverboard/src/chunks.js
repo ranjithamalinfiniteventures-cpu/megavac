@@ -55,23 +55,97 @@ function paint(g, c) {
   geo.setAttribute('color', new THREE.BufferAttribute(a, 3));
   return geo;
 }
-function pineGeometry() {
-  const parts = [paint(new THREE.CylinderGeometry(0.16, 0.26, 2.4, 5).translate(0, 1.2, 0), col(THEME.trunk))];
-  const dark = col(THEME.pine), light = col(THEME.pineLight), c = new THREE.Color();
-  const tiers = 4;
+// Pine / spruce: stacked star-shaped branch skirts with drooping tips, darker toward
+// the trunk and lighter on sunlit tips; optional snow load on upward faces.
+function pineGeometry(opt = {}) {
+  const { tiers = 7, height = 9, width = 2.6, snow = false, seed = 1 } = opt;
+  const parts = [paint(new THREE.CylinderGeometry(0.14, 0.3, height * 0.35, 6).translate(0, height * 0.17, 0), col(THEME.trunk))];
+  const dark = col(THEME.pine), light = col(THEME.pineLight), snowC = col('#f2f6fb'), c = new THREE.Color();
+  const rnd = (k) => { const x = Math.sin(k * 91.7 + seed * 13.1) * 43758.5; return x - Math.floor(x); };
   for (let i = 0; i < tiers; i++) {
     const t = i / (tiers - 1);
-    const cone = new THREE.ConeGeometry(2.4 * (1 - t * 0.6), 3.2 - t * 0.9, 7, 1).translate(0, 2.6 + t * 3.1, 0).toNonIndexed();
-    const pos = cone.attributes.position, a = new Float32Array(pos.count * 3);
-    for (let v = 0; v < pos.count; v += 3) {
-      // per-facet tone: upper tiers lighter, a little random variation per facet
-      c.copy(dark).lerp(light, 0.1 + t * 0.4 + (Math.sin(v * 3.7 + i * 1.3) * 0.5 + 0.5) * 0.25);
-      for (let k = 0; k < 3; k++) { a[(v + k) * 3] = c.r; a[(v + k) * 3 + 1] = c.g; a[(v + k) * 3 + 2] = c.b; }
+    const r = width * (1 - t * 0.85) * (0.9 + rnd(i) * 0.2);
+    const y0 = height * (0.2 + t * 0.66), apex = y0 + height * 0.2 * (1 - t * 0.4);
+    const N = 9 + (i % 2), pos = [], cols = [];
+    const tipY = [], tip = [], notch = [];
+    for (let k = 0; k < N; k++) {
+      const a = (k + rnd(i * 10 + k) * 0.4) / N * Math.PI * 2 + i * 0.7;
+      const rr = r * (0.85 + rnd(i * 20 + k) * 0.3);
+      tip.push([Math.cos(a) * rr, y0 - rr * 0.35, Math.sin(a) * rr]);       // droop
+      const a2 = a + Math.PI / N;
+      notch.push([Math.cos(a2) * rr * 0.55, y0 + rr * 0.05, Math.sin(a2) * rr * 0.55]);
     }
-    cone.setAttribute('color', new THREE.BufferAttribute(a, 3));
-    parts.push(cone);
+    const tri = (A, B, C, tone) => {
+      pos.push(...A, ...B, ...C);
+      // snow sits on faces that point up
+      const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2], vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+      const ny = Math.abs(uz * vx - ux * vz) / (Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx) || 1);
+      c.copy(dark).lerp(light, tone);
+      if (snow && ny > 0.55 && rnd(pos.length) > 0.25) c.lerp(snowC, 0.85);
+      for (let q = 0; q < 3; q++) cols.push(c.r, c.g, c.b);
+    };
+    const A = [0, apex, 0], U = [0, y0 - r * 0.25, 0];
+    for (let k = 0; k < N; k++) {
+      const T = tip[k], Nn = notch[k], T2 = tip[(k + 1) % N];
+      const tone = 0.15 + t * 0.35 + rnd(i * 30 + k) * 0.25;
+      tri(A, Nn, T, tone + 0.15); tri(A, T2, Nn, tone + 0.05);
+      tri(U, T, Nn, tone * 0.35); tri(U, Nn, T2, tone * 0.3);           // dark underside
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2));
+    g.computeVertexNormals();
+    parts.push(g);
   }
   return mergeGeometries(parts);
+}
+// Aspen / birch: slender pale trunk with dark scars, crown of faceted leaf clumps.
+function aspenGeometry() {
+  const parts = [];
+  const trunk = new THREE.CylinderGeometry(0.1, 0.2, 7, 6, 6).translate(0, 3.5, 0).toNonIndexed();
+  const tp = trunk.attributes.position, tc = new Float32Array(tp.count * 3), bark = col('#e6e0d6'), scar = col('#3a3330'), c = new THREE.Color();
+  for (let v = 0; v < tp.count; v += 3) {
+    c.copy(Math.sin(tp.getY(v) * 7.3 + v) > 0.75 ? scar : bark);
+    for (let k = 0; k < 3; k++) { tc[(v + k) * 3] = c.r; tc[(v + k) * 3 + 1] = c.g; tc[(v + k) * 3 + 2] = c.b; }
+  }
+  trunk.setAttribute('color', new THREE.BufferAttribute(tc, 3)); parts.push(trunk);
+  const leafA = col(THEME.aspen || '#e0a83a'), leafB = col(THEME.aspenDark || '#b8752a');
+  const clumps = [[0, 7.4, 0, 1.3], [0.8, 6.6, 0.4, 1.0], [-0.7, 6.4, -0.4, 1.05], [0.3, 5.6, -0.8, 0.9], [-0.4, 8.3, 0.3, 0.9], [0.6, 5.7, 0.8, 0.85], [-0.8, 5.5, 0.5, 0.8], [0.1, 9.0, -0.2, 0.7]];
+  clumps.forEach(([x, y, z, r], i) => {
+    const b = new THREE.IcosahedronGeometry(r, 1).scale(1, 1.2, 1).translate(x, y, z).toNonIndexed();
+    const bp = b.attributes.position, bc = new Float32Array(bp.count * 3);
+    for (let v = 0; v < bp.count; v += 3) {
+      const up = (bp.getY(v) + bp.getY(v + 1) + bp.getY(v + 2)) / 3 - y;
+      c.copy(leafB).lerp(leafA, 0.45 + up / r * 0.5 + Math.sin(v * 1.7 + i) * 0.1);
+      for (let k = 0; k < 3; k++) { bc[(v + k) * 3] = c.r; bc[(v + k) * 3 + 1] = c.g; bc[(v + k) * 3 + 2] = c.b; }
+    }
+    b.setAttribute('color', new THREE.BufferAttribute(bc, 3)); parts.push(b);
+  });
+  return mergeGeometries(parts);
+}
+// Juniper: short twisted trunk under wide, flattened, dark clumps.
+function juniperGeometry() {
+  const parts = [];
+  const trunk = new THREE.CylinderGeometry(0.15, 0.35, 1.8, 5).translate(0, 0.9, 0); trunk.rotateZ(0.2);
+  parts.push(paint(trunk, col(THEME.trunk)));
+  const dark = col(THEME.pine), light = col(THEME.pineLight), c = new THREE.Color();
+  [[0, 2.2, 0, 1.6], [1.1, 1.8, 0.3, 1.1], [-1.0, 1.9, -0.4, 1.2], [0.2, 2.9, -0.2, 1.0], [-0.3, 1.6, 1.0, 0.9]].forEach(([x, y, z, r], i) => {
+    const b = new THREE.IcosahedronGeometry(r, 0).scale(1.2, 0.7, 1.2).translate(x, y, z).toNonIndexed();
+    const bp = b.attributes.position, bc = new Float32Array(bp.count * 3);
+    for (let v = 0; v < bp.count; v += 3) {
+      const up = (bp.getY(v) + bp.getY(v + 1) + bp.getY(v + 2)) / 3 - y;
+      c.copy(dark).lerp(light, 0.3 + up / r * 0.6 + Math.sin(v + i) * 0.1);
+      for (let k = 0; k < 3; k++) { bc[(v + k) * 3] = c.r; bc[(v + k) * 3 + 1] = c.g; bc[(v + k) * 3 + 2] = c.b; }
+    }
+    b.setAttribute('color', new THREE.BufferAttribute(bc, 3)); parts.push(b);
+  });
+  return mergeGeometries(parts);
+}
+function treeKinds() {
+  if (THEME.id === 'canyon') return [juniperGeometry(), pineGeometry({ tiers: 5, height: 6, width: 2.2, seed: 3 }), 0.2];
+  if (THEME.id === 'alpine') return [pineGeometry({ snow: true, seed: 1 }), pineGeometry({ snow: true, tiers: 9, height: 12, width: 2.4, seed: 5 }), 0.35];
+  return [pineGeometry({ seed: 1 }), aspenGeometry(), 0.3];
 }
 function rockGeometry(seed) {
   const g = new THREE.IcosahedronGeometry(1, 1);
@@ -125,8 +199,8 @@ export class ChunkManager {
     this.roadMat = new THREE.MeshStandardMaterial({
       map: tex.road, roughnessMap: tex.rough, roughness: 1, metalness: 0.1, envMapIntensity: 0.9,
     });
-    this.treeGeo = pineGeometry();
-    this.treeMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 });
+    [this.treeGeo, this.treeGeoB, this.treeMix] = treeKinds();
+    this.treeMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9, side: THREE.DoubleSide });
     this.rockGeo = rockGeometry(3.1);
     this.rockMat = new THREE.MeshStandardMaterial({ color: THEME.rock, flatShading: true, roughness: 0.9 });
     this.poleGeo = poleGeometry();
@@ -168,6 +242,8 @@ export class ChunkManager {
     const inst = (g, m, n, shadow = true) => { const x = new THREE.InstancedMesh(g, m, n); x.castShadow = shadow; x.receiveShadow = true; x.frustumCulled = false; return x; };
     const trees = inst(this.treeGeo, this.treeMat, MAX_TREES);
     trees.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_TREES * 3), 3);
+    const treesB = inst(this.treeGeoB, this.treeMat, MAX_TREES >> 1);
+    treesB.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array((MAX_TREES >> 1) * 3), 3);
     const rocks = inst(this.rockGeo, this.rockMat, MAX_ROCKS);
     const poles = inst(this.poleGeo, this.propMat, MAX_POLES);
     const bunting = new THREE.Mesh(this.buntingGeo, this.propMat); bunting.castShadow = true;
@@ -185,10 +261,10 @@ export class ChunkManager {
     const rail = new THREE.Mesh(railGeo, this.railMat); rail.castShadow = true; rail.frustumCulled = false;
     const railPosts = inst(this.railPostGeo, this.railMat, MAX_POSTS);
     const group = new THREE.Group();
-    group.add(terrain, road, trees, rocks, poles, bunting, tufts, rail, railPosts);
+    group.add(terrain, road, trees, treesB, rocks, poles, bunting, tufts, rail, railPosts);
     group.visible = false;
     this.scene.add(group);
-    return { group, terrain, road, trees, rocks, poles, bunting, tufts, rail, railPosts, index: -1, s0: 0 };
+    return { group, terrain, road, trees, treesB, rocks, poles, bunting, tufts, rail, railPosts, index: -1, s0: 0 };
   }
 
   *build(ch, index) {
@@ -233,7 +309,7 @@ export class ChunkManager {
     // scenery
     const r = rng(index * 7919 + 13), m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3();
     const up = new THREE.Vector3(0, 1, 0);
-    let t = 0;
+    let t = 0, tb = 0;
     for (let tries = 0; tries < 1600 * THEME.trees && t < MAX_TREES; tries++) {
       const s = s0 + r() * CHUNK_LEN;
       const side = r() < 0.5 ? -1 : 1;
@@ -245,13 +321,15 @@ export class ChunkManager {
       if (slope > 0.75 || rel > 130 || rel < -120 || dens < -0.05) continue;
       const k = 0.8 + r() * 0.9;
       q.setFromAxisAngle(up, r() * 6.28);
-      m.compose(p.set(roadX(s) + u, roadY(s) + rel - 0.3, -s), q, sc.set(k * (THEME.treeHeight < 1 ? 1.3 : 1), k * (0.85 + r() * 0.5) * THEME.treeHeight, k * (THEME.treeHeight < 1 ? 1.3 : 1)));
-      ch.trees.setMatrixAt(t, m);
+      m.compose(p.set(roadX(s) + u, roadY(s) + rel - 0.3, -s), q, sc.set(k, k * (0.85 + r() * 0.4), k));
       const tone = 0.85 + r() * 0.3;
-      ch.trees.setColorAt(t, c.setRGB(tone, tone * (0.95 + r() * 0.1), tone));
-      if (++t % 90 === 0) yield;
+      c.setRGB(tone, tone * (0.95 + r() * 0.1), tone);
+      // the secondary species grows in its own patches
+      if (fbm(u * 0.02 + 50, s * 0.02, 2) > 0.5 - this.treeMix && tb < (MAX_TREES >> 1)) { ch.treesB.setMatrixAt(tb, m); ch.treesB.setColorAt(tb++, c); }
+      else { ch.trees.setMatrixAt(t, m); ch.trees.setColorAt(t, c); if (++t % 90 === 0) yield; }
     }
     ch.trees.count = t; ch.trees.instanceMatrix.needsUpdate = true; ch.trees.instanceColor.needsUpdate = true;
+    ch.treesB.count = tb; ch.treesB.instanceMatrix.needsUpdate = true; ch.treesB.instanceColor.needsUpdate = true;
 
     let rk = 0;
     for (let tries = 0; tries < 240 && rk < MAX_ROCKS; tries++) {

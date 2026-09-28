@@ -8,6 +8,19 @@ npm install && npm run build
 python3 -m http.server 8080   # then open http://localhost:8080/
 ```
 
+## Modes
+- **Race**: 9 races, 3 per track, against 5 AI rivals (Kai, Mira, Juno, Rafe, Sora). Each race has a
+  countdown, a live position and time display, drafting, a finish line and a results table. Finish
+  top 3 to unlock the next race. Rivals ride the same physics, picking gaps in barriers, steering
+  around rocks and taking gates. Skill sets their pace, boost timing and how often they misjudge a line.
+- **Free Ride**: the endless score run.
+
+## Course set pieces
+Every 420 m segment gets one set piece, in a rhythm that is rotated per track:
+- **Tunnels** bored through the mountain, with concrete portals and warm lamps.
+- **Arch bridges** over a gorge: steel twin arches, hangers, piers and guard rails.
+- **Kicker ramps**: jump them to clear hazards and score air-time bonuses.
+
 ## Controls
 | | Desktop | Mobile |
 |---|---|---|
