@@ -1,0 +1,9 @@
+{
+  "name": "hoverline",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=esm --outfile=dist/game.js"
+  },
+  "dependencies": { "three": "^0.186.1" },
+  "devDependencies": { "esbuild": "^0.25.0" }
+}

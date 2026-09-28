@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Hoverline</title>
+<link rel="preload" href="assets/spruit_sunrise_1k.hdr" as="fetch" crossorigin>
+<style>
+  :root { --cyan: #2ef2ff; --orange: #ff6a2a; --ink: #f4f6fa; }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0d12; color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; touch-action: none; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hidden { display: none !important; }
+  .layer { position: fixed; inset: 0; pointer-events: none; }
+
+  /* HUD */
+  #hud .tl { position: absolute; top: 16px; left: 18px; }
+  #hud .tr { position: absolute; top: 14px; right: 18px; text-align: right; }
+  #score { font-size: 34px; font-weight: 800; letter-spacing: 0.5px; text-shadow: 0 2px 12px rgba(0,0,0,.5); font-variant-numeric: tabular-nums; }
+  #mult { display: inline-block; margin-left: 8px; font-size: 20px; font-weight: 800; color: var(--cyan); vertical-align: 4px; }
+  #mult.hot { color: var(--orange); animation: pulse .5s infinite alternate; }
+  #dist, .shardrow { font-size: 14px; opacity: .85; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .shardrow b { color: #ffc23a; }
+  .speedo { position: absolute; bottom: 22px; right: 26px; text-align: right; text-shadow: 0 2px 14px rgba(0,0,0,.55); }
+  #speed { font-size: 64px; font-weight: 900; font-style: italic; line-height: 1; font-variant-numeric: tabular-nums; }
+  .unit { font-size: 14px; font-weight: 700; opacity: .8; letter-spacing: 2px; }
+  #flow { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: min(420px, 60vw); }
+  #flow .lbl { font-size: 11px; letter-spacing: 3px; font-weight: 700; opacity: .8; margin-bottom: 6px; text-align: center; }
+  #flow .bar { height: 10px; border-radius: 6px; background: rgba(255,255,255,.14); overflow: hidden; box-shadow: 0 0 0 1px rgba(255,255,255,.2) inset; }
+  #flowfill { height: 100%; width: 0; background: linear-gradient(90deg, #1aa9ff, var(--cyan)); box-shadow: 0 0 16px var(--cyan); }
+  #flow.full #flowfill { background: linear-gradient(90deg, var(--cyan), #fff); }
+  #flow.full .lbl::after { content: " · RELEASE SLIDE TO BOOST"; color: var(--cyan); }
+  #pops { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); text-align: center; }
+  .pop { font-size: 26px; font-weight: 900; font-style: italic; letter-spacing: 1px; animation: pop 1.1s ease-out forwards; text-shadow: 0 3px 16px rgba(0,0,0,.6); }
+  .pop.big { font-size: 40px; color: var(--cyan); }
+  .pop.near { color: #ffd23a; }
+  @keyframes pop { 0% { transform: scale(.5); opacity: 0 } 15% { transform: scale(1.12); opacity: 1 } 70% { opacity: 1 } 100% { transform: translateY(-40px); opacity: 0 } }
+  @keyframes pulse { to { transform: scale(1.15) } }
+
+  /* menus */
+  .panel { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;
+    background: radial-gradient(ellipse at center, rgba(5,8,14,.15), rgba(5,8,14,.65)); text-align: center; padding: 16px; }
+  .logo { font-size: clamp(48px, 11vw, 118px); font-weight: 900; font-style: italic; letter-spacing: -2px; line-height: .9;
+    background: linear-gradient(180deg, #fff 40%, #9befff); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 6px 30px rgba(46,242,255,.35)); }
+  .tag { margin-top: 10px; font-size: clamp(13px, 2.2vw, 18px); letter-spacing: 5px; font-weight: 600; opacity: .9; }
+  .btn { margin-top: 34px; pointer-events: auto; cursor: pointer; border: 0; border-radius: 999px; padding: 16px 54px; font-size: 22px; font-weight: 900;
+    font-style: italic; letter-spacing: 1px; color: #041018; background: linear-gradient(180deg, #7ff8ff, var(--cyan)); box-shadow: 0 8px 30px rgba(46,242,255,.45); transition: transform .12s; }
+  .btn:hover { transform: scale(1.05); }
+  .btn.alt { background: linear-gradient(180deg, #ffd27a, #ff9a2a); box-shadow: 0 8px 30px rgba(255,150,40,.4); margin-top: 14px; font-size: 18px; padding: 12px 36px; }
+  .help { margin-top: 26px; display: grid; grid-template-columns: auto auto; gap: 6px 16px; font-size: 14px; opacity: .85; text-align: left; }
+  .help kbd { display: inline-block; min-width: 22px; padding: 2px 7px; border-radius: 5px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); font: 700 12px system-ui; text-align: center; }
+  .bestline { margin-top: 18px; font-size: 14px; letter-spacing: 2px; opacity: .8; }
+  .big { font-size: clamp(40px, 9vw, 80px); font-weight: 900; font-style: italic; line-height: 1; }
+  .stats { margin-top: 12px; display: flex; gap: 28px; justify-content: center; font-size: 14px; letter-spacing: 2px; opacity: .9; }
+  .stats b { display: block; font-size: 24px; letter-spacing: 0; }
+  #newbest { margin-top: 8px; color: var(--cyan); font-weight: 900; letter-spacing: 4px; animation: pulse .5s infinite alternate; }
+  #loading { font-size: 14px; letter-spacing: 6px; opacity: .8; }
+  @media (max-width: 640px) { .help .desk { display: none } #speed { font-size: 44px } #score { font-size: 26px } }
+  @media (min-width: 641px) { .help .mob { display: none } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" class="layer hidden">
+  <div class="tl"><div><span id="score">0</span><span id="mult">x1</span></div><div id="dist">0 m</div><div class="shardrow">◆ <b id="shards">0</b></div></div>
+  <div id="pops"></div>
+  <div id="flow"><div class="lbl">FLOW</div><div class="bar"><div id="flowfill"></div></div></div>
+  <div class="speedo"><div id="speed">0</div><div class="unit">KM/H</div></div>
+</div>
+
+<div id="loading" class="panel">LOADING</div>
+
+<div id="menu" class="panel hidden">
+  <div class="logo">HOVERLINE</div>
+  <div class="tag">CARVE · SLIDE · BOOST</div>
+  <button id="play" class="btn">RIDE</button>
+  <div class="help">
+    <span class="desk"><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd> / mouse</span><span class="desk">Carve (fills Flow)</span>
+    <span class="desk"><kbd>Space</kbd> / <kbd>Shift</kbd> / click</span><span class="desk">Hold to slide, release to boost</span>
+    <span class="mob">Hold left / right side</span><span class="mob">Carve</span>
+    <span class="mob">Hold both sides</span><span class="mob">Slide, let go to boost</span>
+    <span>Fly through gates</span><span>Dead centre = Perfect Line</span>
+  </div>
+  <div class="bestline">BEST <span id="best">0</span></div>
+</div>
+
+<div id="over" class="panel hidden">
+  <div class="tag">WIPEOUT</div>
+  <div class="big" id="final">0</div>
+  <div id="newbest" class="hidden">NEW BEST</div>
+  <div class="stats"><div>BEST<b id="finalbest">0</b></div><div>SHARDS<b id="finalshards">0</b></div></div>
+  <button id="again" class="btn">RIDE AGAIN</button>
+  <button id="revive" class="btn alt hidden">▶ REVIVE</button>
+</div>
+
+<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js" onerror="this.remove()"></script>
+<script type="module" src="dist/game.js"></script>
+</body>
+</html>
