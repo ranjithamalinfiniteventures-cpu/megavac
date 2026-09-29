@@ -669,11 +669,12 @@ function update(dt, rdt = dt) {
   const speedN = Math.min(1.4, G.v / 70);
   // wipeout: the camera rises and pulls back so the crash reads over whatever you hit
   G.crashCam = (G.crashCam || 0) + ((G.mode === 'crash' ? 1 : 0) - (G.crashCam || 0)) * Math.min(1, dt * 3);
-  const back = 3.4 + speedN * 1.0 + G.crashCam * 3.5, height = 1.55 + speedN * 0.15 + G.crashCam * 3.2;
-  const sAhead = s + 10;
+  // chase camera: high enough to see the road ahead and the rider's whole body (raised from 1.55 on request)
+  const back = 4.3 + speedN * 1.1 + G.crashCam * 3.5, height = 2.75 + speedN * 0.3 + G.crashCam * 3.2;
+  const sAhead = s + 14;
   tmp.set(p.x, p.y, p.z).addScaledVector(fwd, -back); tmp.y = Math.max(tmp.y, roadY(s - back) + height) + 0.0;
   tmp.y = p.y - G.y * 0.4 + height;
-  tmp2.set(roadX(sAhead) + G.u * 0.75, roadY(sAhead) + 1.25, -sAhead);
+  tmp2.set(roadX(sAhead) + G.u * 0.75, roadY(sAhead) + 0.9, -sAhead);
   const k = Math.min(1, dt * 7);
   if (G.camPos.lengthSq() === 0) { G.camPos.copy(tmp); G.camLook.copy(tmp2); }
   G.camPos.lerp(tmp, k); G.camLook.lerp(tmp2, k);

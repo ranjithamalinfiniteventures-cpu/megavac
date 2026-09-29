@@ -82,6 +82,18 @@ Artifact: `python3 tools/build_artifact.py` stages `.artifact/` (page + files, .
 - Gauntlet = 5 rounds of capture -> harsh scorecard -> fix -> commit (see commits "gauntlet round N").
 - Still weak: triangles ~1.6M on forest tracks, pops text style.
 
+## Sep 29 latest: tree loop, blossom tree, camera
+- Trees live in `src/trees.js` (pines `pinePremium`, sunset kind B = `blossomTree`, coast/canyon juniper) and `src/foliage.js`
+  (procedural fuzzy blossom-card texture + `blossomMaterial`, used for sunset kind B; trunk/branches use uv `OPAQUE_UV`).
+  Owner's reference: a redbud blossom tree (slender trunk, visible branch fan, airy pink umbrella of hundreds of soft clusters).
+  Geometry-only puffs never looked soft (3 rounds stuck at ~1.8/3); textured alpha cards fixed it. Critic best = 2.11/3, every
+  category >= 2, budgets ok ("owner would say: yes, a redbud tree"; crown a bit flat on top, pines still faceted).
+- Loop tooling: `tools/tree_lab.cjs <outDir> <track>` renders hero/back/grove/far/game shots + stats (needs server on :8123).
+  Maker/critic = two subagents (maker edits trees.js, critic re-renders and scores 9 categories). Lab hero shots are backlit.
+- Camera raised on request (main.js: back 4.3, height 2.75, look 14 m ahead at +0.9 m): sunset frame tris now ~1.86M looking
+  down the hill (was ~1.6M); thin distant forests further if frame time is a problem.
+- Still weak: pines faceted/regular, alpine trees a bit dull grey in play, crown top slightly flat.
+
 ## Asset sources / credentials
 - No Tripo key (skip AI 3D generation). Use CC0 libraries: Poly Haven (HDRIs, PBR textures),
   Quaternius, Kenney, ambientCG; plus designed procedural models.
