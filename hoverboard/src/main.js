@@ -455,7 +455,7 @@ function update(dt, rdt = dt) {
     G.countT -= dt;
     const now = Math.ceil(G.countT);
     if (now !== before && now > 0) { ui.count.textContent = now; ui.count.className = 'show'; sfx.ring(false); }
-    if (G.countT <= 0) { G.mode = 'play'; G.v = 26; ui.count.textContent = 'GO!'; ui.count.className = 'show go'; sfx.ring(true); setTimeout(() => { ui.count.className = ''; }, 700); for (const r of rivals) r.v = 22 + Math.random() * 4; }
+    if (G.countT <= 0) { G.mode = 'play'; G.v = 26; ui.count.textContent = 'GO!'; ui.count.className = 'show go'; sfx.ring(true); setTimeout(() => { ui.count.className = 'go'; }, 700); for (const r of rivals) r.v = 22 + Math.random() * 4; }
   }
   if (G.race && (G.mode === 'play' || G.mode === 'finished' || G.mode === 'crash')) G.raceT += dt;
   G.invuln = Math.max(0, G.invuln - dt);
