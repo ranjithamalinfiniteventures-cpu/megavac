@@ -158,3 +158,17 @@ export function terrainColor(u, s, rel, slope, out) {
   out.lerp(tmpC, snow * (1 - smooth(0.55, 0.85, slope)));
   return out;
 }
+
+// Splat weights (grass, dirt, cliff rock, pale rock/snow) following the same rules as the colours.
+export function terrainSplat(u, s, rel, slope, out) {
+  const a = Math.abs(u);
+  let g = 1, d = 0, r = 0, w = 0;
+  const lerp = (k, i) => { g *= 1 - k; d *= 1 - k; r *= 1 - k; w *= 1 - k; if (i === 1) d += k; else if (i === 2) r += k; else w += k; };
+  lerp(1 - smooth(ROAD_HALF + 1, ROAD_HALF + 5, a), 1);
+  lerp(smooth(0.42, 0.62, slope), 2);
+  if (THEME.strata) lerp(smooth(0.25, 0.5, slope) * 0.95, 2);
+  const snowLine = THEME.snowLine + 40 * fbm(s * 0.003, u * 0.003, 2);
+  lerp(smooth(snowLine, snowLine + 25, rel) * (1 - smooth(0.55, 0.85, slope)), 3);
+  out[0] = g; out[1] = d; out[2] = r; out[3] = w;
+  return out;
+}

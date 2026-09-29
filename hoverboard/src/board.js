@@ -49,6 +49,17 @@ export function makeBoard() {
   const glowTex = radialTex();
   const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 3.0), new THREE.MeshBasicMaterial({ map: glowTex, color: 0x19e6ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
   glow.rotation.x = -Math.PI / 2; glow.position.y = -0.55; glow.visible = false; root.add(glow);
+  // contact shadow: a soft dark card on the road that tightens as the board gets closer
+  const contact = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 2.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({
+    map: contactTex(), color: 0x000000, transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  }));
+  contact.renderOrder = 1; root.add(contact);
+  const setContact = (h) => {
+    contact.position.y = -h + 0.03;
+    const k = Math.min(1, Math.max(0, h / 5));
+    contact.material.opacity = 0.62 * (1 - k) * (1 - k);
+    contact.scale.setScalar(1 + k * 0.8);
+  };
 
   // ---------- rider ----------
   const rider = new THREE.Group(); tilt.add(rider);
@@ -116,7 +127,7 @@ export function makeBoard() {
     if (drift > 0.1) arms[drift > 0 ? 0 : 1].sh.rotation.z = 0.3 + c * 0.3 + drift * 0.9;
   }
 
-  return { root, tilt, rider, pods, glow, pose, accent, ringMat };
+  return { root, tilt, rider, pods, glow, pose, accent, ringMat, contact, setContact };
 }
 
 export function radialTex(inner = 'rgba(255,255,255,1)') {
@@ -126,4 +137,16 @@ export function radialTex(inner = 'rgba(255,255,255,1)') {
   gr.addColorStop(0, inner); gr.addColorStop(0.35, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(c);
+}
+
+let _contactTex = null;
+function contactTex() {
+  if (_contactTex) return _contactTex;
+  const c = document.createElement('canvas'); c.width = 64; c.height = 128;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 31);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.scale(1, 2); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  _contactTex = new THREE.CanvasTexture(c);
+  return _contactTex;
 }

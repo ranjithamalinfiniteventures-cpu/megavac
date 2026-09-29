@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ROAD_HALF, roadX, roadY, SEG, segmentFeature, RAMP_LEN, RAMP_H } from './world.js';
 import { THEME } from './theme.js';
+import { PREMIUM, rockMaterial, patchLit } from './premium.js';
 
 const P = (u, s, h = 0, out = new THREE.Vector3()) => out.set(roadX(s) + u, roadY(s) + h, -s);
 const yaw = s => -Math.atan((roadX(s + 1) - roadX(s - 1)) / 2);
@@ -28,10 +29,27 @@ function chevronTex() {
   return t;
 }
 
+// Portal facade: a thick concrete wall with the tunnel's arch cut out, a cornice on top
+// and a darker recessed band framing the opening.
+function portalGeometry(R) {
+  const W = R + 5.5, top = R * 0.78 + 4.2, yb = -2, y0 = -0.4, parts = [];
+  const sh = new THREE.Shape();
+  sh.moveTo(-W, yb); sh.lineTo(-R, yb); sh.lineTo(-R, y0);
+  for (let i = 1; i <= 24; i++) { const t = Math.PI - i / 24 * Math.PI; sh.lineTo(Math.cos(t) * R, y0 + Math.sin(t) * R * 0.78); }
+  sh.lineTo(R, yb); sh.lineTo(W, yb); sh.lineTo(W * 0.92, top); sh.lineTo(-W * 0.92, top); sh.closePath();
+  const face = new THREE.ExtrudeGeometry(sh, { depth: 1.6, bevelEnabled: true, bevelThickness: 0.12, bevelSize: 0.12, bevelSegments: 2, curveSegments: 4 });
+  face.translate(0, 0, -0.8); parts.push(face);
+  const cornice = new THREE.BoxGeometry(W * 1.95, 0.55, 2.3); cornice.translate(0, top + 0.2, 0); parts.push(cornice);
+  // pilasters either side of the opening
+  for (const sd of [-1, 1]) { const pl = new THREE.BoxGeometry(1.1, top - yb, 2.1); pl.translate(sd * (R + 1.3), (top + yb) / 2, 0); parts.push(pl); }
+  return mergeGeometries(parts.map(p => p.index ? p.toNonIndexed() : p).map(p => { p.deleteAttribute('uv'); return p; }));
+}
+
 export class Features {
-  constructor(scene) {
+  constructor(scene, P = null) {
     this.scene = scene;
     this.live = new Map();
+    this.premium = PREMIUM && !!P;
     this.mats = {
       rock: new THREE.MeshStandardMaterial({ color: THEME.rockDark, roughness: 0.95, flatShading: true, side: THREE.DoubleSide }),
       concrete: new THREE.MeshStandardMaterial({ color: '#b9b2a8', roughness: 0.85 }),
@@ -40,6 +58,11 @@ export class Features {
       ramp: new THREE.MeshStandardMaterial({ map: chevronTex(), roughness: 0.8 }),
       stripe: new THREE.MeshStandardMaterial({ map: stripeTex(), roughness: 0.6 }),
     };
+    if (this.premium) {
+      this.mats.rock = rockMaterial(P, { color: THEME.rock, roughness: 0.95, side: THREE.DoubleSide }, 2, 0.09, 'tunnel');
+      this.mats.concrete = rockMaterial(P, { color: '#c9c0b4', roughness: 0.85 }, 3, 0.45, 'concrete');
+      for (const k of ['steel', 'ramp', 'stripe']) patchLit(this.mats[k], 'feat-' + k);
+    }
   }
 
   update(s) {
@@ -82,6 +105,12 @@ export class Features {
     g.add(shell);
     // concrete portals
     for (const s of [a, b]) {
+      if (this.premium) {
+        const portal = new THREE.Mesh(portalGeometry(R + 0.35), this.mats.concrete);
+        portal.position.copy(P(0, s, 0)); portal.rotation.y = yaw(s);
+        portal.castShadow = portal.receiveShadow = true; g.add(portal);
+        continue;
+      }
       const portal = new THREE.Mesh(new THREE.TorusGeometry(R + 0.2, 0.9, 6, 24, Math.PI), this.mats.concrete);
       portal.scale.y = 0.78; portal.position.copy(P(0, s, -0.4)); portal.rotation.y = yaw(s);
       portal.castShadow = true; g.add(portal);

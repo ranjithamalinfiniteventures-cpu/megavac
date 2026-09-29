@@ -14,6 +14,8 @@ import { makeRider } from './rider.js';
 import { THEME, TRACKS } from './theme.js';
 import { makeSky, makeScenery, SUN_DIR } from './atmosphere.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { PREMIUM, HQ, U as PU, loadPremium, rockMaterial, patchLit } from './premium.js';
+import { AOPass } from './aopass.js';
 
 const qs = new URLSearchParams(location.search);
 const DEBUG_CAM = qs.has('orbit') ? parseFloat(qs.get('orbit')) : 0;
@@ -44,9 +46,13 @@ const fill = new THREE.DirectionalLight(THEME.skyHorizon, 0.9); scene.add(fill, 
 
 // ---------------- post ----------------
 const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: LOWQ ? 0 : 4 });
+const USE_AO = PREMIUM && HQ && !qs.has('noao');
+if (USE_AO) rt.depthTexture = new THREE.DepthTexture(1, 1);
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.2, 0.4, 0.98);
+const aoPass = USE_AO ? new AOPass(camera) : null;
+if (aoPass) composer.addPass(aoPass);
+const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), PREMIUM ? 0.12 : 0.2, 0.4, PREMIUM ? 1.6 : 0.98);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const fxPass = new ShaderPass({
@@ -93,8 +99,11 @@ let chunks, board, rider = null, sky, scenery, features, gltfRider = null;
 let rivals = [], gantries = [];
 const particles = [];
 
+// Particles are premultiplied: uAdd blends each system between alpha (smoke/dust, 0) and
+// additive (sparks/fire, 1) in one pass. Lit systems shade each sprite as a little sphere.
+const PART_SUN_V = new THREE.Vector3();
 class Particles {
-  constructor(max, tex, blending = THREE.AdditiveBlending) {
+  constructor(max, tex, blending = THREE.AdditiveBlending, opts = {}) {
     this.max = max; this.n = 0;
     const g = new THREE.BufferGeometry();
     this.pos = new Float32Array(max * 3); this.col = new Float32Array(max * 3); this.size = new Float32Array(max); this.alpha = new Float32Array(max);
@@ -104,11 +113,24 @@ class Particles {
     g.setAttribute('size', new THREE.BufferAttribute(this.size, 1));
     g.setAttribute('alpha', new THREE.BufferAttribute(this.alpha, 1));
     this.mat = new THREE.ShaderMaterial({
-      uniforms: { map: { value: tex }, scale: { value: 400 }, opacity: { value: 1 } },
+      uniforms: { map: { value: tex }, scale: { value: 400 }, opacity: { value: 1 }, uAdd: { value: opts.add ?? (blending === THREE.AdditiveBlending ? 1 : 0) }, uLit: { value: opts.lit ? 1 : 0 },
+        uSunV: { value: PART_SUN_V }, uSunCol: { value: new THREE.Color(THEME.sun).multiplyScalar(1.4) }, uAmb: { value: new THREE.Color(THEME.hemiSky).multiplyScalar(0.55) } },
       vertexShader: `attribute float size; attribute float alpha; attribute vec3 color; varying float vA; varying vec3 vC;
         uniform float scale; void main(){ vA=alpha; vC=color; vec4 mv=modelViewMatrix*vec4(position,1.); gl_PointSize=size*scale/-mv.z; gl_Position=projectionMatrix*mv; }`,
-      fragmentShader: `uniform sampler2D map; uniform float opacity; varying float vA; varying vec3 vC; void main(){ vec4 t=texture2D(map, gl_PointCoord); gl_FragColor=vec4(vC*t.rgb, t.a*vA*opacity); }`,
-      transparent: true, depthWrite: false, blending,
+      fragmentShader: `uniform sampler2D map; uniform float opacity, uAdd, uLit; uniform vec3 uSunV, uSunCol, uAmb; varying float vA; varying vec3 vC;
+        void main(){
+          vec4 t = texture2D(map, gl_PointCoord); vec3 c = vC * t.rgb;
+          if (uLit > 0.5) {
+            vec2 q = gl_PointCoord * 2. - 1.; q.y = -q.y;
+            vec3 n = vec3(q, sqrt(max(0., 1. - dot(q, q))));
+            float sun = max(dot(normalize(n), uSunV), 0.);
+            float through = pow(max(-uSunV.z, 0.), 3.) * (1. - n.z) * 0.8;   // low sun behind the puff
+            c = vC * (uAmb + uSunCol * (sun * 0.9 + through));
+          }
+          float a = t.a * vA * opacity;
+          gl_FragColor = vec4(c * a, a * (1. - uAdd));
+        }`,
+      transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
     });
     this.points = new THREE.Points(g, this.mat); this.points.frustumCulled = false;
     scene.add(this.points);
@@ -185,6 +207,11 @@ class Air {
     this.world = new Float32Array(this.n * 3);
     g.setAttribute('position', new THREE.BufferAttribute(this.world, 3));
     this.points = new THREE.Points(g, new THREE.PointsMaterial({ color: cfg.color, size: cfg.size * 3, map: radialTex(), transparent: true, depthWrite: false, opacity: 0.85, sizeAttenuation: true }));
+    // specks inside a few metres of the lens read as smudges, so fade them out
+    this.points.material.onBeforeCompile = sh => {
+      sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vNearFade = smoothstep(2.5, 7.0, -mvPosition.z);').replace('void main() {', 'varying float vNearFade;\nvoid main() {');
+      sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'varying float vNearFade;\nvoid main() {').replace('#include <premultiplied_alpha_fragment>', 'gl_FragColor.a *= vNearFade;\n#include <premultiplied_alpha_fragment>');
+    };
     this.points.frustumCulled = false; scene.add(this.points);
     this.t = 0;
   }
@@ -213,7 +240,7 @@ function obstacleAssets() {
   const concrete = canvasNoise('#b9b4aa', 256);
   obstacleMats.barrier = new THREE.MeshStandardMaterial({ color: THEME.barrier, roughness: 0.8, map: concrete });
   obstacleMats.stripe = new THREE.MeshStandardMaterial({ color: THEME.barrierStripe, roughness: 0.6 });
-  obstacleMats.rock = new THREE.MeshStandardMaterial({ color: THEME.rock, roughness: 0.9, flatShading: true });
+  obstacleMats.rock = rockMaterial(PREMIUM_ASSETS, { color: THEME.rock, roughness: 0.9, flatShading: true }, 3, 0.4, 'boulder');
   obstacleMats.ring = new THREE.MeshStandardMaterial({ color: THEME.barrierStripe, roughness: 0.5 });
   obstacleMats.ringFrame = new THREE.MeshStandardMaterial({ color: 0x2b2f36, metalness: 0.9, roughness: 0.35 });
   obstacleMats.orb = new THREE.MeshStandardMaterial({ color: 0xffc247, metalness: 0.6, roughness: 0.25 });
@@ -223,10 +250,11 @@ function obstacleAssets() {
   const bg = new THREE.ExtrudeGeometry(s, { depth: 3.0, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2 });
   bg.translate(0, 0, -1.5); bg.rotateY(Math.PI / 2);
   obstacleMats.barrierGeo = bg;
-  const rg = new THREE.IcosahedronGeometry(1, 1), v = new THREE.Vector3(), pa = rg.attributes.position;
-  for (let i = 0; i < pa.count; i++) { v.fromBufferAttribute(pa, i); v.multiplyScalar(1 + fbm(v.x * 1.3 + 9, v.y * 1.3 + v.z, 4) * 0.5); pa.setXYZ(i, v.x, v.y * 0.8, v.z); }
+  const rg = new THREE.IcosahedronGeometry(1, PREMIUM_ASSETS ? 3 : 1), v = new THREE.Vector3(), pa = rg.attributes.position;
+  for (let i = 0; i < pa.count; i++) { v.fromBufferAttribute(pa, i); v.multiplyScalar(1 + fbm(v.x * 1.3 + 9, v.y * 1.3 + v.z, 4) * 0.5 + (PREMIUM_ASSETS ? fbm(v.x * 4 + 2, v.y * 4 + v.z * 3, 2) * 0.1 : 0)); pa.setXYZ(i, v.x, v.y * 0.8, v.z); }
   rg.computeVertexNormals(); obstacleMats.rockGeo = rg;
   obstacleMats.orbGeo = new THREE.OctahedronGeometry(0.24, 0);
+  if (PREMIUM_ASSETS) for (const k of ['barrier', 'stripe', 'ring', 'ringFrame', 'orb']) patchLit(obstacleMats[k], 'ob-' + k);
 }
 function canvasNoise(base, size) {
   const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d');
@@ -235,6 +263,7 @@ function canvasNoise(base, size) {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
+let PREMIUM_ASSETS = null;
 const objects = [];
 let nextSpawn = 0;
 function placeAt(obj, u, s, yOff = 0) {
@@ -598,6 +627,7 @@ function update(dt, rdt = dt) {
   G.hover = 0.55 + Math.sin(G.time * 5.3) * 0.05 + Math.sin(G.time * 11.7) * 0.02;
   const p = board.root.position.set(roadX(s) + G.u, roadY(s) + G.hover + G.y, -s);
   tmp.copy(p).sub(fwd); board.root.lookAt(tmp);
+  board.setContact(G.hover + G.y - rampH(s) + (board.tilt.position.y || 0));
   if (G.mode !== 'crash') {
     const lean = -G.vu / 16;
     board.tilt.rotation.z += (lean * 0.55 - board.tilt.rotation.z) * Math.min(1, dt * 8);
@@ -648,13 +678,15 @@ function update(dt, rdt = dt) {
   sun.target.position.copy(p);
   fill.target.position.copy(p); fill.position.copy(camera.position).add(tmp.set(0, 3, 0));
   sun.position.copy(p).addScaledVector(SUN_DIR, 200);
+  PU.uTime.value = G.time; PU.uFocus.value.copy(p);
+  PART_SUN_V.copy(SUN_DIR).transformDirection(camera.matrixWorldInverse);
 
   if (air) { airVel.copy(fwd).multiplyScalar(-0.0); air.update(dt, camera.position, airVel); }
   speedLines.update(dt, G.v, Math.max(0, speedN - 0.75) * 2 + G.boost);
   fxPass.uniforms.uSpeed.value = Math.max(0, speedN - 0.9) * 0.8 + G.boost * 0.6;
   fxPass.uniforms.uHit.value = G.hit;
   fxPass.uniforms.uTime.value = G.time;
-  bloom.strength = 0.2 + G.boost * 0.1;
+  bloom.strength = (PREMIUM ? 0.12 : 0.2) + G.boost * 0.1;
   sfx.update(G.v, G.boost);
 
   // ---------- HUD ----------
@@ -803,20 +835,29 @@ async function boot() {
   resize();
   const gltf = await new GLTFLoader().loadAsync('assets/rider.glb').catch(() => null);
   gltfRider = gltf;
-  features = new Features(scene);
+  PREMIUM_ASSETS = PREMIUM ? await loadPremium(renderer).catch(e => { console.warn('premium assets failed', e); return null; }) : null;
+  features = new Features(scene, PREMIUM_ASSETS);
   sky = makeSky(scene, renderer);
   scenery = makeScenery(scene);
   scene.environmentIntensity = 0.9;
+  if (PREMIUM_ASSETS) {
+    // image-based light from the Poly Haven HDRI; the hemisphere fill drops so IBL carries the ambient
+    scene.environment = PREMIUM_ASSETS.env.texture;
+    scene.environmentIntensity = THEME.premiumEnv ?? 0.75;
+    hemi.intensity = THEME.premiumHemi ?? 0.35;
+    fill.intensity = THEME.premiumFill ?? 0.55;
+    if (qs.has('envbg')) scene.background = PREMIUM_ASSETS.env.texture, sky.visible = false;
+  }
 
   const tex = makeTextures();
-  chunks = new ChunkManager(scene, tex);
+  chunks = new ChunkManager(scene, tex, PREMIUM_ASSETS);
   obstacleAssets();
   board = makeBoard(); scene.add(board.root);
   board.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
   if (gltf) { rider = makeRider(gltf, 0.11); board.rider.visible = false; board.tilt.add(rider.object); }
-  thrust = new Particles(1200, radialTex('rgba(255,255,255,0.5)'), THREE.NormalBlending); thrust.mat.uniforms.opacity.value = 0.18;
-  sparks = new Particles(800, radialTex());
-  dustP = new Particles(300, radialTex('rgba(255,255,255,0.5)'), THREE.NormalBlending); dustP.mat.uniforms.opacity.value = 0.12;
+  thrust = new Particles(1200, radialTex('rgba(255,255,255,0.5)'), THREE.NormalBlending, { add: 0, lit: PREMIUM }); thrust.mat.uniforms.opacity.value = 0.18;
+  sparks = new Particles(800, radialTex(), THREE.AdditiveBlending, { add: PREMIUM ? 0.85 : 1 });
+  dustP = new Particles(300, radialTex('rgba(255,255,255,0.5)'), THREE.NormalBlending, { lit: PREMIUM }); dustP.mat.uniforms.opacity.value = PREMIUM ? 0.2 : 0.12;
   scene.add(camera); speedLines = new SpeedLines();
   air = new Air(THEME.air);
   chunks.prime(0);
@@ -827,7 +868,11 @@ async function boot() {
   ui.loading.classList.add('hidden'); ui.menu.classList.remove('hidden');
   try { SDK.cg?.game.loadingStop(); } catch { }
   if (qs.has('autoplay')) startRun(false, qs.has('race') ? selectedLevel : null);
-  requestAnimationFrame(frame);
-  window.__G = G; window.__input = input; window.__riv = () => rivals.map(r => [r.name, r.s | 0, r.v | 0, +r.u.toFixed(1), +r.crashT.toFixed(1), +r.skill.toFixed(2)]); window.__step = (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) update(dt); }; window.__dbg = () => ({ cam: camera.position.toArray().map(v=>v|0), p: board.root.position.toArray().map(v=>v|0), ch: chunks.chunks.map(c=>c.index), fov: camera.fov|0 });
+  if (!qs.has('still')) requestAnimationFrame(frame);
+  window.__render = () => {
+    renderer.info.autoReset = false; renderer.info.reset(); composer.render(); renderer.info.autoReset = true;
+    const i = renderer.info; return { calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, programs: i.programs.length, dpr: renderer.getPixelRatio() };
+  };
+  window.__G = G; window.__scene = scene; window.__cam = camera; window.__THREE = THREE; window.__input = input; window.__riv = () => rivals.map(r => [r.name, r.s | 0, r.v | 0, +r.u.toFixed(1), +r.crashT.toFixed(1), +r.skill.toFixed(2)]); window.__step = (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) update(dt); }; window.__dbg = () => ({ cam: camera.position.toArray().map(v=>v|0), p: board.root.position.toArray().map(v=>v|0), ch: chunks.chunks.map(c=>c.index), fov: camera.fov|0 });
 }
 boot();

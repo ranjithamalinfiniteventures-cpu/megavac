@@ -137,6 +137,7 @@ export class Rival {
     const fwd = new THREE.Vector3(roadDX(s), roadDY(s), -1).normalize();
     root.position.set(roadX(s) + this.u, roadY(s) + 0.55 + this.y + Math.sin(this.t * 5.3) * 0.05, -s);
     root.lookAt(root.position.clone().sub(fwd));
+    this.board.setContact(0.55 + this.y - rampH(s) + Math.sin(this.t * 5.3) * 0.05);
     const lean = -this.vu / 16;
     if (this.crashT <= 0) this.board.tilt.rotation.z += (lean * 0.55 - this.board.tilt.rotation.z) * Math.min(1, dt * 8);
     this.board.tilt.rotation.x = this.air ? Math.sin(this.t * 3) * 0.12 : 0;

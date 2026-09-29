@@ -30,22 +30,37 @@ Research notes: `racing-research/RESEARCH.md`.
   index.html without doctype/head/body and the CrazyGames SDK tag, with a fetch shim that serves `.glb`
   as base64 `.txt` (artifacts don't serve .glb). See git history for how it was done.
 
-## Agreed next step: premium graphics pass
-The owner asked to adopt professional techniques before building more. Sources studied:
-1. **threejs-game-skills** (github.com/majidmanzarpour/threejs-game-skills). Install/read
-   `skills/threejs-aaa-graphics-builder` (visual scorecard, authoring recipes, technical art, shader
-   cookbook) and `threejs-qa-release`. Rule: *authored forms first, then materials, then lighting, then effects*;
-   score 10 categories 0-3 on active-play screenshots; premium means every category is at least 2 and the average is at least 2.3.
-2. **Simon (@iced_coffee_dev) Halloween scene breakdown**, whose techniques to apply:
-   - One strong directional light + a **Poly Haven HDRI** for image-based lighting; the key light falls off softly
-     away from the hero; a soft moving cloud-shadow map on the ground.
-   - **Quaternius** CC0 models (trees and props) with **rounded/softened normals** for soft foliage shading.
-   - Ground = **texture splatting** (RGBA mask blending a texture array) + **parallax occlusion mapping**.
-   - Particles lit with **sphere-derived normals**; a combined add/alpha blend for fire and smoke.
-   - Post: **SSAO**, custom **contact shadows**, a controlled custom **bloom**, a depth-aware outline highlight.
-   - His point: you need the right vocabulary to direct AI.
-Plan: apply all of this to **Sunset Pass first** (one representative slice), score before/after with
-screenshots, then roll out to Alpine and Canyon.
+## Premium graphics pass: Sunset Pass done (Sep 29), roll out next
+Sources: threejs-game-skills `threejs-aaa-graphics-builder` (visual scorecard, recipes, shader cookbook; clone with
+`git clone https://github.com/majidmanzarpour/threejs-game-skills`, codeload tarballs are blocked) and the Simon
+(@iced_coffee_dev) Halloween breakdown. Rule: *authored forms first, then materials, then lighting, then effects*.
+Premium = every scorecard category >= 2 and average >= 2.3.
+
+What exists now (`src/premium.js`, `src/aopass.js`; switched on by `premium: true` in a theme, `?classic` turns it off):
+- CC0 Poly Haven assets in `assets/tex/`: ground texture array strip (grass `rocky_terrain_02`, dirt `forest_ground_04`,
+  cliff `cliff_side`, pale rock `rock_boulder_dry`; albedo + normal strips, heights packed in RGBA png), asphalt_02
+  (diff/nor/rough), HDRI `belfast_sunset_puresky` (1k, rotated so its sun matches ours, sun clipped).
+- Terrain: `splat` vertex attribute (weights from `terrainSplat` in world.js), height-aware blending, texture detail
+  modulates the palette vertex colours (keeps the stylized palette), triplanar cliffs, parallax occlusion on grass/dirt
+  near the camera (desktop only), analytic smooth normals.
+- Every lit material can be patched with `patchLit` (drifting cloud shadows + key light falling off away from the rider).
+  `rockMaterial` = triplanar rock (tunnel walls, boulders, concrete portal). `patchFoliage` = wind + backlit leaves.
+- Trees: `pinePremium` (ridged fronds, vertex AO), aspens with rounded normals and per-vertex tone. LOD: near/far geometry,
+  far forests thinned, only chunks near the rider cast shadows, chunks behind the camera hidden.
+- Tunnel portals are extruded concrete facades (old torus removed). Contact shadows under all boards.
+- Post: half-res SAO ambient occlusion with depth-aware blur (desktop only, `?noao`), bloom threshold 1.6 (no glow),
+  particles are premultiplied with add/alpha mix; dust and thruster smoke are lit as spheres.
+- Scorecard (my assessment): before avg 1.7 -> after about 2.15. Still below 2 on rewards/interactables (gates and
+  shards untouched). Rider is still the placeholder Soldier model. Next: rewards, then rider, then Alpine + Canyon
+  (add `premium: true` and tune `premiumEnvTint/premiumEnv/premiumHemi/premiumFill` per theme).
+- Budget (desktop, swiftshader counts): calls 233-270 (was 304), triangles 1.5-1.7M (was 2.8M, still over the 750k guide),
+  41 textures, about 72 programs. Mobile (`?low`): no AO/POM, trees thinned to 55%.
+- Not done: Quaternius models (itch.io download API refuses from this sandbox with "invalid key"), outline highlight.
+
+Screenshots: `node shot.cjs` style harness uses `?still` (no RAF loop) + `window.__render()` which returns renderer
+counts; headless swiftshader takes 1-3 s per frame. `screenshots/sunset_before_after.jpg` has the comparison.
+Artifact: `python3 tools/build_artifact.py` stages `.artifact/` (page + files, .glb/.hdr as base64 .txt), then publish
+`.artifact/index.html` with those files to the artifact URL above.
 
 ## Asset sources / credentials
 - No Tripo key (skip AI 3D generation). Use CC0 libraries: Poly Haven (HDRIs, PBR textures),
@@ -53,5 +68,5 @@ screenshots, then roll out to Alpine and Canyon.
 - Image generation: **OpenRouter** API key stored as an environment API credential (Bearer, allowed site
   `openrouter.ai`). Use OpenRouter's image-capable models (for example the OpenAI GPT image model); pick the most
   cost-efficient one that looks good. Use it for concept art, textures, sky/menu/logo art.
-- Earlier sessions had polyhaven/openai/x.com blocked by the network policy; the owner has since widened it.
-  Check reachability first.
+- Reachable now: Poly Haven API + dl.polyhaven.org, ambientCG, kenney.nl, quaternius.com, itch.io pages, github via git clone.
+  Blocked: codeload.github.com, poly.pizza. Python urllib gets 403 from Poly Haven (use curl).

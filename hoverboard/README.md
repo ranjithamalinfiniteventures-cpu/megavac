@@ -39,6 +39,10 @@ gaps in the barrier lines, dodge boulders, grab energy shards. Near misses feed 
 - Layered faceted peaks and a cloud sea (`src/atmosphere.js`); one side of the pass
   alternates between mountain wall and cliff edge.
 - Three.js r186 WebGL, ACES tone mapping, shadows, MSAA, restrained bloom, boost-only speed blur.
+- Premium graphics (Sunset Pass, `src/premium.js`): CC0 Poly Haven textures and HDRI lighting, texture-splatted
+  terrain with parallax occlusion and triplanar cliffs, cracked asphalt, soft-shaded trees with wind and backlit
+  leaves, drifting cloud shadows, screen-space ambient occlusion, contact shadows and lit particles. `?classic`
+  shows the old look, `?noao` turns off ambient occlusion. See `screenshots/sunset_before_after.jpg`.
 - Endless procedural mountain: streamed terrain chunks, built a few milliseconds per
   frame so they never hitch, plus instanced pines, rocks, and guard posts.
 - Rider: a rigged human (Mixamo skeleton) playing a mocap idle clip, with IK layered on
@@ -46,7 +50,10 @@ gaps in the barrier lines, dodge boulders, grab energy shards. Near misses feed 
 - Adaptive resolution keeps the frame rate near 60 fps on weaker devices.
 - CrazyGames SDK v3 hooks: loading, gameplay start/stop, rewarded revive.
 
-Debug URL flags: `?autoplay`, `?god`, `?orbit=<angle>` (camera orbits the rider), `?low`.
+Debug URL flags: `?autoplay`, `?god`, `?orbit=<angle>` (camera orbits the rider), `?low`, `?classic`, `?noao`,
+`?still` (no render loop; call `window.__render()` for one frame plus renderer counts).
+
+Asset credits: textures and HDRI from Poly Haven (CC0).
 
 ## Asset credits
 - `rider.glb`: the three.js example "Soldier" character (Mixamo rig and animations).

@@ -8,7 +8,7 @@ const SUNSET = {
   fog: '#e8b397', fogNear: 120, fogFar: 1500,
   hemiSky: '#a9b6ff', hemiGround: '#4a3044', hemi: 0.75, sunIntensity: 3.1, exposure: 0.92,
   meadow: '#5f7f34', meadowDry: '#a1924a', dirt: '#7b5a44',
-  rock: '#77697a', rockDark: '#4b4257', snow: '#f0e9f0', snowShade: '#b9b0d6', snowLine: 140,
+  rock: '#7f6f73', rockDark: '#4f4453', snow: '#f0e9f0', snowShade: '#b9b0d6', snowLine: 140,
   pine: '#1f4a3c', pineLight: '#3f7a4a', trunk: '#4a3328', trees: 1, bridge: '#b8452f', aspen: '#f0b440', aspenDark: '#c2702a',
   peakRock: '#6b5c78', peakRockDark: '#3e3550', peakSnow: '#fbeee8', peakSnowShade: '#b8a9d4', peakSnowLine: 0.4,
   cloud: '#f3c3a6', skyCloud: '#ffd9c2',
@@ -18,10 +18,12 @@ const SUNSET = {
   suit: '#ff6a3d', suitDark: '#1d2440', helmet: '#f4f4f6', glove: '#23263a', boot: '#f4f4f6',
   air: { color: '#fff1dc', count: 260, fall: 0.3, size: 0.06 },   // pollen drifting in the sun
   strata: false, grass: '#8a9a45',
+  premium: true,   // textured ground, HDRI light, soft foliage, AO (see premium.js)
+  premiumEnvTint: '#ffe0cc', premiumEnv: 0.8, premiumHemi: 0.35, premiumFill: 0.55,
 };
 
 const ALPINE = {
-  ...SUNSET,
+  ...SUNSET, premium: false,
   id: 'alpine', name: 'Alpine Morning', blurb: 'Fresh snow, bluebird sky',
   skyTop: '#1d5fb8', skyMid: '#5f9ae0', skyHorizon: '#d4e6f7', skyBottom: '#eef4fa',
   sun: '#fff4e2', sunDir: [0.45, 0.42, -0.78],
@@ -40,7 +42,7 @@ const ALPINE = {
 };
 
 const CANYON = {
-  ...SUNSET,
+  ...SUNSET, premium: false,
   id: 'canyon', name: 'Red Rock Canyon', blurb: 'Sandstone walls, desert heat',
   skyTop: '#2f6fbf', skyMid: '#7fb0de', skyHorizon: '#f4d9b4', skyBottom: '#f0cfa2',
   sun: '#fff0d0', sunDir: [0.55, 0.5, -0.66],
