@@ -118,7 +118,7 @@ function leafClump(x, y, z, r, seed, base, lit, detail = 1) {
     p.setXYZ(i, v.x, v.y, v.z);
   }
   g.rotateX(hash(seed, 1) * 6); g.rotateY(hash(seed, 2) * 6); g.scale(r * 1.1, r * 0.85, r * 1.1).translate(x, y, z);
-  roundNormals(g, new THREE.Vector3(x, y - r * 0.1, z), new THREE.Vector3(0, y - 4, 0), 0.5);
+  roundNormals(g, new THREE.Vector3(x, y - r * 0.1, z), new THREE.Vector3(0, y - 4, 0), 0.6);
   const cs = new Float32Array(p.count * 3), c = new THREE.Color(), deep = col('#a63d1e');
   for (let i = 0; i < p.count; i++) {
     const k = Math.max(-1, Math.min(1, (p.getY(i) - y) / (r * 0.85)));
@@ -131,57 +131,57 @@ function leafClump(x, y, z, r, seed, base, lit, detail = 1) {
   g.setAttribute('color', new THREE.BufferAttribute(cs, 3));
   return g;
 }
-// Aspen: slender curved pale trunk with small eye scars, forking branches that reach into rounded leaf clumps.
+// Aspen: tapered curved pale trunk with small scars, thick forking branches reaching up into ONE cohesive oval crown
+// packed from many overlapping soft clumps around a dark inner core.
 function aspenGeometry(lod = 0) {
   const parts = [], H = 8.6, far = lod > 0;
-  const bark = col('#e8e1d3'), scar = col('#3a3330');
-  const greyB = col('#b9b1a4');
-  const tx = t => 0.28 * Math.sin(t * 2.3), tz = t => 0.16 * Math.sin(t * 3.1 + 1);
-  const nr = far ? 4 : 6, tpath = [], trad = [];
-  for (let i = 0; i <= nr; i++) { const t = i / nr; tpath.push([tx(t), -0.1 + t * H, tz(t)]); trad.push(0.27 * Math.pow(1 - t, 0.85) + 0.045); }
-  parts.push(tube(tpath, trad, far ? 5 : 6, (i, k, out) => {
-    out.copy(bark).multiplyScalar(0.9 + hash(i * 3 + k, 14) * 0.14);
-    if (i > 0 && hash(i * 13 + k * 5, 11) > 0.9) out.lerp(scar, 0.7);
+  const bark = col('#e8e1d3'), scar = col('#2c2622'), greyB = col('#bdb4a6');
+  const tx = t => 0.3 * Math.sin(t * 2.3), tz = t => 0.18 * Math.sin(t * 3.1 + 1);
+  const nr = far ? 4 : 8, tpath = [], trad = [];
+  for (let i = 0; i <= nr; i++) { const t = i / nr; tpath.push([tx(t), -0.1 + t * H, tz(t)]); trad.push(0.3 * Math.pow(1 - t, 0.9) + 0.04 + (i === 0 ? 0.05 : 0)); }
+  parts.push(tube(tpath, trad, far ? 5 : 7, (i, k, out) => {
+    out.copy(bark).multiplyScalar(0.88 + hash(i * 3 + k, 14) * 0.16);
+    if (i > 0 && hash(i * 13 + k * 5, 11) > 0.86) out.lerp(scar, 0.85);
   }));
-  const groups = [], nb = 4;
-  for (let j = 0; j < nb; j++) {
-    const ty = 0.4 + (j / (nb - 1)) * 0.34 + (hash(j, 21) - 0.5) * 0.05, a = j * 2.39996 + hash(j, 22) * 0.6;
-    const sx = tx(ty), sy = -0.1 + ty * H, sz = tz(ty), out = 1.0 + hash(j, 23) * 0.6 + (1 - ty) * 0.7, lift = 0.4 + ty * 0.8;
-    const dx = Math.cos(a), dz = Math.sin(a);
-    const P0 = [sx, sy, sz], P1 = [sx + dx * out * 0.35, sy + lift * 0.25, sz + dz * out * 0.35], P2 = [sx + dx * out * 0.65, sy + lift * 0.6, sz + dz * out * 0.65];
-    if (!far) parts.push(tube([P0, P1, P2], [0.1 - ty * 0.04, 0.065, 0.045], 4, (i, k, o) => o.copy(i ? greyB : bark).multiplyScalar(0.8 + hash(k + i, 25) * 0.2)));
+  const cxn = tx(0.84), czn = tz(0.84), cy = 7.0, rx = 2.0, ry = 1.95, rz = 1.85;
+  if (!far) for (let j = 0; j < 5; j++) {
+    const ty = 0.36 + j * 0.07, a = j * 2.39996 + hash(j, 22) * 0.5, dx = Math.cos(a), dz = Math.sin(a), tnx = -dz, tnz = dx;
+    const P0 = [tx(ty), -0.1 + ty * H, tz(ty)];
+    const E = [cxn + dx * rx * 0.55, cy - 0.5 + j * 0.3, czn + dz * rz * 0.55];
+    const F = [P0[0] + (E[0] - P0[0]) * 0.5, P0[1] + (E[1] - P0[1]) * 0.55 + 0.2, P0[2] + (E[2] - P0[2]) * 0.5];
+    const M1 = [P0[0] + (F[0] - P0[0]) * 0.5, P0[1] + (F[1] - P0[1]) * 0.45, P0[2] + (F[2] - P0[2]) * 0.5];
+    parts.push(tube([P0, M1, F], [0.17 - ty * 0.06, 0.12, 0.09], 4, (i, k, o) => o.copy(i ? greyB : bark).multiplyScalar(0.8 + hash(k + i + j, 25) * 0.2)));
     for (let f = 0; f < 2; f++) {
-      const fa = a + (f ? 0.65 : -0.65) + (hash(j * 2 + f, 26) - 0.5) * 0.3, fl = 1.0 + hash(j * 2 + f, 27) * 0.5, fx = Math.cos(fa), fz = Math.sin(fa);
-      const droop = (j === 0 && f === 0) ? -0.5 : 0;
-      const E = [P2[0] + fx * fl, P2[1] + 0.55 * fl + droop, P2[2] + fz * fl];
-      const Mm = [P2[0] + fx * fl * 0.5, P2[1] + 0.2 * fl + droop * 0.3, P2[2] + fz * fl * 0.5];
-      if (!far) parts.push(tube([P2, Mm, E], [0.05, 0.032, 0.012], 3, (i, k, o) => o.copy(greyB).multiplyScalar(0.85)));
-      groups.push({ p: E, r: 0.95 + hash(j * 2 + f, 28) * 0.25 });
+      const sg = f ? 1 : -1, T = [E[0] + tnx * 0.7 * sg, E[1] + 0.5, E[2] + tnz * 0.7 * sg], Mm = [F[0] + (T[0] - F[0]) * 0.5 + tnx * 0.1 * sg, F[1] + (T[1] - F[1]) * 0.4, F[2] + (T[2] - F[2]) * 0.5 + tnz * 0.1 * sg];
+      parts.push(tube([F, Mm, T], [0.09, 0.06, 0.025], 4, (i, k, o) => o.copy(greyB).multiplyScalar(0.85)));
     }
   }
-  groups.push({ p: [tx(1), H + 0.2, tz(1)], r: 1.05 });
-  groups.push({ p: [tx(0.55) + 0.45, 5.0, tz(0.55) + 0.3], r: 0.9 });
   const yellow = col('#f7d04a'), leafA = col(THEME.aspen || '#e0a83a'), leafB = col(THEME.aspenDark || '#b8752a'), red = col('#c04a2a'), lit = col('#ffdf70'), base = new THREE.Color();
-  const pick = far ? [0, 3, 6, 8] : groups.map((_, i) => i);
-  pick.forEach(gi => {
-    const gr = groups[gi], s = gi * 5 + 1, hh = Math.max(0, Math.min(1, (gr.p[1] - 3.5) / 6));
-    base.copy(leafB).lerp(leafA, Math.max(0, Math.min(1, 0.35 + hh * 0.5 + (hash(s, 34) - 0.5) * 0.4)));
-    const q = hash(s, 35); if (q > 0.85) base.lerp(red, 0.5); else if (q < 0.28) base.lerp(yellow, 0.6);
-    if (far) { parts.push(leafClump(gr.p[0], gr.p[1], gr.p[2], gr.r * 1.5, s, base, lit, 1)); return; }
-    parts.push(leafClump(gr.p[0], gr.p[1], gr.p[2], gr.r, s, base, lit, 1));
-    const ang = hash(s, 31) * 6.283, off = gr.r * 0.7, b2 = base.clone().multiplyScalar(0.93 + hash(s, 37) * 0.14);
-    parts.push(leafClump(gr.p[0] + Math.cos(ang) * off, gr.p[1] - 0.3 * gr.r, gr.p[2] + Math.sin(ang) * off, gr.r * 0.72, s + 50, b2, lit, 1));
+  const n = 13, list = [];
+  for (let i = 0; i < n; i++) {
+    const u = 1 - 2 * (i + 0.5) / n, ph = i * 2.39996 + hash(i, 41) * 0.5, rr = Math.sqrt(1 - u * u), sh = 0.78 + hash(i, 42) * 0.22;
+    list.push({ x: cxn + Math.cos(ph) * rr * rx * sh, y: Math.max(4.9, cy + u * ry * sh - 0.15), z: czn + Math.sin(ph) * rr * rz * sh, r: 0.68 + hash(i, 43) * 0.2, sh, u });
+  }
+  list.push({ x: cxn + 0.4, y: cy + 0.3, z: czn - 0.3, r: 1.05, sh: 0.1, u: 0, core: true }, { x: cxn - 0.6, y: cy - 0.8, z: czn + 0.5, r: 0.85, sh: 0.3, u: -0.4 }, { x: cxn + 0.3, y: cy + 1.4, z: czn + 0.3, r: 0.8, sh: 0.35, u: 0.7 });
+  const pick = far ? [0, 3, 6, 9] : list.map((_, i) => i);
+  pick.forEach(li => {
+    const q = list[li], s2 = li * 5 + 1;
+    base.copy(leafB).lerp(leafA, Math.max(0, Math.min(1, 0.45 + q.u * 0.4 + q.sh * 0.15 + (hash(s2, 34) - 0.5) * 0.25)));
+    const h = hash(s2, 35); if (h > 0.84) base.lerp(red, 0.5); else if (q.u > 0.2 && h < 0.5) base.lerp(yellow, 0.5);
+    base.multiplyScalar(0.7 + 0.3 * q.sh);
+    if (q.core) base.copy(leafB).multiplyScalar(0.7);
+    parts.push(leafClump(q.x, q.y, q.z, far ? q.r * 2.0 : q.r, s2, base, lit, 1));
   });
   return mergeGeometries(parts);
 }
 // Juniper: short twisted trunk under wide, flattened, dark clumps.
-function juniperGeometry() {
+function juniperGeometry(lite = false) {
   const parts = [];
   const trunk = new THREE.CylinderGeometry(0.15, 0.35, 1.8, 5).translate(0, 0.9, 0); trunk.rotateZ(0.2);
   parts.push(paint(trunk, col(THEME.trunk).lerp(col('#9a7654'), 0.45)));
   const dark = col(THEME.pine), light = col(THEME.pineLight), c = new THREE.Color();
   [[0, 2.2, 0, 1.6], [1.1, 1.8, 0.3, 1.1], [-1.0, 1.9, -0.4, 1.2], [0.2, 2.9, -0.2, 1.0], [-0.3, 1.6, 1.0, 0.9]].forEach(([x, y, z, r], i) => {
-    const b = (PREMIUM ? lumpy(r, i + 20, 1) : new THREE.IcosahedronGeometry(r, 0)).scale(1.2, 0.7, 1.2).translate(x, y, z).toNonIndexed();
+    const b = (PREMIUM ? lumpy(r, i + 20, lite && i > 2 ? 0 : 1) : new THREE.IcosahedronGeometry(r, 0)).scale(1.2, 0.7, 1.2).translate(x, y, z).toNonIndexed();
     if (PREMIUM) roundNormals(b, new THREE.Vector3(x, y, z), new THREE.Vector3(0, 2.2, 0), 0.4);
     const bp = b.attributes.position, bc = new Float32Array(bp.count * 3);
     for (let v = 0; v < bp.count; v += 3) {
@@ -203,28 +203,29 @@ function pinePremium(opt = {}) {
   const rnd = (k) => hash(k, seed);
   let mid = col(THEME.pine).lerp(col(THEME.pineLight), 0.3);
   if (snow) mid.lerp(col('#4f8f6c'), 0.35);
-  const under = mid.clone().multiplyScalar(0.52), light = col(THEME.pineLight).lerp(col('#9aab48'), 0.2), tipC = col('#a9b350'), snowC = col('#e6eff9'), c = new THREE.Color();
+  const under = snow ? col('#3f5c68').lerp(mid, 0.3) : col('#4a5230').lerp(mid, 0.3), light = col(THEME.pineLight).lerp(col('#9aab48'), 0.2), tipC = col('#a9b350'), snowC = col('#e2eefb'), c = new THREE.Color();
   const tone = (t, out) => (t < 0.5 ? out.copy(under).lerp(mid, t / 0.5) : t < 0.8 ? out.copy(mid).lerp(light, (t - 0.5) / 0.3) : out.copy(light).lerp(tipC, Math.min(1, (t - 0.8) / 0.2)));
   const lean = [(rnd(900) - 0.5) * 1.3, (rnd(901) - 0.5) * 1.3], bendA = rnd(902) * 6.28;
   const cx = t => lean[0] * t * t + 0.18 * Math.sin(t * 3 + bendA), cz = t => lean[1] * t * t + 0.18 * Math.cos(t * 2.6 + bendA);
   const barkLo = col('#4b3424'), barkHi = col('#86633f');
   const parts = [];
   const fr = lite ? [0, 0.08, 0.5, 0.86] : [0, 0.05, 0.15, 0.4, 0.7, 0.86], path = [], rad = [];
-  fr.forEach(t => { path.push([cx(t * 0.93), -0.2 + t * height * 0.98, cz(t * 0.93)]); rad.push((0.3 * Math.pow(1 - t, 0.8) + 0.04) * (1 + 0.45 * Math.max(0, 1 - t / 0.18))); });
-  parts.push(tube(path, rad, lite ? 4 : 7, (i, k, out) => { out.copy(barkLo).lerp(barkHi, Math.min(1, fr[i] * 1.2) * 0.9 + (hash(i * 7 + k, seed + 40) - 0.5) * 0.2); }));
+  fr.forEach(t => { path.push([cx(t * 0.93), -0.2 + t * height * 0.98, cz(t * 0.93)]); rad.push((0.3 * Math.pow(1 - t, 0.8) + 0.04) * (1 + 0.6 * Math.max(0, 1 - t / 0.2))); });
+  parts.push(tube(path, rad, lite ? 4 : 8, (i, k, out) => { out.copy(barkLo).lerp(barkHi, Math.min(1, fr[i] * 1.2) * 0.7 + (hash(k, seed + 40) - 0.5) * 0.5 + (hash(i * 7 + k, seed + 41) - 0.5) * 0.12); }));
+  if (!lite) for (let j = 0; j < 2; j++) { const ty = 0.22 + j * 0.05, a = j * 3.3 + rnd(70) * 3, y = -0.2 + ty * height * 0.98, x = cx(ty * 0.93), z = cz(ty * 0.93); parts.push(tube([[x, y, z], [x + Math.cos(a) * 0.55, y - 0.05, z + Math.sin(a) * 0.55]], [0.1, 0.05], 4, (i, k, out) => out.copy(barkLo))); }
   let W = Math.max(5, Math.round(tiers * 0.64) + (rnd(500) > 0.5 ? 1 : 0));
   if (snow) W = Math.min(W, 7);
   if (lite) W = Math.max(4, Math.min(4, W));
-  const N = lite ? (snow ? 3 : 4) : snow ? 6 : 7, M = N * 2;
-  const rings = lite ? [[0.42, 0.62], [1.0, 0.0], [0.97, -0.32], [0.18, -0.3]] : [[0.42, 0.62], [0.8, 0.28], [1.0, 0.0], [0.97, -0.32], [0.6, -0.45], [0.18, -0.3]];
-  const rt = lite ? [0.42, 0.7, 0.36, 0.15] : [0.42, 0.55, 0.72, 0.36, 0.22, 0.15];
+  const N = lite ? (snow ? 3 : 4) : snow ? 6 : 8, M = N * 2;
+  const rings = lite ? [[0.42, 0.62], [1.0, 0.0], [0.9, -0.32], [0.3, -0.3]] : [[0.42, 0.62], [0.8, 0.28], [1.0, 0.0], [0.9, -0.34], [0.55, -0.42]];
+  const rt = lite ? [0.42, 0.7, 0.3, 0.12] : [0.42, 0.55, 0.72, 0.3, 0.14];
   const sp = []; let sum = 0;
   for (let i = 0; i < W; i++) { let sv = 0.8 + rnd(i * 3 + 1) * 0.5; if (rnd(i * 7 + 2) > 0.88) sv *= 1.4; sp.push(sv); sum += sv; }
   let cum = 0;
   for (let i = 0; i < W; i++) {
     cum += sp[i]; const t = Math.min(0.999, (cum - sp[i] / 2) / sum);
-    const y = -0.2 + height * (0.27 + 0.66 * t), hh = height * 0.7 / W * 0.95;
-    const R = width * 1.15 * Math.pow(1 - t, 0.8) * (0.92 + rnd(i * 11) * 0.16) + 0.45, ox = cx(t * 0.93) + (rnd(i * 13) - 0.5) * 0.25, oz = cz(t * 0.93) + (rnd(i * 17) - 0.5) * 0.25;
+    const y = -0.2 + height * (0.31 + 0.62 * t), hh = height * 0.7 / W * 0.95;
+    const R = width * 1.15 * Math.pow(1 - t, 0.8) * (0.85 + rnd(i * 11) * 0.3) + 0.45, ox = cx(t * 0.93) + (rnd(i * 13) - 0.5) * 0.25, oz = cz(t * 0.93) + (rnd(i * 17) - 0.5) * 0.25;
     const rot = rnd(i * 5 + 3) * 6.28, gap = rnd(i * 23) > 0.6 ? Math.floor(rnd(i * 29) * N) * 2 : -1;
     const top = t > 0.9;
     const V = [];
@@ -232,7 +233,7 @@ function pinePremium(opt = {}) {
       const row = [];
       for (let j = 0; j < M; j++) {
         const peak = j % 2 === 0, th = (j + (rnd(i * 31 + j) - 0.5) * 0.35) / M * 6.283 + rot;
-        let rr = R * (peak ? 0.92 + rnd(i * 37 + j) * 0.2 : 0.52 + rnd(i * 41 + j) * 0.12);
+        let rr = R * (peak ? 0.92 + rnd(i * 37 + j) * 0.2 : 0.62 + rnd(i * 41 + j) * 0.12);
         if (j === gap) rr *= 0.58;
         const rho = rr * rings[r][0] * (top ? 0.8 : 1), droop = peak ? (0.35 + rnd(i * 47 + j) * 0.25) * (rings[r][0] > 0.9 ? 1 : rings[r][0] > 0.5 ? 0.4 : 0) : 0;
         const ty = y + hh * (rings[r][1] - droop) + (peak ? 0 : hh * 0.12 * (rings[r][0] > 0.7 ? 1 : 0));
@@ -248,14 +249,14 @@ function pinePremium(opt = {}) {
     const cols = [];
     for (let v = 0; v < tones.length; v++) {
       tone(Math.max(0, Math.min(1, tones[v])), c);
-      if (snow && tops[v] && tones[v] > 0.5 && rnd(v * 0.31 + i) > 0.25) c.lerp(snowC, 0.85);
+      if (snow && tops[v] && tones[v] > 0.36 && rnd(v * 0.31 + i) > 0.08) c.lerp(snowC, 0.9);
       cols.push(c.r, c.g, c.b);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2));
-    roundNormals(g, new THREE.Vector3(ox, y - hh * 0.4, oz), new THREE.Vector3(ox, y - height * 0.4, oz), 0.4);
+    roundNormals(g, new THREE.Vector3(ox, y - hh * 0.4, oz), new THREE.Vector3(ox, y - height * 0.4, oz), 0.6);
     parts.push(g);
   }
   return mergeGeometries(parts);
@@ -263,9 +264,9 @@ function pinePremium(opt = {}) {
 export function treeKinds() {
   if (THEME.id === 'coast') {
     const j = juniperGeometry();   // wind-sculpted coastal pines among the stone pines
-    return PREMIUM ? [pinePremium({ seed: 7, tiers: 8, height: 9, width: 3.1 }), j, 0.45, pinePremium({ seed: 7, tiers: 8, height: 9, width: 3.1, lite: true }), j] : [pineGeometry({ seed: 7 }), j, 0.45];
+    return PREMIUM ? [pinePremium({ seed: 7, tiers: 8, height: 9, width: 3.1 }), j, 0.45, pinePremium({ seed: 7, tiers: 8, height: 9, width: 3.1, lite: true }), juniperGeometry(true)] : [pineGeometry({ seed: 7 }), j, 0.45];
   }
-  if (THEME.id === 'canyon' && PREMIUM) { const j = juniperGeometry(); return [j, pinePremium({ tiers: 6, height: 6, width: 2.3, seed: 3 }), 0.2, j, pinePremium({ tiers: 6, height: 6, width: 2.3, seed: 3, lite: true })]; }
+  if (THEME.id === 'canyon' && PREMIUM) { const j = juniperGeometry(); return [j, pinePremium({ tiers: 6, height: 6, width: 2.3, seed: 3 }), 0.2, juniperGeometry(true), pinePremium({ tiers: 6, height: 6, width: 2.3, seed: 3, lite: true })]; }
   if (THEME.id === 'alpine' && PREMIUM) return [pinePremium({ snow: true, seed: 1 }), pinePremium({ snow: true, tiers: 12, height: 12.5, width: 2.5, seed: 5 }), 0.35, pinePremium({ snow: true, seed: 1, lite: true }), pinePremium({ snow: true, tiers: 12, height: 12.5, width: 2.5, seed: 5, lite: true })];
   if (THEME.id === 'canyon') return [juniperGeometry(), pineGeometry({ tiers: 5, height: 6, width: 2.2, seed: 3 }), 0.2];
   if (THEME.id === 'alpine') return [pineGeometry({ snow: true, seed: 1 }), pineGeometry({ snow: true, tiers: 9, height: 12, width: 2.4, seed: 5 }), 0.35];
