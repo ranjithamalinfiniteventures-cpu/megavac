@@ -23,7 +23,7 @@ const SUNSET = {
 };
 
 const ALPINE = {
-  ...SUNSET, premium: false,
+  ...SUNSET, premium: true, premiumHdri: 'alpine_sky.hdr', premiumEnvTint: '#f4f8ff', premiumEnv: 0.8, premiumHemi: 0.4, premiumFill: 0.45,
   id: 'alpine', name: 'Alpine Morning', blurb: 'Fresh snow, bluebird sky',
   skyTop: '#1d5fb8', skyMid: '#5f9ae0', skyHorizon: '#d4e6f7', skyBottom: '#eef4fa',
   sun: '#fff4e2', sunDir: [0.45, 0.42, -0.78],
@@ -42,7 +42,7 @@ const ALPINE = {
 };
 
 const CANYON = {
-  ...SUNSET, premium: false,
+  ...SUNSET, premium: true, premiumHdri: 'canyon_sky.hdr', premiumEnvTint: '#fff0e0', premiumEnv: 0.8, premiumHemi: 0.35, premiumFill: 0.5,
   id: 'canyon', name: 'Red Rock Canyon', blurb: 'Sandstone walls, desert heat',
   skyTop: '#2f6fbf', skyMid: '#7fb0de', skyHorizon: '#f4d9b4', skyBottom: '#f0cfa2',
   sun: '#fff0d0', sunDir: [0.55, 0.5, -0.66],

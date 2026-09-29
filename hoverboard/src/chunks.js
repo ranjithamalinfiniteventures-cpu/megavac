@@ -157,8 +157,11 @@ function juniperGeometry() {
     const bp = b.attributes.position, bc = new Float32Array(bp.count * 3);
     for (let v = 0; v < bp.count; v += 3) {
       const up = (bp.getY(v) + bp.getY(v + 1) + bp.getY(v + 2)) / 3 - y;
-      c.copy(dark).lerp(light, 0.3 + up / r * 0.6 + Math.sin(v + i) * 0.1);
-      for (let k = 0; k < 3; k++) { bc[(v + k) * 3] = c.r; bc[(v + k) * 3 + 1] = c.g; bc[(v + k) * 3 + 2] = c.b; }
+      for (let k = 0; k < 3; k++) {
+        const t = PREMIUM ? 0.25 + (bp.getY(v + k) - y) / r * 0.55 + Math.hypot(bp.getX(v + k), bp.getZ(v + k)) * 0.08 : 0.3 + up / r * 0.6 + Math.sin(v + i) * 0.1;
+        c.copy(dark).lerp(light, t);
+        bc[(v + k) * 3] = c.r; bc[(v + k) * 3 + 1] = c.g; bc[(v + k) * 3 + 2] = c.b;
+      }
     }
     b.setAttribute('color', new THREE.BufferAttribute(bc, 3)); parts.push(b);
   });
@@ -216,6 +219,8 @@ function treeKinds() {
     const j = juniperGeometry();   // wind-sculpted coastal pines among the stone pines
     return PREMIUM ? [pinePremium({ seed: 7, tiers: 8, height: 9, width: 3.1 }), j, 0.45, pinePremium({ seed: 7, tiers: 5, width: 3.2, lite: true }), j] : [pineGeometry({ seed: 7 }), j, 0.45];
   }
+  if (THEME.id === 'canyon' && PREMIUM) { const j = juniperGeometry(); return [j, pinePremium({ tiers: 6, height: 6, width: 2.3, seed: 3 }), 0.2, j, pinePremium({ tiers: 4, height: 6, width: 2.4, seed: 3, lite: true })]; }
+  if (THEME.id === 'alpine' && PREMIUM) return [pinePremium({ snow: true, seed: 1 }), pinePremium({ snow: true, tiers: 12, height: 12.5, width: 2.5, seed: 5 }), 0.35, pinePremium({ snow: true, seed: 1, lite: true, tiers: 5 }), pinePremium({ snow: true, seed: 5, lite: true, tiers: 6, height: 12.5, width: 2.6 })];
   if (THEME.id === 'canyon') return [juniperGeometry(), pineGeometry({ tiers: 5, height: 6, width: 2.2, seed: 3 }), 0.2];
   if (THEME.id === 'alpine') return [pineGeometry({ snow: true, seed: 1 }), pineGeometry({ snow: true, tiers: 9, height: 12, width: 2.4, seed: 5 }), 0.35];
   if (PREMIUM) return [pinePremium({ seed: 1 }), aspenGeometry(), 0.3, pinePremium({ seed: 1, tiers: 5, width: 3.0, lite: true }), aspenGeometry(1)];
