@@ -141,9 +141,9 @@ function aspenGeometry(lod = 0) {
   for (let i = 0; i <= nr; i++) { const t = i / nr; tpath.push([tx(t), -0.1 + t * H, tz(t)]); trad.push(0.3 * Math.pow(1 - t, 0.9) + 0.04 + (i === 0 ? 0.05 : 0)); }
   parts.push(tube(tpath, trad, far ? 5 : 7, (i, k, out) => {
     out.copy(bark).multiplyScalar(0.88 + hash(i * 3 + k, 14) * 0.16);
-    if (i > 0 && hash(i * 13 + k * 5, 11) > 0.86) out.lerp(scar, 0.85);
+    if (i > 0 && hash(i * 13 + k * 5, 11) > 0.92) out.lerp(scar, 0.4);
   }));
-  const cxn = tx(0.84), czn = tz(0.84), cy = 7.0, rx = 2.0, ry = 1.95, rz = 1.85;
+  const cxn = tx(0.84), czn = tz(0.84), cy = 6.9, rx = 2.35, ry = 2.05, rz = 2.15;
   if (!far) for (let j = 0; j < 5; j++) {
     const ty = 0.36 + j * 0.07, a = j * 2.39996 + hash(j, 22) * 0.5, dx = Math.cos(a), dz = Math.sin(a), tnx = -dz, tnz = dx;
     const P0 = [tx(ty), -0.1 + ty * H, tz(ty)];
@@ -157,13 +157,13 @@ function aspenGeometry(lod = 0) {
     }
   }
   const yellow = col('#f7d04a'), leafA = col(THEME.aspen || '#e0a83a'), leafB = col(THEME.aspenDark || '#b8752a'), red = col('#c04a2a'), lit = col('#ffdf70'), base = new THREE.Color();
-  const n = 13, list = [];
+  const n = 18, list = [];
   for (let i = 0; i < n; i++) {
     const u = 1 - 2 * (i + 0.5) / n, ph = i * 2.39996 + hash(i, 41) * 0.5, rr = Math.sqrt(1 - u * u), sh = 0.78 + hash(i, 42) * 0.22;
-    list.push({ x: cxn + Math.cos(ph) * rr * rx * sh, y: Math.max(4.9, cy + u * ry * sh - 0.15), z: czn + Math.sin(ph) * rr * rz * sh, r: 0.68 + hash(i, 43) * 0.2, sh, u });
+    list.push({ x: cxn + Math.cos(ph) * rr * rx * sh, y: Math.max(4.9, cy + u * ry * sh - 0.15), z: czn + Math.sin(ph) * rr * rz * sh, r: 0.58 + hash(i, 43) * 0.18, sh, u });
   }
   list.push({ x: cxn + 0.4, y: cy + 0.3, z: czn - 0.3, r: 1.05, sh: 0.1, u: 0, core: true }, { x: cxn - 0.6, y: cy - 0.8, z: czn + 0.5, r: 0.85, sh: 0.3, u: -0.4 }, { x: cxn + 0.3, y: cy + 1.4, z: czn + 0.3, r: 0.8, sh: 0.35, u: 0.7 });
-  const pick = far ? [0, 3, 6, 9] : list.map((_, i) => i);
+  const pick = far ? [0, 4, 8, 12] : list.map((_, i) => i);
   pick.forEach(li => {
     const q = list[li], s2 = li * 5 + 1;
     base.copy(leafB).lerp(leafA, Math.max(0, Math.min(1, 0.45 + q.u * 0.4 + q.sh * 0.15 + (hash(s2, 34) - 0.5) * 0.25)));
