@@ -37,7 +37,8 @@ const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a
 // ---------- road centreline ----------
 export const ROAD_HALF = 9;
 export function roadX(s) {
-  return 70 * Math.sin(s / 330) + 38 * Math.sin(s / 141 + 1.3) + 11 * Math.sin(s / 63 + 0.4);
+  const k = THEME.roadWind ?? 1;   // coast: a gentler shoreline road so the sea stays on one side
+  return k * (70 * Math.sin(s / 330) + 38 * Math.sin(s / 141 + 1.3)) + 11 * Math.sin(s / 63 + 0.4);
 }
 export function roadY(s) {
   return -0.14 * s + 10 * Math.sin(s / 190) + 4 * Math.sin(s / 77 + 2);
@@ -53,7 +54,7 @@ export function segmentFeature(k) {
   if (k < 1) return null;
   // a designed rhythm (air, cover, exposure) rotated per track so each course reads differently
   const PATTERN = ['jump', 'tunnel', 'bridge', 'jump', 'bridge', 'none', 'tunnel', 'jump'];
-  const off = { sunset: 0, alpine: 3, canyon: 5 }[THEME.id] || 0;
+  const off = { sunset: 0, alpine: 3, canyon: 5, coast: 2 }[THEME.id] || 0;
   const type = PATTERN[(k - 1 + off) % PATTERN.length], b = k * SEG + (hash(k) - 0.5) * 60;
   if (type === 'tunnel') return { type, s0: b + 90, s1: b + 250 + hash(k + 7) * 60 };
   if (type === 'bridge') return { type, s0: b + 110, s1: b + 230 + hash(k + 3) * 40 };
@@ -80,7 +81,10 @@ export function rampH(s) {
 // How open each side is: 0 = mountain wall, 1 = cliff dropping to the cloud sea.
 export function openness(side, s) {
   const v = Math.sin(s / 620 + side * 1.9) * 1.6 + Math.sin(s / 233 + side) * 0.35;
-  let o = smooth(-0.2, 0.6, v);
+  const ob = THEME.openBias || 0;   // coast: more of the road runs along open cliff edges
+  let o = smooth(-0.2 - ob * 2, 0.6 - ob * 2, v);
+  // coast: the sea side stays open (cliff edge), the other side stays mostly mountain
+  if (THEME.seaSide) o = side === THEME.seaSide ? 1 : o * 0.5;
   o += (0 - o) * tunnelW(s);
   o += (1 - o) * bridgeW(s);
   return o;
@@ -110,7 +114,8 @@ export function terrainRel(u, s) {
   const bw = bridgeW(s);
   if (bw > 0) {
     // a wide gorge: void under the deck, rock walls rising from ~70 m out
-    const chasm = -240 + smooth(55, 150, a) * (240 + wall * 0.6) + smooth(50, 110, a) * ridged(s * 0.01 + side * 3, a * 0.03, 3) * 50;
+    const gorge = THEME.seaSide === side ? 0 : 1;   // coast: the sea side of a bridge opens onto the water
+    const chasm = -240 + gorge * (smooth(55, 150, a) * (240 + wall * 0.6) + smooth(50, 110, a) * ridged(s * 0.01 + side * 3, a * 0.03, 3) * 50);
     rel += (chasm - rel) * bw;
   }
   return rel;

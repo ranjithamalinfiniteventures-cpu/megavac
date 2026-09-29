@@ -4,7 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { ROAD_HALF, roadX, roadY, roadDX, roadDY, fbm, rampH, segmentFeature, SEG, RAMP_H } from './world.js';
+import { ROAD_HALF, roadX, roadY, roadDX, roadDY, fbm, rampH, segmentFeature, SEG, RAMP_H, terrainRel, openness } from './world.js';
 import { Features } from './features.js';
 import { LEVELS, Rival, stepAir, makeGantry, placeOnRoad, ordinal } from './race.js';
 import { ChunkManager, makeTextures } from './chunks.js';
@@ -880,6 +880,6 @@ async function boot() {
     renderer.info.autoReset = false; renderer.info.reset(); composer.render(); renderer.info.autoReset = true;
     const i = renderer.info; return { calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, programs: i.programs.length, dpr: renderer.getPixelRatio() };
   };
-  window.__G = G; window.__scene = scene; window.__cam = camera; window.__THREE = THREE; window.__input = input; window.__riv = () => rivals.map(r => [r.name, r.s | 0, r.v | 0, +r.u.toFixed(1), +r.crashT.toFixed(1), +r.skill.toFixed(2)]); window.__step = (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) update(dt); }; window.__dbg = () => ({ cam: camera.position.toArray().map(v=>v|0), p: board.root.position.toArray().map(v=>v|0), ch: chunks.chunks.map(c=>c.index), fov: camera.fov|0 });
+  window.__G = G; window.__scene = scene; window.__world = { terrainRel, openness, roadX, roadY }; window.__cam = camera; window.__THREE = THREE; window.__input = input; window.__riv = () => rivals.map(r => [r.name, r.s | 0, r.v | 0, +r.u.toFixed(1), +r.crashT.toFixed(1), +r.skill.toFixed(2)]); window.__step = (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) update(dt); }; window.__dbg = () => ({ cam: camera.position.toArray().map(v=>v|0), p: board.root.position.toArray().map(v=>v|0), ch: chunks.chunks.map(c=>c.index), fov: camera.fov|0 });
 }
 boot();

@@ -212,6 +212,10 @@ function pinePremium(opt = {}) {
   return mergeGeometries(parts);
 }
 function treeKinds() {
+  if (THEME.id === 'coast') {
+    const j = juniperGeometry();   // wind-sculpted coastal pines among the stone pines
+    return PREMIUM ? [pinePremium({ seed: 7, tiers: 8, height: 9, width: 3.1 }), j, 0.45, pinePremium({ seed: 7, tiers: 5, width: 3.2, lite: true }), j] : [pineGeometry({ seed: 7 }), j, 0.45];
+  }
   if (THEME.id === 'canyon') return [juniperGeometry(), pineGeometry({ tiers: 5, height: 6, width: 2.2, seed: 3 }), 0.2];
   if (THEME.id === 'alpine') return [pineGeometry({ snow: true, seed: 1 }), pineGeometry({ snow: true, tiers: 9, height: 12, width: 2.4, seed: 5 }), 0.35];
   if (PREMIUM) return [pinePremium({ seed: 1 }), aspenGeometry(), 0.3, pinePremium({ seed: 1, tiers: 5, width: 3.0, lite: true }), aspenGeometry(1)];

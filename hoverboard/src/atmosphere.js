@@ -97,8 +97,11 @@ export function makeScenery(scene) {
       const r = L.min + rnd() * (L.max - L.min);
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
       if (z < 0 && Math.abs(x) < r * 0.2 && L.detail === 2) continue;
+      // coast: open water on the sea side (peaks there only as low distant islands)
+      if (THEME.sea && Math.sign(x) === THEME.seaSide && (L.detail === 2 || rnd() < 0.6)) continue;
       const h = L.h0 + rnd() * (L.h1 - L.h0);
-      addPeak(pos, col, x, -380, z, h * (0.75 + rnd() * 0.45), h + 380, L.detail, rnd);
+      const isle = THEME.sea && Math.sign(x) === THEME.seaSide ? 0.35 : 1;
+      addPeak(pos, col, x, -380, z, h * (0.75 + rnd() * 0.45), h * isle + 380, L.detail, rnd);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -110,22 +113,44 @@ export function makeScenery(scene) {
   }
   // cloud sea filling the valleys
   const cloudMat = new THREE.ShaderMaterial({
-    uniforms: { col: { value: C('cloud') }, fogCol: { value: C('fog') }, t: { value: 0 } },
+    uniforms: { col: { value: C('cloud') }, fogCol: { value: C('fog') }, t: { value: 0 },
+      skyTop: { value: C('skyTop') }, skyHor: { value: C('skyHorizon') }, sunDir: { value: SUN_DIR }, sunCol: { value: C('sun') } },
+    defines: THEME.sea ? { SEA: 1 } : {},
     vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: `uniform vec3 col, fogCol; uniform float t; varying vec3 vW;
+    fragmentShader: `uniform vec3 col, fogCol, skyTop, skyHor, sunDir, sunCol; uniform float t; varying vec3 vW;
       float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
       float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x), f.y); }
-      void main(){ vec2 p = vW.xz * 0.004 + vec2(t*0.01, 0.);
-        float c = n(p)*0.5 + n(p*2.3)*0.3 + n(p*5.1)*0.2;
-        vec3 k = mix(col * 0.82, col * 1.08, c);
+      #ifdef SEA
+      // ocean: two scrolling swell layers, sky reflection by fresnel, sun glitter and whitecaps
+      float swell(vec2 p){ return n(p * 0.035 + vec2(t * 0.05, t * 0.02)) * 0.6 + n(p * 0.11 - vec2(t * 0.09, -t * 0.04)) * 0.3 + n(p * 0.37 + t * 0.2) * 0.1; }
+      #endif
+      void main(){
         float d = length(vW.xz - cameraPosition.xz);
-        gl_FragColor = vec4(mix(k, fogCol, smoothstep(300., 2600., d)), 1.);
+        #ifdef SEA
+          vec2 p = vW.xz; float e = 1.5;
+          float h0 = swell(p), hx = swell(p + vec2(e, 0.)), hz = swell(p + vec2(0., e));
+          vec3 N = normalize(vec3((h0 - hx) * 6.0, 1.0, (h0 - hz) * 6.0));
+          vec3 V = normalize(cameraPosition - vW);
+          float fres = 0.04 + 0.96 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
+          vec3 R = reflect(-V, N);
+          vec3 sky = mix(skyHor, skyTop, clamp(R.y * 1.6, 0.0, 1.0));
+          vec3 water = mix(col * 0.45, col * 1.05, h0);
+          vec3 k = mix(water, sky, fres * 0.8);
+          k += sunCol * pow(max(dot(R, sunDir), 0.0), 180.0) * 2.5;
+          k = mix(k, vec3(0.93, 0.96, 0.97), smoothstep(0.74, 0.8, h0) * 0.55);
+          gl_FragColor = vec4(mix(k, fogCol, smoothstep(500., 3200., d)), 1.);
+        #else
+          vec2 p = vW.xz * 0.004 + vec2(t*0.01, 0.);
+          float c = n(p)*0.5 + n(p*2.3)*0.3 + n(p*5.1)*0.2;
+          vec3 k = mix(col * 0.82, col * 1.08, c);
+          gl_FragColor = vec4(mix(k, fogCol, smoothstep(300., 2600., d)), 1.);
+        #endif
         #include <colorspace_fragment>
       }`,
     fog: false,
   });
   const cloud = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000, 1, 1).rotateX(-Math.PI / 2), cloudMat);
-  cloud.position.y = -300; cloud.frustumCulled = false;
+  cloud.position.y = THEME.sea ? -95 : -300; cloud.frustumCulled = false;
   group.add(cloud);
   // soft cumulus banks in the sky: canvas puffs, lit on top, shaded underneath
   const puff = document.createElement('canvas'); puff.width = 256; puff.height = 128;

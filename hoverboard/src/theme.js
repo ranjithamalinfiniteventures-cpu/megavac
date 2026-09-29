@@ -60,7 +60,28 @@ const CANYON = {
   strata: true, grass: '#a8943f',
 };
 
-export const TRACKS = [SUNSET, ALPINE, CANYON];
+const COAST = {
+  ...SUNSET,
+  id: 'coast', name: 'Coastal Cliffs', blurb: 'Sea cliffs and sparkling surf',
+  skyTop: '#2a78c8', skyMid: '#6aaee6', skyHorizon: '#d8ecf4', skyBottom: '#c4e4ee',
+  sun: '#fff5e4', sunDir: [0.4, 0.5, -0.77],
+  fog: '#cfe5ee', fogNear: 170, fogFar: 1800,
+  hemiSky: '#d4e9ff', hemiGround: '#3c4838', hemi: 0.7, sunIntensity: 3.0, exposure: 0.8,
+  meadow: '#6c9a43', meadowDry: '#a8a257', dirt: '#a08563',
+  rock: '#bdb5a6', rockDark: '#857d71', snow: '#eeeae2', snowShade: '#c9c2b6', snowLine: 99999,
+  pine: '#24503a', pineLight: '#4f8d57', trunk: '#4d3a2c', trees: 0.75, bridge: '#e9e3d6',
+  peakRock: '#8fa0a6', peakRockDark: '#5d6d75', peakSnow: '#dfe7e9', peakSnowShade: '#aebcc2', peakSnowLine: 0.92,
+  cloud: '#2d8db5', skyCloud: '#ffffff', sea: true,
+  road: '#33363f', roadLine: '#f6f4ee', roadDash: '#ffc23a',
+  flags: ['#ff5a3c', '#ffffff', '#1f7fd6', '#ffd23f', '#2fb58f'],
+  barrier: '#f4f1ea', barrierStripe: '#1f7fd6',
+  suit: '#ffcf3a', suitDark: '#1c2a3a', helmet: '#ffffff', glove: '#1c2a3a', boot: '#ff5a3c',
+  air: { color: '#ffffff', count: 140, fall: -0.15, size: 0.05 },   // sea spray drifting up the cliffs
+  strata: false, grass: '#86a84e', openBias: 0.1, seaSide: -1, roadWind: 0.3,
+  premium: true, premiumHdri: 'coast_sky.hdr', premiumEnvTint: '#ffffff', premiumEnv: 0.85, premiumHemi: 0.4, premiumFill: 0.45,
+};
+
+export const TRACKS = [SUNSET, ALPINE, CANYON, COAST];
 let pick = 'sunset';
 try { pick = (location.hash || '').replace('#', '').split('-')[0] || localStorage.getItem('hoverline.track') || 'sunset'; } catch { }
 export const THEME = TRACKS.find(t => t.id === pick) || SUNSET;

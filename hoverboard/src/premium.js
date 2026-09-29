@@ -66,7 +66,7 @@ export async function loadPremium(renderer) {
   const [alb, nor, hgt, aD, aN, aR, hdr] = await Promise.all([
     bitmap(base + 'ground_albedo.jpg'), bitmap(base + 'ground_normal.jpg'), bitmap(base + 'ground_height.png'),
     bitmap(base + 'asphalt_diff.jpg'), bitmap(base + 'asphalt_nor.jpg'), bitmap(base + 'asphalt_rough.jpg'),
-    new HDRLoader().setDataType(THREE.FloatType).loadAsync(base + 'sunset_sky.hdr'),
+    new HDRLoader().setDataType(THREE.FloatType).loadAsync(base + (THEME.premiumHdri || 'sunset_sky.hdr')),
   ]);
   const A = arrayTex(alb, true), N = arrayTex(nor, false);
   const H = tex2d(hgt, false);
@@ -287,10 +287,10 @@ export function patchRoad(mat, P) {
     uniforms: { tAsph: { value: diff } },
     fragHead: 'uniform sampler2D tAsph;\n',
     color: `{ vec3 a = texture(tAsph, vNormalMapUv).rgb; float l = dot(a, vec3(0.2126, 0.7152, 0.0722));
-      diffuseColor.rgb *= clamp(0.35 + l * 2.2, 0.55, 1.35); }`,
-    rough: 'roughnessFactor = clamp(roughnessFactor * 0.95 + 0.2, 0.6, 1.0);',
+      diffuseColor.rgb *= clamp(0.35 + l * 2.2, 0.55, 1.15); }`,
+    rough: 'roughnessFactor = clamp(roughnessFactor * 0.95 + 0.25, 0.72, 1.0);',
     // the low sun sits dead ahead; keep a sheen on the asphalt without a white glare sheet
-    afterLights: 'reflectedLight.directSpecular *= 0.35;',
+    afterLights: 'reflectedLight.directSpecular *= 0.18;',
   });
 }
 

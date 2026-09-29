@@ -14,6 +14,9 @@ export const LEVELS = [
   { id: 'canyon-1', track: 'canyon', name: 'Dust Devil', length: 3200, skill: 0.7, diff: 0.55 },
   { id: 'canyon-2', track: 'canyon', name: 'Mesa Sprint', length: 4000, skill: 0.82, diff: 0.7 },
   { id: 'canyon-3', track: 'canyon', name: 'Red Rock Grand Prix', length: 5000, skill: 0.92, diff: 0.85 },
+  { id: 'coast-1', track: 'coast', name: 'Seabreeze Sprint', length: 3400, skill: 0.8, diff: 0.6 },
+  { id: 'coast-2', track: 'coast', name: 'Lighthouse Run', length: 4300, skill: 0.88, diff: 0.75 },
+  { id: 'coast-3', track: 'coast', name: 'Coastline Grand Prix', length: 5400, skill: 0.95, diff: 0.9 },
 ];
 
 const RIVALS = [
