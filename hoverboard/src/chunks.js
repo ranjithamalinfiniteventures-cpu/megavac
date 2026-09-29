@@ -342,7 +342,7 @@ export class ChunkManager {
       for (const m of [ch.tufts, ch.poles, ch.railPosts, ch.rocks]) m.visible = !farProps;
       ch.bunting.visible = !farProps && ch.index % 2 === 0;
       if (this.treeGeoFar) {
-        const near = s0 < sPlayer + 110;
+        const near = s0 < sPlayer + 30;   // chunks are 160 m: detailed trees only in the rider's chunk (and the next when close)
         ch.trees.geometry = near ? this.treeGeo : this.treeGeoFar;
         ch.treesB.geometry = near ? this.treeGeoB : this.treeGeoBFar;
         // instances are placed in random order, so a prefix is an even thinning of the forest
