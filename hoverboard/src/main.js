@@ -418,7 +418,7 @@ function crash(reason) {
   const p = board.root.position;
   for (let i = 0; i < 80; i++) {
     sparks.emit(p, new THREE.Vector3((Math.random() - 0.5) * 18, Math.random() * 10, (Math.random() - 0.5) * 18 - G.v * 0.3), new THREE.Color(1, 0.55 + Math.random() * 0.3, 0.2), 0.25, 0.6 + Math.random() * 0.6);
-    thrust.emit(p, new THREE.Vector3((Math.random() - 0.5) * 10, Math.random() * 6, (Math.random() - 0.5) * 10), new THREE.Color(0.1, 0.9, 1), 0.6, 0.8);
+    thrust.emit(p, new THREE.Vector3((Math.random() - 0.5) * 10, Math.random() * 6, (Math.random() - 0.5) * 10), new THREE.Color(THEME.skyHorizon).multiplyScalar(0.9), 0.9, 1.1);   // warm road dust, no cyan
   }
   try { SDK.cg?.game.gameplayStop(); } catch { }
 }
@@ -701,7 +701,7 @@ function update(dt, rdt = dt) {
   sfx.update(G.v, G.boost);
 
   // ---------- HUD ----------
-  if (playing) {
+  if (playing || G.mode === 'countdown') {
     ui.speed.textContent = Math.round(G.v * 3.6);
     ui.dist.textContent = Math.floor(G.s) + ' m';
     ui.score.textContent = Math.floor(G.score).toLocaleString();
