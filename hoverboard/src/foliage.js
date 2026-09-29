@@ -12,26 +12,27 @@ export const OPAQUE_UV = [0.5, 0.5];
 function puffTexture() {
   const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
   const g = c.getContext('2d');
-  let seed = 7;
+  let seed = 11;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  // a cluster of overlapping soft blossoms: sunlit tops white, shaded undersides grey
-  const n = 46;
-  for (let i = 0; i < n; i++) {
-    const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * S * 0.36;
-    const x = S / 2 + Math.cos(a) * d, y = S / 2 + Math.sin(a) * d * 0.85, r = S * (0.075 + rnd() * 0.07);
-    const lit = 0.72 + 0.28 * (1 - (y / S)) + (rnd() - 0.5) * 0.12;      // brighter toward the top of the card
-    const v = Math.max(0.55, Math.min(1, lit)) * 255 | 0;
-    const gr = g.createRadialGradient(x, y - r * 0.25, r * 0.1, x, y, r);
-    gr.addColorStop(0, `rgba(255,255,255,1)`);
-    gr.addColorStop(0.55, `rgba(${v},${v},${v},1)`);
-    gr.addColorStop(1, `rgba(${v * 0.8 | 0},${v * 0.8 | 0},${v * 0.8 | 0},1)`);
-    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  // A fuzzy cloud of hundreds of tiny petals: dense in the middle, thinning to a ragged feathery
+  // edge. Petals are near-white with only a slight light/shade variation (top lighter), no dark
+  // outlines, so the card reads as soft blossom, not bubbles. Colour comes from vertex colours.
+  const dots = 330;
+  for (let i = 0; i < dots; i++) {
+    const a = rnd() * Math.PI * 2, u = rnd(), d = Math.pow(u, 0.62) * S * 0.44;   // more dots near the centre
+    const x = S / 2 + Math.cos(a) * d, y = S / 2 + Math.sin(a) * d * 0.9;
+    const r = 2.2 + rnd() * 3.4 * (1 - d / (S * 0.5)) + 0.8;
+    const top = 1 - y / S, v = Math.max(0.74, Math.min(1, 0.8 + top * 0.24 + (rnd() - 0.5) * 0.1)) * 255 | 0;
+    g.fillStyle = `rgb(${v},${v},${v})`; g.beginPath();
+    // a slightly squashed, rotated petal blob rather than a perfect circle
+    g.ellipse(x, y, r, r * (0.7 + rnd() * 0.3), rnd() * 3.14, 0, 7); g.fill();
   }
-  // a solid neutral core so uv (0.5, 0.5) is opaque white, whatever the clusters did
-  g.fillStyle = '#fff'; g.beginPath(); g.arc(S / 2, S / 2, 7, 0, 7); g.fill();
-  // tiny dark gaps between blossoms give the cluster depth
+  // solid neutral core so uv (0.5, 0.5) is opaque white whatever the petals did
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(S / 2, S / 2, 8, 0, 7); g.fill();
+  // whisper of shading toward the bottom of the card (lower petals sit in shade), no dark spots
   g.globalCompositeOperation = 'source-atop';
-  for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(120,110,120,${0.25 + rnd() * 0.25})`; g.beginPath(); g.arc(S / 2 + (rnd() - 0.5) * S * 0.6, S / 2 + (rnd() - 0.5) * S * 0.55, 1.2 + rnd() * 2, 0, 7); g.fill(); }
+  const sh = g.createLinearGradient(0, S * 0.35, 0, S * 0.85); sh.addColorStop(0, 'rgba(150,140,160,0)'); sh.addColorStop(1, 'rgba(150,140,160,0.28)');
+  g.fillStyle = sh; g.fillRect(0, 0, S, S);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
   return t;
@@ -41,6 +42,6 @@ let tex = null;
 // Material for kind B on tracks whose second species is a card-based tree.
 export function blossomMaterial() {
   tex = tex || puffTexture();
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, map: tex, alphaTest: 0.45, roughness: 1, side: THREE.DoubleSide, envMapIntensity: 0.45 });
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, map: tex, alphaTest: 0.5, roughness: 1, side: THREE.DoubleSide, envMapIntensity: 0.45 });
   return patchFoliage(m, 'blossom');
 }
