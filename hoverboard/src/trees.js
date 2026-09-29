@@ -114,30 +114,29 @@ function blossomTree(lod = 0) {
   const norm = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
   const add = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
   const turn = (d, th, dy) => norm([d[0] * Math.cos(th) - d[2] * Math.sin(th), d[1] * 0.75 + dy, d[0] * Math.sin(th) + d[2] * Math.cos(th)]);
-  const wood = col('#3c2a20'), woodL = col('#6f5038'), woodT = col('#84643f');
+  const wood = col('#5a3d2b'), woodL = col('#8a6544'), woodT = col('#8f6d48');
   const splitY = 3.3, nr = far ? 3 : 6, tp = [], trad = [];
   const tx = t => 0.22 * Math.sin(t * 2.6), tz = t => 0.15 * Math.cos(t * 2.1 + 1);
-  for (let i = 0; i <= nr; i++) { const t = i / nr; tp.push([tx(t), -0.15 + t * (splitY + 0.15), tz(t)]); trad.push(0.3 * (1 - 0.5 * t) * (1 + 0.6 * Math.max(0, 1 - t / 0.18))); }
+  for (let i = 0; i <= nr; i++) { const t = i / nr; tp.push([tx(t), -0.15 + t * (splitY + 0.15), tz(t)]); trad.push(0.36 * (1 - 0.5 * t) * (1 + 0.6 * Math.max(0, 1 - t / 0.18))); }
   const RD = far ? 5 : 7;
   parts.push(tube(tp, trad, RD, (i, k, out) => { out.copy(wood).lerp(woodL, 0.25 + 0.35 * Math.max(0, Math.cos(k / RD * 6.283 + 0.5)) + i / nr * 0.2 + (hash(i * 5 + k, 3) - 0.5) * 0.1); }));
-  if (!far) for (let j = 0; j < 2; j++) { const t = 0.45 + j * 0.2, a = j * 3.4 + 1, P = [tx(t) , -0.15 + t * (splitY + 0.15), tz(t)]; parts.push(tube([P, [P[0] + Math.cos(a) * 0.5, P[1] + 0.25, P[2] + Math.sin(a) * 0.5]], [0.06, 0.015], 3, (i, k, o) => o.copy(woodL))); }
   const S = tp[tp.length - 1], ends2 = [], ends1 = [], limbEnds = [], wc = col('#5a4030');
   const nLimb = far ? 4 : 5;
   for (let i = 0; i < nLimb; i++) {
-    const a = i * 6.283 / nLimb + (R() - 0.5) * 0.7, phi = 0.95 + (R() - 0.5) * 0.3, len = 2.5 + R() * 0.6;
+    const a = i * 6.283 / nLimb + (R() - 0.5) * 0.7, phi = 0.72 + (R() - 0.5) * 0.25, len = 2.9 + R() * 0.6;
     const d0 = [Math.cos(a) * Math.cos(phi), Math.sin(phi), Math.sin(a) * Math.cos(phi)];
-    const p1 = add(S, d0, len * 0.5), d1 = norm([d0[0] * 1.2, d0[1] * 0.8 + 0.05, d0[2] * 1.2]), p2 = add(p1, d1, len * 0.5);
-    parts.push(tube([S, p1, p2], [0.15, 0.115, 0.085], far ? 3 : 5, (ii, k, o) => o.copy(wood).lerp(woodL, 0.3 + ii * 0.2 + (k % 2) * 0.05)));
+    const p1 = add(S, d0, len * 0.5), d1 = norm([d0[0] * 1.2, d0[1] * 0.9 + 0.12, d0[2] * 1.2]), p2 = add(p1, d1, len * 0.5);
+    parts.push(tube([S, p1, p2], [0.17, 0.13, 0.1], far ? 3 : 5, (ii, k, o) => o.copy(wood).lerp(woodL, 0.3 + ii * 0.2 + (k % 2) * 0.05)));
     limbEnds.push(p1, p2);
     for (let c = 0; c < 2; c++) {
-      const sg = c ? 1 : -1, nd = turn(d1, sg * (0.6 + R() * 0.4), (R() - 0.3) * 0.25), len1 = 1.7 + R() * 0.6;
-      const q1 = add(add(p2, nd, len1 * 0.5), [0, -0.05, 0]), q2 = add(q1, norm(add(nd, [0, -0.12, 0])), len1 * 0.5);
-      parts.push(tube(far ? [p2, q2] : [p2, q1, q2], far ? [0.085, 0.04] : [0.085, 0.06, 0.042], far ? 3 : 4, (ii, k, o) => o.copy(woodL).lerp(woodT, ii * 0.3)));
+      const sg = c ? 1 : -1, nd = turn(d1, sg * (0.6 + R() * 0.4), 0.2 + R() * 0.2), len1 = 1.8 + R() * 0.6;
+      const q1 = add(p2, nd, len1 * 0.5), q2 = add(q1, norm(add(nd, [0, 0.1, 0])), len1 * 0.5);
+      parts.push(tube(far ? [p2, q2] : [p2, q1, q2], far ? [0.085, 0.04] : [0.1, 0.075, 0.055], far ? 3 : 4, (ii, k, o) => o.copy(woodL).lerp(woodT, ii * 0.3)));
       ends1.push(q2);
       const nt = 2 + (R() > 0.5 ? 1 : 0), dq = norm(add(q2, q1, -1));
       for (let d = 0; d < nt; d++) {
-        const dd = turn(dq, (d - (nt - 1) / 2) * (0.7 + R() * 0.3), (R() - 0.25) * 0.3), l2 = 0.9 + R() * 0.5, e = add(q2, dd, l2);
-        if (!far) parts.push(tube([q2, e], [0.042, 0.012], 3, (ii, k, o) => o.copy(woodT)));
+        const dd = turn(dq, (d - (nt - 1) / 2) * (0.7 + R() * 0.3), 0.1 + R() * 0.25), l2 = 0.9 + R() * 0.5, e = add(q2, dd, l2);
+        if (!far) parts.push(tube([q2, e], [0.055, 0.02], 3, (ii, k, o) => o.copy(woodT)));
         ends2.push(e);
       }
     }
@@ -145,41 +144,41 @@ function blossomTree(lod = 0) {
   // canopy centre
   const cc = [0, 0, 0]; ends2.forEach(e => { cc[0] += e[0]; cc[1] += e[1]; cc[2] += e[2]; }); cc[0] /= ends2.length; cc[1] /= ends2.length; cc[2] /= ends2.length;
   let top = -1e9, bot = 1e9; ends2.forEach(e => { top = Math.max(top, e[1]); bot = Math.min(bot, e[1]); });
-  const cA = col(THEME.blossom || '#f2a0b8'), cD = col(THEME.blossomDark || '#b8457a'), cR = col('#d9668f'), cL = col('#ffc9d6'), c = new THREE.Color();
+  const pA = col('#f2b4c4'), pB = col('#e58aa6'), pL = col('#ffd0dc'), pD = col('#c9607f'), c = new THREE.Color();
   const pos = [], nor = [], cols = [], h = k => hash(k, 9);
   let ci = 0;
-  const cluster = (P, sz, np) => {
-    const k = ci++, hh = (P[1] - bot) / (top - bot + 1e-3), rr = Math.min(1, Math.hypot(P[0] - cc[0], P[2] - cc[2]) / 4.2);
-    const n = norm([P[0] - cc[0], P[1] - cc[1] + 0.4, P[2] - cc[2]]);
-    let u = norm([n[2], 0, -n[0]]); if (Math.abs(n[1]) > 0.97) u = [1, 0, 0];
-    const v = [n[1] * u[2] - n[2] * u[1], n[2] * u[0] - n[0] * u[2], n[0] * u[1] - n[1] * u[0]];
-    const t = Math.max(0, Math.min(1, 0.26 + hh * 0.5 + rr * 0.3 + (h(k) - 0.5) * 0.3));
-    if (t < 0.35) c.copy(cD).lerp(cR, t / 0.35); else if (t < 0.7) c.copy(cR).lerp(cA, (t - 0.35) / 0.35); else c.copy(cA).lerp(cL, (t - 0.7) / 0.3 * 0.9);
-    const pts = [];
-    for (let i = 0; i < np; i++) { const an = (i + h(k * 3 + 1) * 0.6) / np * 6.283, rad = sz * (0.68 + h(k * 7 + i) * 0.55); pts.push([P[0] + (u[0] * Math.cos(an) + v[0] * Math.sin(an)) * rad, P[1] + (u[1] * Math.cos(an) + v[1] * Math.sin(an)) * rad - 0.12 * sz, P[2] + (u[2] * Math.cos(an) + v[2] * Math.sin(an)) * rad]); }
-    const ap = add(P, n, 0.14 * sz), low = [cc[0], cc[1] - 2.5, cc[2]];
-    const push = (Q, shade) => {
-      pos.push(...Q);
-      const a = norm([Q[0] - P[0], Q[1] - P[1], Q[2] - P[2]]), b = norm([Q[0] - low[0], Q[1] - low[1], Q[2] - low[2]]), m = norm([a[0] * 0.5 + b[0] * 0.5, a[1] * 0.5 + b[1] * 0.5, a[2] * 0.5 + b[2] * 0.5]);
-      nor.push(...m); cols.push(c.r * shade, c.g * shade, c.b * shade);
-    };
-    for (let i = 0; i < np; i++) { const A = pts[i], B = pts[(i + 1) % np]; push(ap, 1.08); push(A, 0.88 + 0.2 * Math.max(0, A[1] - P[1]) / sz); push(B, 0.88 + 0.2 * Math.max(0, B[1] - P[1]) / sz); }
+  const low = [cc[0], cc[1] - 1.5, cc[2]];
+  const puff = (P, sz, inner) => {
+    const k = ci++, hh = Math.max(0, Math.min(1, (P[1] - bot) / (top - bot + 1e-3)));
+    let t = 0.35 + hh * 0.5 + (h(k) - 0.5) * 0.3 - (inner ? 0.25 : 0);
+    t = Math.max(0, Math.min(1, t));
+    if (t < 0.3) c.copy(pD).lerp(pB, 0.3 + t / 0.3 * 0.7); else if (t < 0.65) c.copy(pB).lerp(pA, (t - 0.3) / 0.35); else c.copy(pA).lerp(pL, (t - 0.65) / 0.35);
+    c.r *= 1 + (h(k + 5) - 0.5) * 0.06; c.b *= 1 + (h(k + 6) - 0.5) * 0.08;
+    const a1 = h(k + 1) * 6.283, ca = Math.cos(a1), sa = Math.sin(a1);
+    const V = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].map((v, i) => {
+      const j = 0.8 + h(k * 7 + i) * 0.4, x = v[0] * j * sz * 1.15, y = v[1] * j * sz * 0.95, z = v[2] * j * sz * 1.15;
+      return [P[0] + x * ca - z * sa, P[1] + y, P[2] + x * sa + z * ca];
+    });
+    const F = [[0, 2, 4], [4, 2, 1], [1, 2, 5], [5, 2, 0], [4, 3, 0], [1, 3, 4], [5, 3, 1], [0, 3, 5]];
+    F.forEach(f => f.forEach(vi => {
+      const Q = V[vi], a = norm([Q[0] - P[0], Q[1] - P[1], Q[2] - P[2]]), b = norm([Q[0] - low[0], Q[1] - low[1], Q[2] - low[2]]);
+      const m = norm([a[0] * 0.5 + b[0] * 0.5, a[1] * 0.5 + b[1] * 0.5, a[2] * 0.5 + b[2] * 0.5]);
+      const sh = vi === 2 ? 1.06 : vi === 3 ? 0.86 : 0.97;
+      pos.push(...Q); nor.push(...m); cols.push(c.r * sh, c.g * sh, c.b * sh);
+    }));
   };
-  const np = 3, sc = far ? 1.55 : 1;
-  const around = (E, cnt, spread) => { for (let q = 0; q < cnt; q++) { const k = ci * 5 + 11, o = norm([h(k) - 0.5, (h(k + 1) - 0.4) * 0.8, h(k + 2) - 0.5]), out = norm([E[0] - cc[0], 0, E[2] - cc[2]]), r = spread * (0.4 + h(k + 3) * 0.6); cluster([E[0] + (o[0] + out[0] * 0.5) * r, E[1] + (o[1] + 0.15) * r, E[2] + (o[2] + out[2] * 0.5) * r], (0.26 + h(k + 4) * 0.3) * sc, np); } };
-  if (far) { ends2.forEach((e, i) => { if (i % 2 === 0) around(e, 5, 0.8); }); ends1.forEach(e => around(e, 2, 0.6)); }
-  else { ends2.forEach(e => { around(e, 12, 0.8); around([e[0] * 0.6 + cc[0] * 0.4, e[1] * 0.6 + (cc[1] + 0.4) * 0.4, e[2] * 0.6 + cc[2] * 0.4], 3, 0.9); }); ends1.forEach(e => around(e, 5, 0.9)); limbEnds.forEach((e, i) => around(e, i % 2 ? 6 : 3, 1.0)); }
+  const sc = far ? 1.9 : 1;
+  const around = (E, cnt, spread, inner) => { for (let q = 0; q < cnt; q++) { const k = ci * 5 + 11, o = norm([h(k) - 0.5, (h(k + 1) - 0.3) * 0.8, h(k + 2) - 0.5]), r = spread * (0.35 + h(k + 3) * 0.65); puff([E[0] + o[0] * r, E[1] + o[1] * r + 0.1, E[2] + o[2] * r], (0.4 + h(k + 4) * 0.28) * sc, inner); } };
+  if (far) { ends2.forEach((e, i) => { if (i % 2 === 0) around(e, 2, 0.6); }); ends1.forEach(e => around(e, 1, 0.5)); }
+  else {
+    ends2.forEach(e => around(e, 5, 0.75)); ends1.forEach(e => around(e, 4, 0.8));
+    limbEnds.forEach((e, i) => around(e, i % 2 ? 2 : 1, 0.7, i % 2 === 0));
+    for (let i = 0; i < 14; i++) { const e = ends1[i % ends1.length], f = 0.35 + h(i + 300) * 0.3; puff([e[0] * f + cc[0] * (1 - f), e[1] * f + (cc[1] + 0.2) * (1 - f), e[2] * f + cc[2] * (1 - f)], 0.4 + h(i + 310) * 0.15, true); }
+  }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
   parts.push(g);
-  if (!far) for (let i = 0; i < 10; i++) {   // small deeper lumps inside the crown
-    const e = ends1[i % ends1.length], o = new THREE.OctahedronGeometry(0.28 + h(i + 400) * 0.12, 0);
-    o.translate(e[0] * 0.85 + cc[0] * 0.15, e[1] - 0.2, e[2] * 0.85 + cc[2] * 0.15);
-    const cs = new Float32Array(o.attributes.position.count * 3), cl = col('#e07f9f').lerp(cD, h(i + 410) * 0.3);
-    for (let q = 0; q < cs.length; q += 3) { cs[q] = cl.r; cs[q + 1] = cl.g; cs[q + 2] = cl.b; }
-    o.setAttribute('color', new THREE.BufferAttribute(cs, 3)); parts.push(o);
-  }
   return mergeGeometries(parts);
 }
 // Juniper: short twisted trunk under wide, flattened, dark clumps.
@@ -210,8 +209,8 @@ function pinePremium(opt = {}) {
   const { tiers = 10, height = 10, width = 2.8, snow = false, seed = 1, lite = false } = opt;
   const rnd = (k) => hash(k, seed);
   let mid = col(THEME.pine).lerp(col(THEME.pineLight), 0.5);
-  if (snow) mid.lerp(col('#4f8f6c'), 0.35);
-  const under = snow ? col('#8fa0b8').lerp(mid, 0.12) : col('#6f7038').lerp(mid, 0.4), light = col(THEME.pineLight).lerp(col('#9aab48'), 0.2), tipC = col('#a9b350'), snowC = col('#f6f2ea'), c = new THREE.Color();
+  if (snow) mid = col('#3f6f57');
+  const under = snow ? col('#a8b8cc').lerp(mid, 0.22) : col('#6f7038').lerp(mid, 0.4), light = col(THEME.pineLight).lerp(col('#9aab48'), 0.2), tipC = col('#a9b350'), snowC = col('#f2f6fc'), c = new THREE.Color();
   const tone = (t, out) => (t < 0.5 ? out.copy(under).lerp(mid, t / 0.5) : t < 0.8 ? out.copy(mid).lerp(light, (t - 0.5) / 0.3) : out.copy(light).lerp(tipC, Math.min(1, (t - 0.8) / 0.2)));
   const lean = [(rnd(900) - 0.5) * 1.8, (rnd(901) - 0.5) * 1.8], bendA = rnd(902) * 6.28;
   const cx = t => lean[0] * t * t + 0.18 * Math.sin(t * 3 + bendA), cz = t => lean[1] * t * t + 0.18 * Math.cos(t * 2.6 + bendA);

@@ -55,7 +55,7 @@ const fs = require('fs');
   }, spec);
   const shots = {
     hero_A: { trees: [{ kind: 0, x: 0, z: 0 }], cam: [8, 2.0, 12], look: [0, 4.6, 0], fov: 42, clean: true },
-    hero_B: { trees: [{ kind: 1, x: 0, z: 0 }], cam: [7, 2.2, 11], look: [0, 4.4, 0], fov: 40, clean: true },
+    hero_B: { trees: [{ kind: 1, x: 0, z: 0 }], cam: [9, 3.0, 15], look: [0, 5.2, 0], fov: 42, clean: true },
     back_A: { trees: [{ kind: 0, x: 0, z: 0 }], cam: [-4, 1.8, -12], look: [0, 4.2, 0], fov: 40, clean: true },
     grove: { trees: [
       { kind: 0, x: -6, z: -4, rot: 0.4, s: 1.1 }, { kind: 0, x: 3, z: -8, rot: 2.0, s: 0.9 }, { kind: 1, x: -1, z: 1, rot: 1.0, s: 1.0 },
