@@ -144,12 +144,13 @@ export function makeRider(gltf, deckTopY, colors = THEME) {
     st.compV += (-st.comp * 70 - st.compV * 11) * dt;
     st.comp = Math.max(-0.6, Math.min(1, st.comp + st.compV * dt));
     st.grab += ((fx.air && (fx.airT || 0) > 0.3 ? 1 : 0) - st.grab) * Math.min(1, dt * 6);
+    st.crash = (st.crash || 0) + ((fx.crash ? 1 : 0) - (st.crash || 0)) * Math.min(1, dt * 10);
     mixer.update(dt);
     holder.updateWorldMatrix(true, true);
 
     const L0 = Math.abs(st.lean), dr = st.drift;
     // one crouch value drives hips and knees: speed, tuck, ramp preload, carve depth, air tuck, landing
-    const c = Math.max(0, Math.min(1.45, st.crouch + st.tuck * 0.7 + st.preload * 0.55 + L0 * 0.35 + st.air * 0.6 + st.comp * 0.7));
+    const c = Math.max(0, Math.min(1.45, st.crash * 0.6 + st.crouch + st.tuck * 0.7 + st.preload * 0.55 + L0 * 0.35 + st.air * 0.6 + st.comp * 0.7));
     // directions in world space
     tilt.getWorldQuaternion(_q1);
     P.up.set(0, 1, 0).applyQuaternion(_q1);
@@ -220,6 +221,8 @@ export function makeRider(gltf, deckTopY, colors = THEME) {
         }
         // long air: the front hand grabs the toe edge between the feet
         if (side === 'Left' && st.grab > 0.01) P.hand.lerp(W(0.34, deckTopY + 0.06, -0.08, P.tmp), st.grab);
+        // wipeout: arms thrown up and out, flailing
+        if (st.crash > 0.01) P.hand.lerp(P.tmp.copy(root).addScaledVector(P.up, 0.45 + Math.sin(st.t * 17 + dz) * 0.15).addScaledVector(P.nose, dz * -0.35).addScaledVector(P.fwdChar, 0.15 + Math.cos(st.t * 13 + dz) * 0.15), st.crash);
       }
       P.pole.copy(P.up).multiplyScalar(-0.6).addScaledVector(P.fwdChar, -0.8).normalize();
       twoBone(root, P.hand, L.upper, L.fore, P.pole, P.elbow);

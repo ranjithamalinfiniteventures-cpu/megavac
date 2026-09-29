@@ -574,6 +574,7 @@ function update(dt, rdt = dt) {
     G.crashT += dt;
     G.v *= Math.pow(0.2, dt); G.s += G.v * dt;
     board.tilt.rotation.x += dt * 8; board.tilt.rotation.z += dt * 5; board.tilt.position.y += dt * (3 - G.crashT * 9);
+    if (rider) rider.update(realDt, board.tilt, 1, 0, 0, 0.5, { crash: true });
     if (G.crashT > 1.6) {
       if (G.race) {   // races keep going: back on the board with a short grace period
         G.mode = 'play'; G.v = 22; G.u *= 0.5; G.vu = 0; G.invuln = 1.6; G.y = 0; G.air = false;
@@ -665,7 +666,9 @@ function update(dt, rdt = dt) {
 
   // ---------- camera ----------
   const speedN = Math.min(1.4, G.v / 70);
-  const back = 3.4 + speedN * 1.0, height = 1.55 + speedN * 0.15;
+  // wipeout: the camera rises and pulls back so the crash reads over whatever you hit
+  G.crashCam = (G.crashCam || 0) + ((G.mode === 'crash' ? 1 : 0) - (G.crashCam || 0)) * Math.min(1, dt * 3);
+  const back = 3.4 + speedN * 1.0 + G.crashCam * 3.5, height = 1.55 + speedN * 0.15 + G.crashCam * 3.2;
   const sAhead = s + 10;
   tmp.set(p.x, p.y, p.z).addScaledVector(fwd, -back); tmp.y = Math.max(tmp.y, roadY(s - back) + height) + 0.0;
   tmp.y = p.y - G.y * 0.4 + height;

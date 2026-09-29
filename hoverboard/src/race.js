@@ -48,10 +48,11 @@ function nameTag(text, color) {
   const g = c.getContext('2d');
   g.fillStyle = 'rgba(15,17,26,0.72)'; g.beginPath(); g.roundRect(8, 10, 240, 44, 22); g.fill();
   g.fillStyle = color; g.beginPath(); g.arc(34, 32, 9, 0, 7); g.fill();
-  g.fillStyle = '#fff'; g.font = '800 26px system-ui, sans-serif'; g.textBaseline = 'middle'; g.fillText(text, 54, 33);
+  g.fillStyle = '#fff'; g.font = 'italic 900 30px "Barlow Condensed", system-ui, sans-serif'; g.textBaseline = 'middle'; g.fillText(text, 54, 33);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false, transparent: true }));
-  sp.scale.set(1.6, 0.4, 1); sp.position.y = 2.6;
+  // constant on-screen size, so names stay readable at any distance
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false, transparent: true, sizeAttenuation: false }));
+  sp.scale.set(0.22, 0.055, 1); sp.position.y = 2.4;
   return sp;
 }
 
