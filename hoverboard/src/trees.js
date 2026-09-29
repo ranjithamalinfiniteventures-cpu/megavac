@@ -130,11 +130,11 @@ function foliageBlob(cx, cy, cz, rx, ry, rz, seed, detail, tint) {
     let yy = py * k * ry;
     if (py < -0.15) yy -= (-py - 0.15) * ry * 0.55 * vnoise(px * 2.2 + 9, 0, pz * 2.2, seed + 3);   // drooping lobes
     p.setXYZ(i, cx + px * k * rx, cy + yy, cz + pz * k * rz);
-    const t = Math.max(0, Math.min(1, 0.66 + py * 0.4 + (bump - 0.5) * 0.55));
+    const t = Math.max(0, Math.min(1, 0.6 + py * 0.5 + (bump - 0.5) * 0.5));
     if (t < 0.32) c.copy(deep).lerp(redO, t / 0.32);
     else if (t < 0.62) c.copy(redO).lerp(amber, (t - 0.32) / 0.3).lerp(gold, Math.max(0, (t - 0.45) / 0.17) * 0.4);
     else c.copy(amber).lerp(gold, Math.min(1, (t - 0.62) / 0.2)).lerp(lit, Math.max(0, (t - 0.8) / 0.2) * 0.7);
-    c.lerp(tint, 0.18 * n2).multiplyScalar(0.72 + 0.28 * bump + (py < -0.4 ? -0.1 : 0));
+    c.lerp(tint, 0.18 * n2).multiplyScalar(0.72 + 0.28 * bump + (py < -0.4 ? -0.14 : 0));
     cs[i * 3] = c.r; cs[i * 3 + 1] = c.g; cs[i * 3 + 2] = c.b;
   }
   g.setAttribute('color', new THREE.BufferAttribute(cs, 3));
@@ -146,19 +146,30 @@ function aspenGeometry(lod = 0) {
   const parts = [], H = 8.6, far = lod > 0;
   const bark = col('#efe5d0'), scar = col('#2c2622'), greyB = col('#c4b8a4');
   const tx = t => 0.32 * Math.sin(t * 2.3), tz = t => 0.2 * Math.sin(t * 3.1 + 1);
-  const nr = far ? 4 : 8, tpath = [], trad = [];
+  const nr = far ? 4 : 7, tpath = [], trad = [];
   for (let i = 0; i <= nr; i++) { const t = i / nr; tpath.push([tx(t), -0.1 + t * H, tz(t)]); trad.push(0.44 * Math.pow(1 - t, 1.0) + 0.06 + (i === 0 ? 0.06 : 0)); }
-  const bandRings = far ? [1, 3] : [2, 5];
+  const warmG = col('#cdbfa8');
   parts.push(tube(tpath, trad, far ? 5 : 7, (i, k, out) => {
-    out.copy(bark).multiplyScalar(0.9 + hash(i * 3 + k, 14) * 0.12);
-    if (i > 0 && (bandRings.includes(i) && hash(i * 7 + k, 11) > 0.35 || hash(i * 13 + k * 5, 12) > 0.93)) out.lerp(scar, 0.75);
+    out.copy(bark).lerp(warmG, 0.35 * (0.5 + 0.5 * Math.sin(i * 1.9 + 0.6)) + (hash(i * 3 + k, 14) - 0.5) * 0.12).multiplyScalar(0.96 + hash(i + k * 5, 15) * 0.06);
   }));
+  if (!far) for (let q = 0; q < 6; q++) {   // thin eye-scars: small flat diamonds hugging the trunk, alternating sides
+    const t = 0.1 + q * 0.13 + hash(q, 71) * 0.04, ang = q % 2 ? 1.0 + hash(q, 72) * 0.5 : 4.2 + hash(q, 72) * 0.5;
+    const r = (0.44 * (1 - t) + 0.06) * 0.98 + 0.014, ax = tx(t), ay = -0.1 + t * H, az = tz(t);
+    const dx = Math.cos(ang), dz = Math.sin(ang), ux = -dz, uz = dx, w = 0.17 - t * 0.06, hgt = 0.07 + hash(q, 73) * 0.04;
+    const P = (du, dv) => [ax + dx * r + ux * du, ay + dv, az + dz * r + uz * du];
+    const V = [P(0, hgt), P(w, 0), P(0, -hgt), P(-w, 0)], pos = [], nor = [], cs = [], cc = col('#3a322c');
+    [[0, 1, 2], [0, 2, 3]].forEach(tr => tr.forEach(vi => { pos.push(...V[vi]); nor.push(dx, 0, dz); cs.push(cc.r, cc.g, cc.b); }));
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(12), 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(cs, 3));
+    parts.push(g);
+  }
   const cxn = tx(0.84) + 0.4, czn = tz(0.84) - 0.2, cy = 6.6;
   const tint = col('#c2452a');
-  if (!far) for (let j = 0; j < 4; j++) {
-    const ty = 0.3 + j * 0.06, a = j * 2.39996 + 0.5, dx = Math.cos(a), dz = Math.sin(a), tnx = -dz, tnz = dx;
+  if (!far) for (let j = 0; j < 3; j++) {
+    const ty = 0.24 + j * 0.07, a = j * 2.39996 + 0.5, dx = Math.cos(a), dz = Math.sin(a), tnx = -dz, tnz = dx;
     const P0 = [tx(ty), -0.1 + ty * H, tz(ty)];
-    const E = [cxn + dx * 1.2, cy - 0.6 + j * 0.3, czn + dz * 1.2];
+    const E = [cxn + dx * 1.3, cy - 0.5 + j * 0.3, czn + dz * 1.3];
     const F = [P0[0] + (E[0] - P0[0]) * 0.5, P0[1] + (E[1] - P0[1]) * 0.55, P0[2] + (E[2] - P0[2]) * 0.5];
     const M1 = [P0[0] + (F[0] - P0[0]) * 0.5, P0[1] + (F[1] - P0[1]) * 0.45, P0[2] + (F[2] - P0[2]) * 0.5];
     parts.push(tube([P0, M1, F], [0.24 - ty * 0.08, 0.16, 0.12], 4, (i, k, o) => o.copy(i ? greyB : bark).multiplyScalar(0.82 + hash(k + i + j, 25) * 0.18)));
@@ -175,13 +186,10 @@ function aspenGeometry(lod = 0) {
   parts.push(foliageBlob(cxn, cy, czn, 2.3, 1.9, 2.1, 3, 5, tint));
   parts.push(foliageBlob(cxn - 1.7, cy - 1.0, czn + 0.7, 1.5, 1.2, 1.35, 5, 4, tint));
   parts.push(foliageBlob(cxn + 0.5, cy + 1.7, czn + 0.2, 1.3, 1.0, 1.2, 7, 3, tint));
-  for (let i = 0; i < 5; i++) {   // detached leaf tufts for a ragged rim
-    const a = i * 1.7 + 0.4, r = 0.2 + hash(i, 61) * 0.1, o = new THREE.OctahedronGeometry(r, 0);
-    o.scale(1.2, 0.8, 1.2).translate(cxn + Math.cos(a) * (2.7 + hash(i, 62) * 0.4), cy - 0.6 + hash(i, 63) * 1.8, czn + Math.sin(a) * 2.5);
-    const cs = new Float32Array(o.attributes.position.count * 3), cc = col('#d98a2c').lerp(col('#f0c044'), hash(i, 64));
-    for (let q = 0; q < cs.length; q += 3) { cs[q] = cc.r; cs[q + 1] = cc.g; cs[q + 2] = cc.b; }
-    o.setAttribute('color', new THREE.BufferAttribute(cs, 3)); parts.push(o);
-  }
+  // secondary lumps embedded in the main blob and one clump hanging under it
+  parts.push(foliageBlob(cxn + 1.9, cy + 0.5, czn - 0.9, 0.8, 0.65, 0.75, 11, 1, tint));
+  parts.push(foliageBlob(cxn - 0.6, cy + 0.9, czn + 1.9, 0.75, 0.6, 0.7, 13, 1, tint));
+  parts.push(foliageBlob(cxn + 0.5, cy - 1.8, czn - 0.3, 0.85, 0.7, 0.85, 17, 1, tint));
   return mergeGeometries(parts);
 }
 // Juniper: short twisted trunk under wide, flattened, dark clumps.
@@ -213,16 +221,16 @@ function pinePremium(opt = {}) {
   const rnd = (k) => hash(k, seed);
   let mid = col(THEME.pine).lerp(col(THEME.pineLight), 0.3);
   if (snow) mid.lerp(col('#4f8f6c'), 0.35);
-  const under = snow ? col('#6b8797').lerp(mid, 0.25) : col('#5f6a3a').lerp(mid, 0.3), light = col(THEME.pineLight).lerp(col('#9aab48'), 0.2), tipC = col('#a9b350'), snowC = col('#e2eefb'), c = new THREE.Color();
+  const under = snow ? col('#8a9bab').lerp(col('#7a7a68'), 0.25).lerp(mid, 0.2) : col('#6b6a38').lerp(mid, 0.3), light = col(THEME.pineLight).lerp(col('#9aab48'), 0.2), tipC = col('#a9b350'), snowC = col('#f3f1ea'), c = new THREE.Color();
   const tone = (t, out) => (t < 0.5 ? out.copy(under).lerp(mid, t / 0.5) : t < 0.8 ? out.copy(mid).lerp(light, (t - 0.5) / 0.3) : out.copy(light).lerp(tipC, Math.min(1, (t - 0.8) / 0.2)));
-  const lean = [(rnd(900) - 0.5) * 1.3, (rnd(901) - 0.5) * 1.3], bendA = rnd(902) * 6.28;
+  const lean = [(rnd(900) - 0.5) * 1.8, (rnd(901) - 0.5) * 1.8], bendA = rnd(902) * 6.28;
   const cx = t => lean[0] * t * t + 0.18 * Math.sin(t * 3 + bendA), cz = t => lean[1] * t * t + 0.18 * Math.cos(t * 2.6 + bendA);
-  const barkLo = col('#4b3424'), barkHi = col('#86633f');
+  const barkLo = snow ? col('#6a4a34') : col('#4b3424'), barkHi = snow ? col('#9a7650') : col('#86633f');
   const parts = [];
   const fr = lite ? [0, 0.08, 0.5, 0.86] : [0, 0.05, 0.15, 0.4, 0.7, 0.86], path = [], rad = [];
-  fr.forEach(t => { path.push([cx(t * 0.93), -0.2 + t * height * 0.98, cz(t * 0.93)]); rad.push((0.3 * Math.pow(1 - t, 0.8) + 0.04) * (1 + 0.6 * Math.max(0, 1 - t / 0.2))); });
-  parts.push(tube(path, rad, lite ? 4 : 8, (i, k, out) => { out.copy(barkLo).lerp(barkHi, Math.min(1, fr[i] * 1.2) * 0.7 + (hash(k, seed + 40) - 0.5) * 0.5 + (hash(i * 7 + k, seed + 41) - 0.5) * 0.12); }));
-  if (!lite) for (let j = 0; j < 2; j++) { const ty = 0.22 + j * 0.05, a = j * 3.3 + rnd(70) * 3, y = -0.2 + ty * height * 0.98, x = cx(ty * 0.93), z = cz(ty * 0.93); parts.push(tube([[x, y, z], [x + Math.cos(a) * 0.55, y - 0.05, z + Math.sin(a) * 0.55]], [0.1, 0.05], 4, (i, k, out) => out.copy(barkLo))); }
+  fr.forEach(t => { path.push([cx(t * 0.93), -0.2 + t * height * 0.98, cz(t * 0.93)]); rad.push((0.3 * Math.pow(1 - t, 0.8) + 0.04) * (1 + 0.95 * Math.max(0, 1 - t / 0.22))); });
+  parts.push(tube(path, rad, lite ? 4 : 8, (i, k, out) => { out.copy(barkLo).lerp(barkHi, Math.min(1, fr[i] * 1.2) * 0.6 + (hash(k, seed + 40) - 0.5) * 0.5 + 0.16 * Math.sin(i * 2.3 + seed) + (hash(i * 7 + k, seed + 41) - 0.5) * 0.12); }));
+  if (!lite) for (let j = 0; j < 2; j++) { const ty = 0.26 + j * 0.05, a = j * 3.3 + rnd(70) * 3, y = -0.2 + ty * height * 0.98, x = cx(ty * 0.93), z = cz(ty * 0.93); parts.push(tube([[x, y, z], [x + Math.cos(a) * 0.55, y - 0.05, z + Math.sin(a) * 0.55]], [0.1, 0.05], 4, (i, k, out) => out.copy(barkLo))); }
   let W = Math.max(5, Math.round(tiers * 0.64) + (rnd(500) > 0.5 ? 1 : 0));
   if (snow) W = Math.min(W, 7);
   if (lite) W = Math.max(4, Math.min(4, W));
@@ -234,15 +242,15 @@ function pinePremium(opt = {}) {
   let cum = 0;
   for (let i = 0; i < W; i++) {
     cum += sp[i]; const t = Math.min(0.999, (cum - sp[i] / 2) / sum);
-    const y = -0.2 + height * (0.31 + 0.62 * t), hh = height * 0.7 / W * 0.95;
-    const R = width * 1.15 * Math.pow(1 - t, 0.8) * (0.85 + rnd(i * 11) * 0.3) + 0.45, ox = cx(t * 0.93) + (rnd(i * 13) - 0.5) * 0.25, oz = cz(t * 0.93) + (rnd(i * 17) - 0.5) * 0.25;
+    const y = -0.2 + height * (0.36 + 0.58 * t), hh = height * 0.7 / W * 0.95;
+    const R = width * 1.15 * Math.pow(1 - t, 0.8) * (0.8 + rnd(i * 11) * 0.4) + 0.45, ox = cx(t * 0.93) + (rnd(i * 13) - 0.5) * 0.4, oz = cz(t * 0.93) + (rnd(i * 17) - 0.5) * 0.4;
     const rot = rnd(i * 5 + 3) * 6.28, gap = rnd(i * 23) > 0.6 ? Math.floor(rnd(i * 29) * N) * 2 : -1;
     const top = t > 0.9;
     const V = [];
     for (let r = 0; r < rings.length; r++) {
       const row = [];
       for (let j = 0; j < M; j++) {
-        const peak = j % 2 === 0, th = (j + (rnd(i * 31 + j) - 0.5) * 0.18) / M * 6.283 + rot;
+        const peak = j % 2 === 0, th = (j + (rnd(i * 31 + j) - 0.5) * (snow ? 0.08 : 0.18)) / M * 6.283 + rot;
         let rr = R * (peak ? 0.92 + rnd(i * 37 + j) * 0.2 : 0.62 + rnd(i * 41 + j) * 0.12);
         if (j === gap) rr *= 0.58;
         const rho = rr * rings[r][0] * (top ? 0.8 : 1), droop = peak ? (0.35 + rnd(i * 47 + j) * 0.25) * (rings[r][0] > 0.9 ? 1 : rings[r][0] > 0.5 ? 0.4 : 0) : 0;
@@ -266,7 +274,7 @@ function pinePremium(opt = {}) {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2));
-    roundNormals(g, new THREE.Vector3(ox, y - hh * 0.4, oz), new THREE.Vector3(ox, y - height * 0.4, oz), 0.75);
+    roundNormals(g, new THREE.Vector3(ox, y - hh * 0.4, oz), new THREE.Vector3(ox, y - height * 0.4, oz), snow ? 0.88 : 0.75);
     parts.push(g);
   }
   return mergeGeometries(parts);
