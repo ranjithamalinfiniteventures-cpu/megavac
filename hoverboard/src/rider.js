@@ -8,6 +8,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
+const NOFX = {};
 
 // Rotate `bone` (minimal rotation) so the direction to `child` points at `target` (world space).
 function aim(bone, child, target, weight = 1) {
@@ -112,7 +113,8 @@ export function makeRider(gltf, deckTopY, colors = THEME) {
   };
   const hipsRestY = wp(bones.Hips).y - box.min.y * k; // standing hip height above the soles
 
-  const st = { crouch: 0.5, lean: 0, drift: 0, t: 0, sway: 0 };
+  // air / tuck / preload blends plus a spring for the jump pop and landing absorb
+  const st = { crouch: 0.5, lean: 0, drift: 0, t: 0, sway: 0, air: 0, tuck: 0, preload: 0, comp: 0, compV: 0, wasAir: false, vy: 0, grab: 0 };
   const P = {
     hips: new THREE.Vector3(), footF: new THREE.Vector3(), footB: new THREE.Vector3(), knee: new THREE.Vector3(),
     elbow: new THREE.Vector3(), hand: new THREE.Vector3(), pole: new THREE.Vector3(), tmp: new THREE.Vector3(), up: new THREE.Vector3(),
@@ -123,17 +125,31 @@ export function makeRider(gltf, deckTopY, colors = THEME) {
   let space = null;
   const W = (x, y, z, out) => space.localToWorld(out.set(x, y, z));
 
-  function update(dt, tilt, crouch, lean, drift, speedN) {
+  // fx: { air, vy, airT, tuck (0..1 speed tuck), preload (0..1 crouch on the ramp) }
+  function update(dt, tilt, crouch, lean, drift, speedN, fx = NOFX) {
     space = tilt;
     st.t += dt;
     const s = Math.min(1, dt * 7);
     st.crouch += (crouch - st.crouch) * s;
     st.lean += (lean - st.lean) * s;
     st.drift += (drift - st.drift) * s;
+    st.tuck += ((fx.tuck || 0) - st.tuck) * Math.min(1, dt * 3);
+    st.preload += ((fx.preload || 0) - st.preload) * Math.min(1, dt * 8);
+    st.air += ((fx.air ? 1 : 0) - st.air) * Math.min(1, dt * 9);
+    // jump timing: extend the legs at the lip, soak up the landing with the knees
+    if (fx.air && !st.wasAir) st.compV = -5;
+    if (!fx.air && st.wasAir) st.compV = Math.min(9, 2 + Math.abs(st.vy) * 0.45);
+    if (fx.air) st.vy = fx.vy || 0;
+    st.wasAir = !!fx.air;
+    st.compV += (-st.comp * 70 - st.compV * 11) * dt;
+    st.comp = Math.max(-0.6, Math.min(1, st.comp + st.compV * dt));
+    st.grab += ((fx.air && (fx.airT || 0) > 0.3 ? 1 : 0) - st.grab) * Math.min(1, dt * 6);
     mixer.update(dt);
     holder.updateWorldMatrix(true, true);
 
-    const c = st.crouch, dr = st.drift;
+    const L0 = Math.abs(st.lean), dr = st.drift;
+    // one crouch value drives hips and knees: speed, tuck, ramp preload, carve depth, air tuck, landing
+    const c = Math.max(0, Math.min(1.2, st.crouch + st.tuck * 0.35 + st.preload * 0.45 + L0 * 0.3 + st.air * 0.3 + st.comp * 0.55));
     // directions in world space
     tilt.getWorldQuaternion(_q1);
     P.up.set(0, 1, 0).applyQuaternion(_q1);
@@ -141,8 +157,9 @@ export function makeRider(gltf, deckTopY, colors = THEME) {
     P.nose.set(0, 0, -1).applyQuaternion(_q1);     // direction of travel
 
     // ---- hips: drop into a crouch, shift weight toward the lean
-    const hipH = hipsRestY * (1 - 0.3 * c) + Math.sin(st.t * 2.1) * 0.01;
-    W(-0.06 - c * 0.12 + st.lean * 0.12, deckTopY + hipH, 0.02 + dr * 0.1, P.hips);
+    const hipH = hipsRestY * (1 - 0.32 * c) + Math.sin(st.t * 2.1) * 0.01;
+    // toeside carve (lean > 0): hips drive over the toes; heelside: sit back over the heels
+    W(-0.06 - c * 0.12 + st.lean * 0.3 - st.tuck * 0.05, deckTopY + hipH, 0.02 + dr * 0.1, P.hips);
     const hips = bones.Hips;
     hips.parent.updateWorldMatrix(true, false);
     hips.position.copy(hips.parent.worldToLocal(P.tmp.copy(P.hips)));
@@ -167,8 +184,9 @@ export function makeRider(gltf, deckTopY, colors = THEME) {
     }
 
     // ---- spine: bend forward over the knees, lean into the carve
-    W(0.25 + c * 0.35 + dr * 0.25, deckTopY + hipH + 0.55 - c * 0.12, 0.05 + dr * 0.1, P.tmp);
-    P.tmp.addScaledVector(P.nose, st.lean * -0.05);
+    // (tuck folds the chest down over the knees; carves incline the torso into the turn)
+    W(0.25 + c * 0.35 + dr * 0.25 + st.lean * 0.25 + st.tuck * 0.12, deckTopY + hipH + 0.55 - c * 0.12 - st.tuck * 0.1, 0.05 + dr * 0.1, P.tmp);
+    P.tmp.addScaledVector(P.nose, st.lean * -0.05 - st.tuck * 0.08);
     aim(bones.Spine, bones.Spine1, P.tmp, 0.9);
     // shoulders open toward the nose so the rider looks down the hill
     rotateWorld(bones.Spine2, P.up, 0.35 + dr * 0.4);
@@ -188,7 +206,17 @@ export function makeRider(gltf, deckTopY, colors = THEME) {
         // arms spread along the board, a little in front of the chest, dipping with the lean
         P.hand.copy(root).addScaledVector(P.nose, dz * -(0.5 + c * 0.1))
           .addScaledVector(P.fwdChar, 0.02)
-          .addScaledVector(P.up, -0.32 + lift + sway + st.lean * dz * 0.12);
+          .addScaledVector(P.up, -0.32 + lift + sway + st.lean * dz * 0.12 + st.air * 0.35);
+        // speed tuck: hands folded behind the lower back, like a downhill skater
+        const tk = st.tuck * (1 - st.air);
+        if (tk > 0.01) P.hand.lerp(W(-0.3 - c * 0.05, deckTopY + hipH + 0.12, dz * 0.07, P.tmp), tk);
+        // deep carve: the inside hand reaches down and skims the road
+        const plant = Math.max(0, Math.min(1, (L0 - 0.55) / 0.35)) * (1 - st.air);
+        if (plant > 0.01 && ((st.lean > 0 && side === 'Left') || (st.lean < 0 && side === 'Right'))) {
+          P.hand.lerp(st.lean > 0 ? W(0.62, deckTopY - 0.18, -0.1, P.tmp) : W(-0.58, deckTopY - 0.12, 0.25, P.tmp), plant);
+        }
+        // long air: the front hand grabs the toe edge between the feet
+        if (side === 'Left' && st.grab > 0.01) P.hand.lerp(W(0.34, deckTopY + 0.06, -0.08, P.tmp), st.grab);
       }
       P.pole.copy(P.up).multiplyScalar(-0.6).addScaledVector(P.fwdChar, -0.8).normalize();
       twoBone(root, P.hand, L.upper, L.fore, P.pole, P.elbow);

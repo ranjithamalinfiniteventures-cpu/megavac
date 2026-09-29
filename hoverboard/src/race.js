@@ -141,8 +141,9 @@ export class Rival {
     const lean = -this.vu / 16;
     if (this.crashT <= 0) this.board.tilt.rotation.z += (lean * 0.55 - this.board.tilt.rotation.z) * Math.min(1, dt * 8);
     this.board.tilt.rotation.x = this.air ? Math.sin(this.t * 3) * 0.12 : 0;
-    const crouch = Math.min(1, 0.4 + Math.min(1, this.v / 70) * 0.45 + this.boost * 0.15);
-    if (this.rider && this.near) this.rider.update(rdt, this.board.tilt, crouch, -lean, 0, Math.min(1, this.v / 70));
+    const crouch = Math.min(1, 0.35 + Math.min(1, this.v / 70) * 0.35);
+    const fx = { air: this.air, vy: this.vy, airT: this.airT, tuck: Math.max(this.boost, Math.max(0, (this.v / 70 - 0.8) / 0.2) * Math.max(0, 1 - Math.abs(this.vu) / 8)), preload: this.air ? 0 : rampH(s) / RAMP_H };
+    if (this.rider && this.near) this.rider.update(rdt, this.board.tilt, crouch, Math.max(-1, Math.min(1, -lean)), 0, Math.min(1, this.v / 70), fx);
   }
 }
 

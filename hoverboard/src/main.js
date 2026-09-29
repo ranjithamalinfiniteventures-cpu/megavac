@@ -4,7 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { ROAD_HALF, roadX, roadY, roadDX, roadDY, fbm, rampH, segmentFeature, SEG } from './world.js';
+import { ROAD_HALF, roadX, roadY, roadDX, roadDY, fbm, rampH, segmentFeature, SEG, RAMP_H } from './world.js';
 import { Features } from './features.js';
 import { LEVELS, Rival, stepAir, makeGantry, placeOnRoad, ordinal } from './race.js';
 import { ChunkManager, makeTextures } from './chunks.js';
@@ -630,11 +630,18 @@ function update(dt, rdt = dt) {
   board.setContact(G.hover + G.y - rampH(s) + (board.tilt.position.y || 0));
   if (G.mode !== 'crash') {
     const lean = -G.vu / 16;
+    const spN = Math.min(1.3, G.v / 70);
+    // speed wobble: a fast, small chatter in the board once you're really flying
+    const wob = Math.max(0, spN - 0.9) * (Math.sin(G.time * 23) * 0.6 + Math.sin(G.time * 37 + 1) * 0.4) * 0.05;
     board.tilt.rotation.z += (lean * 0.55 - board.tilt.rotation.z) * Math.min(1, dt * 8);
+    board.tilt.rotation.z += wob * (G.air ? 0 : 1);
     board.tilt.rotation.y += (G.drift * -0.9 - board.tilt.rotation.y) * Math.min(1, dt * 8);
     board.tilt.rotation.x = G.air ? Math.min(0.35, G.vy * 0.03) : Math.sin(G.time * 3.1) * 0.02;
-    const crouch = 0.35 + Math.min(1, G.v / 70) * 0.45 + (input.drift && G.mode === 'play' ? 0.25 : 0) + G.boost * 0.15;
-    if (rider) rider.update(realDt, board.tilt, Math.min(1, crouch), -lean, Math.abs(G.drift), Math.min(1, G.v / 70));
+    const crouch = 0.3 + Math.min(1, G.v / 70) * 0.35 + (input.drift && G.mode === 'play' ? 0.25 : 0);
+    // downhill tuck on straights at speed and while boosting; crouch on the kicker before the lip
+    const tuck = G.mode === 'play' && !input.drift ? Math.max(G.boost, Math.min(1, Math.max(0, (spN - 0.75) / 0.25)) * Math.max(0, 1 - Math.abs(G.vu) / 8)) : 0;
+    const riderFx = { air: G.air, vy: G.vy, airT: G.airT, tuck, preload: G.air ? 0 : rampH(s) / RAMP_H };
+    if (rider) rider.update(realDt, board.tilt, Math.min(1, crouch), Math.max(-1, Math.min(1, -lean)), Math.abs(G.drift), Math.min(1, G.v / 70), riderFx);
     else board.pose(dt, crouch, -lean, G.drift, Math.min(1, G.v / 70));
   }
   // thrusters
