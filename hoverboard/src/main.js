@@ -327,7 +327,7 @@ function clearObjects(beforeS = Infinity) {
 // ---------------- game state ----------------
 const ui = {
   hud: document.getElementById('hud'), speed: document.getElementById('speed'), dist: document.getElementById('dist'),
-  score: document.getElementById('score'), flow: document.getElementById('flowfill'), flowWrap: document.getElementById('flow'),
+  score: document.getElementById('score'), flow: document.getElementById('flowfill'), flowWrap: document.getElementById('gauge'), spdtick: document.getElementById('spdtick'), boostcue: document.getElementById('boostcue'), tracks: document.getElementById('tracks'), trackprog: document.getElementById('trackprog'), trackblurb: document.getElementById('trackblurb'),
   mult: document.getElementById('mult'), pop: document.getElementById('pops'), menu: document.getElementById('menu'),
   over: document.getElementById('over'), best: document.getElementById('best'), final: document.getElementById('final'),
   finalBest: document.getElementById('finalbest'), shards: document.getElementById('shards'), finalShards: document.getElementById('finalshards'),
@@ -393,9 +393,11 @@ function showResults() {
   rows.sort((a, b) => a.t - b.t);
   const place = rows.findIndex(r => r.you) + 1;
   const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
-  ui.resTitle.textContent = place === 1 ? 'VICTORY' : place <= 3 ? 'PODIUM' : 'FINISHED';
+  ui.resTitle.textContent = place === 1 ? 'VICTORY' : place <= 3 ? 'PODIUM FINISH' : 'FINISHED';
+  ui.resTitle.className = 'kicker' + (place === 1 ? ' p1' : '');
   ui.resPlace.textContent = ordinal(place);
-  ui.resTable.innerHTML = rows.map((r, i) => `<div class="rrow${r.you ? ' you' : ''}"><span class="rp">${i + 1}</span><span class="rc" style="background:${r.color}"></span><span class="rn">${r.name}</span><span class="rt">${fmt(r.t)}</span></div>`).join('');
+  ui.resPlace.className = place <= 3 ? 'p' + place : '';
+  ui.resTable.innerHTML = rows.map((r, i) => `<div class="rrow${r.you ? ' you' : ''}"><span class="rp">${i + 1}</span><span class="rc" style="background:${r.color}"></span><span class="rn">${r.name}</span><span class="rt num">${fmt(r.t)}</span><span class="rg num">${i ? '+' + (r.t - rows[0].t).toFixed(2) : ''}</span></div>`).join('');
   const idx = LEVELS.indexOf(G.race);
   const unlocked = store.get('unlocked', 1);
   if (place <= 3 && idx + 2 > unlocked) { store.set('unlocked', idx + 2); }
@@ -403,7 +405,8 @@ function showResults() {
   if (place < prev) store.set(bestKey, place);
   const next = LEVELS[idx + 1];
   ui.resNext.classList.toggle('hidden', !(place <= 3 && next));
-  ui.resNote.textContent = place <= 3 ? (next ? `Unlocked: ${next.name}` : 'You won the final cup!') : 'Finish top 3 to unlock the next race';
+  ui.resNote.textContent = place <= 3 ? (next ? `Unlocked: ${next.name}` : 'You won the final cup!') : 'Finish in the top 3 to unlock the next race';
+  ui.resNote.className = place <= 3 ? 'unlock' : '';
   ui.results.classList.remove('hidden'); ui.hud.classList.add('hidden');
   sfx.stop();
   try { SDK.cg?.game.gameplayStop(); if (place === 1) SDK.cg?.game.happytime(); } catch { }
@@ -701,17 +704,21 @@ function update(dt, rdt = dt) {
     ui.speed.textContent = Math.round(G.v * 3.6);
     ui.dist.textContent = Math.floor(G.s) + ' m';
     ui.score.textContent = Math.floor(G.score).toLocaleString();
-    ui.flow.style.width = (G.flow * 100).toFixed(1) + '%';
+    ui.flow.setAttribute('stroke-dasharray', `${(G.flow * 100).toFixed(1)} 100`);
+    ui.spdtick.setAttribute('stroke-dasharray', `${Math.min(100, G.v * 3.6 / 2.6).toFixed(1)} 100`);
     ui.flowWrap.classList.toggle('full', G.flow > 0.8);
+    ui.boostcue.classList.toggle('on', G.flow > 0.8 && input.drift && G.mode === 'play');
     ui.mult.textContent = 'x' + Math.floor(G.mult);
     ui.mult.classList.toggle('hot', G.mult >= 3);
     ui.shards.textContent = G.shards;
     if (G.race) {
-      ui.pos.innerHTML = `${ordinal(G.place).replace(/(\d+)/, '<b>$1</b>')}<small>/${rivals.length + 1}</small>`;
+      const pl = ordinal(G.place);
+      ui.pos.innerHTML = `<b>${G.place}</b><span class="suf">${pl.replace(/\d+/, '')}</span><small>/${rivals.length + 1}</small>`;
       ui.time.textContent = `${Math.floor(G.raceT / 60)}:${(G.raceT % 60).toFixed(1).padStart(4, '0')}`;
       const L = G.race.length;
       ui.progFill.style.width = Math.min(100, G.s / L * 100) + '%';
       ui.prog.querySelectorAll('.dot').forEach((d, i) => { const r = rivals[i]; if (r) { d.style.left = Math.min(100, r.s / L * 100) + '%'; d.style.background = r.color; } });
+      ui.prog.querySelector('.you').style.left = Math.min(100, G.s / L * 100) + '%';
       ui.draft.classList.toggle('on', !!G.drafting);
     }
   }
@@ -727,7 +734,7 @@ addEventListener('keydown', e => {
   if (keys[e.code]) input[keys[e.code]] = 1;
   if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'ArrowDown' || e.code === 'KeyS') {
     e.preventDefault();
-    if (G.mode === 'menu' || G.mode === 'over' || G.mode === 'results') { if (e.code === 'Space' && !e.repeat) startRun(false, G.mode === 'menu' ? selectedLevel : G.race); return; }
+    if (G.mode === 'menu' || G.mode === 'over' || G.mode === 'results') { if (e.code === 'Space' && !e.repeat) { if (G.mode === 'menu') launchLevel(selectedLevel); else startRun(false, G.race); } return; }
     if (G.mode === 'countdown') return;
     input.drift = true;
   }
@@ -770,7 +777,7 @@ canvas.addEventListener('pointerup', endTouch); canvas.addEventListener('pointer
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('keydown', () => { input.pointerX = null; input.mouseActive = false; }, true);
 let selectedLevel = null;
-document.getElementById('play').addEventListener('click', () => { sfx.unlock(); startRun(false, selectedLevel); });
+document.getElementById('play').addEventListener('click', () => { sfx.unlock(); launchLevel(selectedLevel); });
 document.getElementById('free').addEventListener('click', () => { sfx.unlock(); startRun(false, null); });
 document.getElementById('again').addEventListener('click', () => startRun(false, null));
 document.getElementById('resagain').addEventListener('click', () => startRun(false, G.race));
@@ -779,33 +786,52 @@ document.getElementById('overmenu').addEventListener('click', () => { ui.over.cl
 document.getElementById('resnext').addEventListener('click', () => {
   const next = LEVELS[LEVELS.indexOf(G.race) + 1];
   if (!next) return;
-  if (next.track !== THEME.id) { store.set('level', next.id); try { localStorage.setItem('hoverline.track', next.track); } catch { } location.hash = next.id; location.reload(); return; }
-  selectedLevel = next; startRun(false, next);
+  selectedLevel = next; launchLevel(next);
 });
+const PLACE_MEDAL = ['', 'g', 's', 'b'];
+const LOCK_SVG = '<svg class="lock" viewBox="0 0 14 14"><rect x="2" y="6" width="10" height="7" rx="2" fill="currentColor"/><path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>';
+let menuTrack = THEME.id;
 function buildLevels() {
   const unlocked = store.get('unlocked', 1);
   const wantId = (location.hash || '').slice(1);
   if (!selectedLevel) selectedLevel = LEVELS.find(l => l.id === wantId) || LEVELS.find(l => l.id === store.get('level', '') && l.track === THEME.id) || LEVELS.filter((l, i) => l.track === THEME.id && i < unlocked).pop() || LEVELS.find(l => l.track === THEME.id);
-  ui.levels.innerHTML = '';
+  // track cards with generated key art
+  ui.tracks.innerHTML = '';
   for (const t of TRACKS) {
-    const col = document.createElement('div'); col.className = 'lcol';
-    col.style.setProperty('--a', t.skyHorizon); col.style.setProperty('--b', t.skyTop);
-    col.innerHTML = `<div class="lhead">${t.name}</div>`;
-    for (const l of LEVELS.filter(l => l.track === t.id)) {
-      const i = LEVELS.indexOf(l), locked = i >= unlocked, best = store.get('place.' + l.id, 0);
-      const b = document.createElement('button');
-      b.className = 'lvl' + (l === selectedLevel ? ' on' : '') + (locked ? ' locked' : '');
-      b.disabled = locked;
-      b.innerHTML = `<span class="ln">${i + 1}</span><b>${l.name}</b><span class="lm">${locked ? 'Locked · top 3 in race ' + i : (l.length / 1000).toFixed(1) + ' km' + (best ? ' · best ' + ordinal(best) : '')}</span>`;
-      b.addEventListener('click', () => {
-        if (l.track !== THEME.id) { store.set('level', l.id); try { localStorage.setItem('hoverline.track', l.track); } catch { } location.hash = l.id; location.reload(); return; }
-        selectedLevel = l; store.set('level', l.id); buildLevels();
-      });
-      col.appendChild(b);
-    }
-    ui.levels.appendChild(col);
+    const lv = LEVELS.filter(l => l.track === t.id), open = lv.filter(l => LEVELS.indexOf(l) < unlocked).length;
+    const b = document.createElement('button');
+    b.className = 'tcard' + (t.id === menuTrack ? ' on' : '') + (open ? '' : ' lockd');
+    b.style.backgroundImage = `url(assets/ui/track_${t.id}.jpg)`;
+    b.innerHTML = `<span class="medals">${lv.map(l => `<i class="medal ${PLACE_MEDAL[store.get('place.' + l.id, 0)] || ''}"></i>`).join('')}</span>
+      <span class="tt"><b>${t.name}</b><small>${open ? `${open}/${lv.length} races open` : 'Locked'}</small></span>`;
+    b.addEventListener('click', () => { menuTrack = t.id; buildLevels(); });
+    ui.tracks.appendChild(b);
   }
-  document.getElementById('play').textContent = selectedLevel ? `RACE · ${selectedLevel.name.toUpperCase()}` : 'RACE';
+  const T = TRACKS.find(t => t.id === menuTrack);
+  ui.trackblurb.textContent = T.blurb.toUpperCase();
+  const done = LEVELS.filter(l => store.get('place.' + l.id, 0) && store.get('place.' + l.id, 0) <= 3).length;
+  ui.trackprog.textContent = `${done}/${LEVELS.length} PODIUMS`;
+  ui.levels.innerHTML = '';
+  for (const l of LEVELS.filter(l => l.track === menuTrack)) {
+    const i = LEVELS.indexOf(l), locked = i >= unlocked, best = store.get('place.' + l.id, 0);
+    const pips = Math.round(1 + l.skill * 4);
+    const b = document.createElement('button');
+    b.className = 'race' + (l === selectedLevel ? ' on' : '') + (locked ? ' locked' : '');
+    b.disabled = locked;
+    b.innerHTML = `<span class="rn">${i + 1}</span><span><b>${l.name}</b><span class="meta"><span>${(l.length / 1000).toFixed(1)} km</span><span class="pips" title="Rival skill">${[1, 2, 3, 4, 5].map(k => `<i class="${k <= pips ? 'on' : ''}"></i>`).join('')}</span></span></span>
+      <span class="best">${locked ? LOCK_SVG + `Top 3 in race ${i}` : best ? `<i class="medal ${PLACE_MEDAL[best] || ''}"></i>${ordinal(best)}` : ''}</span>`;
+    b.addEventListener('click', () => { selectedLevel = l; store.set('level', l.id); buildLevels(); });
+    ui.levels.appendChild(b);
+  }
+  document.getElementById('play').innerHTML = selectedLevel ? `Race<small>${selectedLevel.name}</small>` : 'Race';
+}
+// A race on another track needs that track's world: reload into it and start straight away.
+function launchLevel(l) {
+  if (l && l.track !== THEME.id) {
+    store.set('level', l.id); try { localStorage.setItem('hoverline.track', l.track); sessionStorage.setItem('hoverline.go', l.id); } catch { }
+    location.hash = l.id; location.reload(); return;
+  }
+  startRun(false, l);
 }
 ui.revive.addEventListener('click', () => {
   if (!SDK.cg) return;
@@ -874,7 +900,9 @@ async function boot() {
   buildLevels();
   ui.loading.classList.add('hidden'); ui.menu.classList.remove('hidden');
   try { SDK.cg?.game.loadingStop(); } catch { }
+  let go = null; try { go = sessionStorage.getItem('hoverline.go'); sessionStorage.removeItem('hoverline.go'); } catch { }
   if (qs.has('autoplay')) startRun(false, qs.has('race') ? selectedLevel : null);
+  else if (go && selectedLevel?.id === go) startRun(false, selectedLevel);
   if (!qs.has('still')) requestAnimationFrame(frame);
   window.__render = () => {
     renderer.info.autoReset = false; renderer.info.reset(); composer.render(); renderer.info.autoReset = true;
