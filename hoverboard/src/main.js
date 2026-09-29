@@ -16,6 +16,7 @@ import { makeSky, makeScenery, SUN_DIR } from './atmosphere.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { PREMIUM, HQ, U as PU, loadPremium, rockMaterial, patchLit } from './premium.js';
 import { AOPass } from './aopass.js';
+import { makeShard, makeGate } from './props.js';
 
 const qs = new URLSearchParams(location.search);
 const DEBUG_CAM = qs.has('orbit') ? parseFloat(qs.get('orbit')) : 0;
@@ -298,10 +299,7 @@ function spawnObstacles(untilS, difficulty) {
       }
     } else if (r < 0.8) {                        // boost gate
       const u = (Math.random() * 2 - 1) * (ROAD_HALF - 3);
-      const g = new THREE.Group();
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.1, 0.1, 12, 48), obstacleMats.ring);
-      const frame = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.14, 8, 48), obstacleMats.ringFrame);
-      ring.position.y = frame.position.y = 2.3; g.add(frame, ring);
+      const { group: g, ring } = makeGate(THEME.barrierStripe);
       placeAt(g, u, s); scene.add(g);
       objects.push({ type: 'ring', s, u, mesh: g, done: false, ring });
     }
@@ -310,7 +308,7 @@ function spawnObstacles(untilS, difficulty) {
       const u0 = (Math.random() * 2 - 1) * 5, amp = 2 + Math.random() * 3, ph = Math.random() * 6;
       for (let i = 0; i < 7; i++) {
         const ss = s + 22 + i * 5, u = u0 + Math.sin(ph + i * 0.6) * amp;
-        const m = new THREE.Mesh(obstacleMats.orbGeo, obstacleMats.orb);
+        const m = makeShard(1.0);
         placeAt(m, u, ss, 1.0); scene.add(m);
         objects.push({ type: 'orb', s: ss, u, mesh: m });
       }
@@ -598,7 +596,7 @@ function update(dt, rdt = dt) {
     for (const r of rivals) {
       if (racing) r.update(dt, objects, baseV, G, G.time);
       if (!r.finish && r.s >= G.race.length) r.finish = G.raceT;
-      r.near = Math.abs(r.s - G.s) < 70;
+      r.near = Math.abs(r.s - G.s) < 70; r.playerS = G.s;
       r.place(dt, realDt);
       r.tag.visible = r.s - G.s > 3 && r.s - G.s < 90;
       if ((r.finish && (!G.finishT || r.finish < G.finishT)) || (!r.finish && !G.finishT && r.s > G.s)) ahead++;
@@ -619,6 +617,9 @@ function update(dt, rdt = dt) {
   clearObjects(G.s - 30);
   chunks.update(G.s);
   for (const o of objects) {
+    // far rewards and gates stay hidden until they matter (keeps draw calls in budget)
+    if (o.type === 'orb' || o.type === 'ring') o.mesh.visible = !o.taken && o.s - G.s < (o.type === 'orb' ? 220 : 300);
+    if (o.type === 'orb') o.mesh.userData.shadow.visible = o.s - G.s < 60;
     if (o.type === 'orb') o.mesh.rotation.y += dt * 3;
     if (o.type === 'ring') o.ring.rotation.z += dt * 1.5;
   }

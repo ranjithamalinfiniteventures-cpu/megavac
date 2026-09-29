@@ -1,5 +1,6 @@
 // Procedural hoverboard + rider.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 export function makeBoard() {
   const root = new THREE.Group();       // positioned on the track
@@ -28,23 +29,25 @@ export function makeBoard() {
 
   // accent stripe + underglow emitters
   const accent = new THREE.MeshStandardMaterial({ color: 0xff6a3d, roughness: 0.5 });
-  const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.02, L * 0.78), accent);
-  stripe.position.set(0, 0.112, 0); tilt.add(stripe);
-  const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, L * 0.7), accent);
-  sideL.position.set(-W - 0.035, 0.03, 0); tilt.add(sideL);
-  const sideR = sideL.clone(); sideR.position.x = W + 0.035; tilt.add(sideR);
+  // stripe + side rails share one material, so they are one mesh (one draw call)
+  const trim = mergeGeometries([
+    new THREE.BoxGeometry(0.035, 0.02, L * 0.78).translate(0, 0.112, 0),
+    new THREE.BoxGeometry(0.02, 0.03, L * 0.7).translate(-W - 0.035, 0.03, 0),
+    new THREE.BoxGeometry(0.02, 0.03, L * 0.7).translate(W + 0.035, 0.03, 0),
+  ]);
+  tilt.add(new THREE.Mesh(trim, accent));
 
   // two thruster pods underneath
   const podMat = new THREE.MeshStandardMaterial({ color: 0x2a2d33, metalness: 0.9, roughness: 0.3 });
   const ringMat = new THREE.MeshStandardMaterial({ color: 0x3a3d48, metalness: 0.8, roughness: 0.35 });
-  const pods = [];
+  // both pods in one mesh, both nozzle rings in another; empty markers keep the thrust emit points
+  const pods = [], podG = [], ringG = [];
   for (const z of [-0.55, 0.55]) {
-    const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.1, 24), podMat);
-    pod.position.set(0, -0.06, z); tilt.add(pod);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.03, 8, 32), ringMat);
-    ring.rotation.x = Math.PI / 2; ring.position.set(0, -0.115, z); tilt.add(ring);
-    pods.push(ring);
+    podG.push(new THREE.CylinderGeometry(0.22, 0.26, 0.1, 24).translate(0, -0.06, z));
+    ringG.push(new THREE.TorusGeometry(0.19, 0.03, 8, 32).rotateX(Math.PI / 2).translate(0, -0.115, z));
+    const mark = new THREE.Object3D(); mark.position.set(0, -0.115, z); tilt.add(mark); pods.push(mark);
   }
+  tilt.add(new THREE.Mesh(mergeGeometries(podG), podMat), new THREE.Mesh(mergeGeometries(ringG), ringMat));
   // soft glow card under the board (additive)
   const glowTex = radialTex();
   const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 3.0), new THREE.MeshBasicMaterial({ map: glowTex, color: 0x19e6ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));

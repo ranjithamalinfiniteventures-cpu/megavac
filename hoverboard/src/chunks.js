@@ -505,6 +505,10 @@ export class ChunkManager {
       const shadow = s1 > sPlayer - 70 && s0 < sPlayer + 90;
       ch.group.visible = s1 > sPlayer - 40 || DEBUG_ORBIT;   // the camera never looks back down the hill
       for (const m of [ch.trees, ch.treesB, ch.rocks, ch.poles, ch.bunting, ch.rail, ch.railPosts]) m.castShadow = shadow;
+      // small roadside props vanish into the haze far ahead; skip their draw calls there
+      const farProps = s0 > sPlayer + 480;
+      for (const m of [ch.tufts, ch.poles, ch.railPosts, ch.rocks]) m.visible = !farProps;
+      ch.bunting.visible = !farProps && ch.index % 2 === 0;
       if (this.treeGeoFar) {
         const near = s0 < sPlayer + 110;
         ch.trees.geometry = near ? this.treeGeo : this.treeGeoFar;

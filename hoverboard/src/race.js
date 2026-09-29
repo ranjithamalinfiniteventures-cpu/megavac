@@ -137,6 +137,7 @@ export class Rival {
 
   place(dt, rdt) {
     const s = this.s, root = this.board.root;
+    root.visible = Math.abs(s - (this.playerS ?? s)) < 160;   // far rivals are specks; skip their draw calls
     const fwd = new THREE.Vector3(roadDX(s), roadDY(s), -1).normalize();
     root.position.set(roadX(s) + this.u, roadY(s) + 0.55 + this.y + Math.sin(this.t * 5.3) * 0.05, -s);
     root.lookAt(root.position.clone().sub(fwd));
