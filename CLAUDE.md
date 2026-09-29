@@ -62,6 +62,23 @@ counts; headless swiftshader takes 1-3 s per frame. `screenshots/sunset_before_a
 Artifact: `python3 tools/build_artifact.py` stages `.artifact/` (page + files, .glb/.hdr as base64 .txt), then publish
 `.artifact/index.html` with those files to the artifact URL above.
 
+## Sep 29 later: animation, 4th track, UI, 5 gauntlet rounds
+- Rider (`rider.js` update fx arg `{air, vy, airT, tuck, preload, crash}`): toeside/heelside carve with inside hand
+  touching the road, speed tuck (hands behind back), ramp preload crouch, lip pop, air tuck + indy grab, landing
+  absorb spring, wipeout flail. Board speed wobble. Rivals use the same layers. Pose test: `pose.cjs` style captures.
+- New track **Coastal Cliffs** (`coast`, levels coast-1..3): `sea` ocean shader in atmosphere.js, `seaSide` keeps
+  that side open (also opens bridge gorges on that side), `roadWind` 0.3 straighter road, sea-side peaks become islands.
+- All 4 tracks now `premium: true` (HDRIs: sunset/alpine/canyon/coast `_sky.hdr` from Poly Haven).
+- UI rebuilt in index.html: glass side sheet menu (bottom sheet on phones) with generated track art
+  (`assets/ui/track_*.jpg`, made with OpenRouter `google/gemini-3.1-flash-image`, about $0.07 each), race rows with
+  rival-skill pips and medals, HUD position badge / progress bar / score box / SVG speed+flow gauge, results and
+  game-over cards. Fonts Barlow + Barlow Condensed (OFL) self-hosted in `assets/fonts/`.
+  Picking a race on another track reloads with `sessionStorage['hoverline.go']` and starts it.
+- Props (`props.js`): golden shard (1 draw call), striped checkpoint gates with stands and road chevrons.
+- Perf: race draw calls 230-281 (was 335-393): merged board meshes, far rivals/rewards/roadside props hidden.
+- Gauntlet = 5 rounds of capture -> harsh scorecard -> fix -> commit (see commits "gauntlet round N").
+- Still weak: rider is the placeholder Soldier model (license), triangles ~1.6M on forest tracks, pops text style.
+
 ## Asset sources / credentials
 - No Tripo key (skip AI 3D generation). Use CC0 libraries: Poly Haven (HDRIs, PBR textures),
   Quaternius, Kenney, ambientCG; plus designed procedural models.
