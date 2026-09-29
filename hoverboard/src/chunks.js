@@ -5,6 +5,7 @@ import { ROAD_HALF, roadX, roadY, terrainRel, terrainH, terrainColor, terrainSpl
 import { PREMIUM, HQ, terrainMaterial, patchRoad, patchFoliage, patchLit, rockMaterial, roundNormals } from './premium.js';
 import { THEME } from './theme.js';
 import { treeKinds } from './trees.js';
+import { blossomMaterial } from './foliage.js';
 
 export const CHUNK_LEN = 160;
 const DEBUG_ORBIT = new URLSearchParams(location.search).has('orbit');
@@ -126,6 +127,8 @@ export class ChunkManager {
       patchRoad(this.roadMat, P);
       patchFoliage(this.treeMat, 'tree');
       this.treeMat.roughness = 1; this.treeMat.envMapIntensity = 0.45;
+      // sunset's second species is a blossom tree drawn with soft textured cards
+      if (THEME.id === 'sunset') this.treeMatB = blossomMaterial();
       patchLit(this.propMat, 'prop'); patchLit(this.tuftMat, 'tuft'); patchLit(this.railMat, 'rail');
       this.railMat.roughness = 0.55; this.railMat.metalness = 0.6; this.railMat.envMapIntensity = 0.6; this.railMat.color.set('#a9adb4');
       this.tuftMat.flatShading = false;
@@ -166,7 +169,7 @@ export class ChunkManager {
     const inst = (g, m, n, shadow = true) => { const x = new THREE.InstancedMesh(g, m, n); x.castShadow = shadow; x.receiveShadow = true; x.frustumCulled = false; return x; };
     const trees = inst(this.treeGeo, this.treeMat, MAX_TREES);
     trees.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_TREES * 3), 3);
-    const treesB = inst(this.treeGeoB, this.treeMat, MAX_TREES >> 1);
+    const treesB = inst(this.treeGeoB, this.treeMatB || this.treeMat, MAX_TREES >> 1);
     treesB.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array((MAX_TREES >> 1) * 3), 3);
     const rocks = inst(this.rockGeo, this.rockMat, MAX_ROCKS);
     const poles = inst(this.poleGeo, this.propMat, MAX_POLES);

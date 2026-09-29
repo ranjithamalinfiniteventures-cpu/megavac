@@ -36,7 +36,7 @@ const fs = require('fs');
     pod.position.set(W.roadX(s0) + 30, base - 0.2, -s0); pod.receiveShadow = true; __scene.add(pod); window.__lab.push(pod);
     const cx = W.roadX(s0) + 30, cz = -s0, m = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(), pos = new T.Vector3();
     for (const t of spec.trees) {
-      const im = new T.InstancedMesh(geos[t.kind], c.treeMat, 1); im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false;
+      const im = new T.InstancedMesh(geos[t.kind], (t.kind === 1 || t.kind === 3) && c.treeMatB ? c.treeMatB : c.treeMat, 1); im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false;
       q.setFromAxisAngle(new T.Vector3(0, 1, 0), t.rot || 0);
       m.compose(pos.set(cx + t.x, base, cz + t.z), q, sc.set(t.s || 1, t.s || 1, t.s || 1)); im.setMatrixAt(0, m);
       im.instanceColor = new T.InstancedBufferAttribute(new Float32Array([t.tone || 1, t.tone || 1, t.tone || 1]), 3);
