@@ -20,11 +20,11 @@ export const LEVELS = [
 ];
 
 const RIVALS = [
-  { name: 'Kai', suit: '#e8423a', suitDark: '#2a2230', helmet: '#ffd23f', glove: '#2a2230', boot: '#ffffff' },
-  { name: 'Mira', suit: '#7a5cff', suitDark: '#1f1d33', helmet: '#ffffff', glove: '#1f1d33', boot: '#7a5cff' },
-  { name: 'Juno', suit: '#2fc46b', suitDark: '#1b2a24', helmet: '#f4f4f6', glove: '#1b2a24', boot: '#2fc46b' },
-  { name: 'Rafe', suit: '#ffd23f', suitDark: '#2a2433', helmet: '#2a2433', glove: '#2a2433', boot: '#ffd23f' },
-  { name: 'Sora', suit: '#f25fa0', suitDark: '#28203a', helmet: '#ffffff', glove: '#28203a', boot: '#ffffff' },
+  { name: 'Kai', body: 'm', skin: 'dark', suit: '#e8423a', suitDark: '#2a2230', helmet: '#ffd23f', glove: '#2a2230', boot: '#ffffff' },
+  { name: 'Mira', body: 'f', skin: 'light', suit: '#7a5cff', suitDark: '#1f1d33', helmet: '#ffffff', glove: '#1f1d33', boot: '#7a5cff' },
+  { name: 'Juno', body: 'f', skin: 'dark', suit: '#2fc46b', suitDark: '#1b2a24', helmet: '#f4f4f6', glove: '#1b2a24', boot: '#2fc46b' },
+  { name: 'Rafe', body: 'm', skin: 'light', suit: '#ffd23f', suitDark: '#2a2433', helmet: '#2a2433', glove: '#2a2433', boot: '#ffd23f' },
+  { name: 'Sora', body: 'f', skin: 'light', suit: '#f25fa0', suitDark: '#28203a', helmet: '#ffffff', glove: '#28203a', boot: '#ffffff' },
 ];
 
 export const GRAVITY = 24;
@@ -63,7 +63,8 @@ export class Rival {
     this.skill = Math.min(0.98, skill + (idx - 2) * 0.04 + (Math.random() - 0.5) * 0.06);
     this.board = makeBoard();
     this.board.rider.visible = false;
-    this.rider = gltf ? makeRider(gltf, 0.11, def) : null;
+    const R = gltf, fem = def.body === 'f' && R?.female;
+    this.rider = R ? makeRider({ gltf: fem ? R.female : R.male, female: !!fem, skin: def.skin === 'light' ? (fem ? R.skinF : R.skinM) : null }, 0.11, def, R.anims) : null;
     if (this.rider) this.board.tilt.add(this.rider.object); else this.board.rider.visible = true;
     this.tag = nameTag(def.name, def.suit); this.board.root.add(this.tag);
     scene.add(this.board.root);

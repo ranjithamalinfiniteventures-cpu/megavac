@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { THEME } from './theme.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { dressBody, attachGear } from './outfit.js';
 
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
@@ -43,65 +44,50 @@ function twoBone(root, target, a, b, pole, out) {
   return out.copy(root).addScaledVector(d, x).addScaledVector(p, h);
 }
 
-// Repaint the rig in the game's palette: pick each vertex's colour from the bone that
-// drives it most, and keep the original texture only as light/dark panel detail.
-function restyle(mesh, K = THEME) {
-  const bones = mesh.skeleton.bones;
-  const pick = name => {
-    if (/Visor/i.test(mesh.name)) return K.glove;
-    if (/Head/.test(name)) return K.helmet;
-    if (/Neck/.test(name)) return K.suitDark;
-    if (/Hand|Thumb|Index|Middle|Ring|Pinky/.test(name)) return K.glove;
-    if (/Foot|Toe/.test(name)) return K.boot;
-    if (/UpLeg|Leg|Hips/.test(name)) return K.suitDark;
-    return K.suit;
-  };
-  const g = mesh.geometry = mesh.geometry.clone(), si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
-  const cols = new Float32Array(si.count * 3), c = new THREE.Color();
-  for (let i = 0; i < si.count; i++) {
-    let best = 0, bw = -1;
-    for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; best = si.getComponent(i, k); } }
-    c.set(pick(bones[best]?.name || ''));
-    cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
-  }
-  g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
-  const old = mesh.material;
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: old.map || null, roughness: 0.5, metalness: 0.05, envMapIntensity: 0.8 });
-  mat.onBeforeCompile = sh => {
-    sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `
-      #ifdef USE_MAP
-        float lum = dot(texture2D(map, vMapUv).rgb, vec3(0.299, 0.587, 0.114));
-        diffuseColor.rgb *= 0.72 + lum * 0.7;
-      #endif`);
-  };
-  mesh.material = mat;
-}
+// Quaternius Universal Base Characters use UE-style bone names; the IK below speaks Mixamo.
+const UE = {
+  Hips: 'pelvis', Spine: 'spine_01', Spine1: 'spine_02', Spine2: 'spine_03', Neck: 'neck_01', Head: 'Head',
+  LeftUpLeg: 'thigh_l', LeftLeg: 'calf_l', LeftFoot: 'foot_l', LeftToeBase: 'ball_l',
+  RightUpLeg: 'thigh_r', RightLeg: 'calf_r', RightFoot: 'foot_r', RightToeBase: 'ball_r',
+  LeftArm: 'upperarm_l', LeftForeArm: 'lowerarm_l', LeftHand: 'hand_l', RightArm: 'upperarm_r', RightForeArm: 'lowerarm_r', RightHand: 'hand_r',
+};
 
-export function makeRider(gltf, deckTopY, colors = THEME) {
-  const model = colors === THEME ? gltf.scene : cloneSkinned(gltf.scene);
-  const B = n => model.getObjectByName('mixamorig' + n) || model.getObjectByName('mixamorig:' + n);
+// body: { gltf (body_male/female.glb), female, skin (optional light-skin texture) }, anims: gltf with the idle clips
+export function makeRider(body, deckTopY, colors = THEME, anims = null) {
+  const model = cloneSkinned(body.gltf.scene);
+  const B = n => model.getObjectByName(UE[n]);
   const bones = {};
-  for (const n of ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'HeadTop_End',
-    'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase', 'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase',
-    'LeftArm', 'LeftForeArm', 'LeftHand', 'RightArm', 'RightForeArm', 'RightHand']) bones[n] = B(n);
+  for (const n of Object.keys(UE)) bones[n] = B(n);
 
-  model.traverse(o => {
-    if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; }
-    if (o.isSkinnedMesh) restyle(o, colors);
-  });
-  // normalise height to ~1.78 m
-  const box = new THREE.Box3().setFromObject(model);
-  const k = 1.78 / (box.max.y - box.min.y);
+  // normalise height to ~1.78 m (female a touch shorter)
+  model.updateMatrixWorld(true);
+  let box = new THREE.Box3().setFromObject(model);
+  const k = (body.female ? 1.7 : 1.8) / (box.max.y - box.min.y);
   model.scale.multiplyScalar(k);
   model.updateMatrixWorld(true);
-
+  box = new THREE.Box3().setFromObject(model);
+  // dress: bake the race suit into the body texture, then bolt the gear onto the bones
+  model.traverse(o => {
+    if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; }
+    if (o.isSkinnedMesh && o.material.name === 'body') {
+      o.geometry = o.geometry.clone();
+      const skin = body.skin || o.material.map;
+      dressBody(o, colors, skin, body.female);
+    }
+    if (o.isSkinnedMesh && o.material.name === 'brows') o.material.alphaTest = 0.4;
+  });
+  attachGear(model, bones, colors, box);
+  // head orientation in the canonical frame (model facing +z, upright), for the look-at below
+  const headRest = bones.Head.getWorldQuaternion(new THREE.Quaternion());
+  const _m = new THREE.Matrix4(), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _x = new THREE.Vector3(), _f = new THREE.Vector3(), _u = new THREE.Vector3();
   const holder = new THREE.Group(); // lives in the board's tilt space
   holder.add(model);
-  model.rotation.y = -Math.PI / 2;  // stand sideways: chest faces +x, nose of the board is -z
+  model.rotation.y = Math.PI / 2;  // stand sideways: model faces +z, so this turns the chest to +x with the left foot toward the nose (-z)
 
   const mixer = new THREE.AnimationMixer(model);
-  const idle = gltf.animations.find(a => a.name === 'Idle') || gltf.animations[0];
-  const act = mixer.clipAction(idle); act.play();
+  const clips = anims?.animations || [];
+  const idle = clips.find(a => a.name === 'Idle_Loop') || clips[0];
+  if (idle) { const act = mixer.clipAction(idle); act.play(); act.time = Math.random() * idle.duration; }
 
   // measure bone lengths once, in world units
   const wp = (bn, v = new THREE.Vector3()) => bn.getWorldPosition(v);
@@ -109,9 +95,9 @@ export function makeRider(gltf, deckTopY, colors = THEME) {
   const L = {
     thigh: len('LeftUpLeg', 'LeftLeg'), shin: len('LeftLeg', 'LeftFoot'),
     upper: len('LeftArm', 'LeftForeArm'), fore: len('LeftForeArm', 'LeftHand'),
-    ankle: wp(bones.LeftFoot).y - box.min.y * k,
+    ankle: wp(bones.LeftFoot).y - box.min.y,
   };
-  const hipsRestY = wp(bones.Hips).y - box.min.y * k; // standing hip height above the soles
+  const hipsRestY = wp(bones.Hips).y - box.min.y; // standing hip height above the soles
 
   // air / tuck / preload blends plus a spring for the jump pop and landing absorb
   const st = { crouch: 0.5, lean: 0, drift: 0, t: 0, sway: 0, air: 0, tuck: 0, preload: 0, comp: 0, compV: 0, wasAir: false, vy: 0, grab: 0 };
@@ -195,7 +181,12 @@ export function makeRider(gltf, deckTopY, colors = THEME) {
     rotateWorld(bones.Spine2, P.up, 0.35 + dr * 0.4);
     // head looks down the road
     rotateWorld(bones.Neck, P.up, 0.35);
-    rotateWorld(bones.Head, P.up, 0.45 - dr * 0.2);
+    // eyes on the road: whatever the spine does, the face turns down the hill (slightly toward the chest side)
+    _f.copy(P.nose).multiplyScalar(0.9).addScaledVector(P.fwdChar, 0.3 + dr * 0.3).addScaledVector(P.up, -0.18 - st.tuck * 0.08).normalize();
+    _x.crossVectors(P.up, _f).normalize(); _u.crossVectors(_f, _x);
+    _m.makeBasis(_x, _u, _f); _qa.setFromRotationMatrix(_m).multiply(headRest);
+    bones.Head.parent.getWorldQuaternion(_qb).invert();
+    bones.Head.quaternion.slerp(_qb.multiply(_qa), 0.85); bones.Head.updateMatrixWorld(true);
 
     // ---- arms: out for balance; in a slide the back hand reaches for the road
     const sway = Math.sin(st.t * 1.7) * 0.05 + Math.sin(st.t * 3.3) * 0.02 * speedN;

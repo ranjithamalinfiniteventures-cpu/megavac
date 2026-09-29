@@ -45,15 +45,19 @@ gaps in the barrier lines, dodge boulders, grab energy shards. Near misses feed 
   shows the old look, `?noao` turns off ambient occlusion. See `screenshots/sunset_before_after.jpg`.
 - Endless procedural mountain: streamed terrain chunks, built a few milliseconds per
   frame so they never hitch, plus instanced pines, rocks, and guard posts.
-- Rider: a rigged human (Mixamo skeleton) playing a mocap idle clip, with IK layered on
-  top for foot planting, crouch, carve lean, balance arms and the hand-drag slide.
+- Rider: Quaternius CC0 base bodies (male/female, two skin tones) wearing a race suit that is
+  baked into the body texture at load (`src/outfit.js`), plus a full-face helmet with visor, back
+  protector and knee pads on the bones. An idle clip plays under IK for stance, carves, tuck, jumps,
+  landings, the hand-drag slide and wipeouts.
 - Adaptive resolution keeps the frame rate near 60 fps on weaker devices.
 - CrazyGames SDK v3 hooks: loading, gameplay start/stop, rewarded revive.
 
 Debug URL flags: `?autoplay`, `?god`, `?orbit=<angle>` (camera orbits the rider), `?low`, `?classic`, `?noao`,
 `?still` (no render loop; call `window.__render()` for one frame plus renderer counts).
 
-Asset credits: textures and HDRI from Poly Haven (CC0).
+Asset credits: textures and HDRIs from Poly Haven (CC0); rider bodies (Universal Base Characters) and idle
+animation (Universal Animation Library) by Quaternius (CC0), packed by `tools/build_rider_assets.py`; fonts Barlow /
+Barlow Condensed (SIL OFL); track card art generated with Gemini via OpenRouter.
 
 ## Asset credits
 - `rider.glb`: the three.js example "Soldier" character (Mixamo rig and animations).

@@ -21,9 +21,11 @@ Research notes: `racing-research/RESEARCH.md`.
 - Modules: `theme.js` (3 tracks: sunset / alpine / canyon palettes), `world.js` (track math, terrain,
   set pieces: tunnel/bridge/jump pattern per 420 m segment), `chunks.js` (streamed terrain, trees, props,
   rails), `features.js` (tunnel/bridge/ramp meshes), `atmosphere.js` (gradient sky, peaks, clouds),
-  `race.js` (9 levels, 5 AI rivals, jump physics, gantries), `rider.js` (rigged human `assets/rider.glb`
-  = three.js "Soldier" Mixamo model, mocap idle + IK, recoloured per bone. **Must be replaced with an owned or licensed
-  character before release**), `board.js`, `audio.js`, `main.js` (game loop, HUD, menus).
+  `race.js` (12 levels, 5 AI rivals, jump physics, gantries), `rider.js` (IK rider on Quaternius CC0 bodies,
+  `assets/rider/body_male|female.glb` + `anims.glb`, built by `tools/build_rider_assets.py` from the itch.io packs;
+  UE bone names mapped in `UE`), `outfit.js` (race suit baked into the body texture in UV space from bind-pose
+  position, helmet/back protector/knee pads on bones, per-rider colours), `board.js`, `audio.js`, `main.js`.
+  Soldier model removed (licence problem solved). Rivals: Kai m/dark, Mira f/light, Juno f/dark, Rafe m/light, Sora f/light.
 - Debug URL flags: `?autoplay`, `?race`, `?god`, `?orbit=<angle>`, `#<track>` or `#<level-id>`, `?low`.
   `window.__step(n)` advances the sim for screenshots (headless swiftshader runs at ~1 fps).
 - Playable artifact: https://claude.ai/artifact/QX5T4vUDvhCEb4yPkUX3Jz. Republish by building a copy of
@@ -55,7 +57,8 @@ What exists now (`src/premium.js`, `src/aopass.js`; switched on by `premium: tru
   (add `premium: true` and tune `premiumEnvTint/premiumEnv/premiumHemi/premiumFill` per theme).
 - Budget (desktop, swiftshader counts): calls 233-270 (was 304), triangles 1.5-1.7M (was 2.8M, still over the 750k guide),
   41 textures, about 72 programs. Mobile (`?low`): no AO/POM, trees thinned to 55%.
-- Not done: Quaternius models (itch.io download API refuses from this sandbox with "invalid key"), outline highlight.
+- itch.io downloads work: POST <game>/download_url, GET that page, then POST <game>/file/<upload_id>?source=game_download&after_download_lightbox=1&as_props=1
+  with only csrf_token (from the page) and the same cookie jar. Do NOT send `key` (that gives "invalid key").
 
 Screenshots: `node shot.cjs` style harness uses `?still` (no RAF loop) + `window.__render()` which returns renderer
 counts; headless swiftshader takes 1-3 s per frame. `screenshots/sunset_before_after.jpg` has the comparison.
@@ -77,7 +80,7 @@ Artifact: `python3 tools/build_artifact.py` stages `.artifact/` (page + files, .
 - Props (`props.js`): golden shard (1 draw call), striped checkpoint gates with stands and road chevrons.
 - Perf: race draw calls 230-281 (was 335-393): merged board meshes, far rivals/rewards/roadside props hidden.
 - Gauntlet = 5 rounds of capture -> harsh scorecard -> fix -> commit (see commits "gauntlet round N").
-- Still weak: rider is the placeholder Soldier model (license), triangles ~1.6M on forest tracks, pops text style.
+- Still weak: triangles ~1.6M on forest tracks, pops text style.
 
 ## Asset sources / credentials
 - No Tripo key (skip AI 3D generation). Use CC0 libraries: Poly Haven (HDRIs, PBR textures),

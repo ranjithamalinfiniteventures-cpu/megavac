@@ -11,6 +11,7 @@ import { ChunkManager, makeTextures } from './chunks.js';
 import { makeBoard, radialTex } from './board.js';
 import { Sfx } from './audio.js';
 import { makeRider } from './rider.js';
+import { setOutfitRenderer } from './outfit.js';
 import { THEME, TRACKS } from './theme.js';
 import { makeSky, makeScenery, SUN_DIR } from './atmosphere.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -870,7 +871,15 @@ function frame(t) {
 async function boot() {
   try { if (window.CrazyGames?.SDK) { await window.CrazyGames.SDK.init(); SDK.cg = window.CrazyGames.SDK; SDK.cg.game.loadingStart(); } } catch { SDK.cg = null; }
   resize();
-  const gltf = await new GLTFLoader().loadAsync('assets/rider.glb').catch(() => null);
+  // Quaternius CC0 base bodies + idle clips; the outfit is baked per rider (outfit.js)
+  setOutfitRenderer(renderer);
+  const gl = new GLTFLoader(), tl = new THREE.TextureLoader();
+  const loadTex = u => fetch(u).then(r => r.blob()).then(b => createImageBitmap(b, { imageOrientation: 'flipY' })).then(img => { const t = new THREE.Texture(img); t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; t.needsUpdate = true; return t; }).catch(() => null);
+  const [male, female, anims, skinM, skinF] = await Promise.all([
+    gl.loadAsync('assets/rider/body_male.glb'), gl.loadAsync('assets/rider/body_female.glb'), gl.loadAsync('assets/rider/anims.glb'),
+    loadTex('assets/rider/skin_male_light.jpg'), loadTex('assets/rider/skin_female_light.jpg'),
+  ].map(p => p.catch(e => { console.warn('rider asset', e); return null; })));
+  const gltf = male && anims ? { male, female, anims, skinM, skinF } : null;
   gltfRider = gltf;
   PREMIUM_ASSETS = PREMIUM ? await loadPremium(renderer).catch(e => { console.warn('premium assets failed', e); return null; }) : null;
   features = new Features(scene, PREMIUM_ASSETS);
@@ -891,7 +900,7 @@ async function boot() {
   obstacleAssets();
   board = makeBoard(); scene.add(board.root);
   board.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  if (gltf) { rider = makeRider(gltf, 0.11); board.rider.visible = false; board.tilt.add(rider.object); }
+  if (gltf) { rider = makeRider({ gltf: gltf.male, female: false, skin: gltf.skinM }, 0.11, THEME, gltf.anims); board.rider.visible = false; board.tilt.add(rider.object); }
   thrust = new Particles(1200, radialTex('rgba(255,255,255,0.5)'), THREE.NormalBlending, { add: 0, lit: PREMIUM }); thrust.mat.uniforms.opacity.value = 0.18;
   sparks = new Particles(800, radialTex(), THREE.AdditiveBlending, { add: PREMIUM ? 0.85 : 1 });
   dustP = new Particles(300, radialTex('rgba(255,255,255,0.5)'), THREE.NormalBlending, { lit: PREMIUM }); dustP.mat.uniforms.opacity.value = PREMIUM ? 0.2 : 0.12;
@@ -912,6 +921,6 @@ async function boot() {
     renderer.info.autoReset = false; renderer.info.reset(); composer.render(); renderer.info.autoReset = true;
     const i = renderer.info; return { calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, programs: i.programs.length, dpr: renderer.getPixelRatio() };
   };
-  window.__G = G; window.__scene = scene; window.__world = { terrainRel, openness, roadX, roadY }; window.__cam = camera; window.__THREE = THREE; window.__input = input; window.__riv = () => rivals.map(r => [r.name, r.s | 0, r.v | 0, +r.u.toFixed(1), +r.crashT.toFixed(1), +r.skill.toFixed(2)]); window.__step = (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) update(dt); }; window.__dbg = () => ({ cam: camera.position.toArray().map(v=>v|0), p: board.root.position.toArray().map(v=>v|0), ch: chunks.chunks.map(c=>c.index), fov: camera.fov|0 });
+  window.__G = G; window.__rider = rider; window.__rivals = () => rivals; window.__scene = scene; window.__world = { terrainRel, openness, roadX, roadY }; window.__cam = camera; window.__THREE = THREE; window.__input = input; window.__riv = () => rivals.map(r => [r.name, r.s | 0, r.v | 0, +r.u.toFixed(1), +r.crashT.toFixed(1), +r.skill.toFixed(2)]); window.__step = (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) update(dt); }; window.__dbg = () => ({ cam: camera.position.toArray().map(v=>v|0), p: board.root.position.toArray().map(v=>v|0), ch: chunks.chunks.map(c=>c.index), fov: camera.fov|0 });
 }
 boot();
