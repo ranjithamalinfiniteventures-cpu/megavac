@@ -2,4 +2,11 @@
 
 A single-file Three.js + cannon.js cannon-puzzle game in the style of hyper-casual "knock everything off the island" mobile hits.
 
-Open `index.html` in a browser (needs internet for the CDN scripts). Aim with the mouse or by dragging on a touch screen, then click or release to fire. TNT blows up on a hard hit. 8 levels, 3 stars each.
+Open `index.html` in a browser (needs internet for the CDN scripts). Point at a toy (or drag onto it on a touch screen) and click/release to fire.
+
+- 100 levels: 8 hand-made, then seeded procedural levels that grow in size and add TNT
+- 10 balls per level; stars drop as you use more shots than the level's par
+- Four sky worlds that rotate every 10 levels: Peach Dawn, Blue Skies, Candy Sunset, Starry Night
+- Progress and stars are saved in the browser
+
+Size: `index.html` is about 70 KB (about 20 KB gzipped). It loads three.js r128 (~600 KB, ~150 KB gzipped) and cannon.js 0.6.2 (~130 KB, ~37 KB gzipped) from cdnjs.

@@ -19,6 +19,7 @@
   --mustard: #ffc23d;
   --teal: #1fc2b2;
   --violet: #7b5cff;
+  --muted: #e2d9c8;
   --font-display: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
   --font-body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -59,20 +60,30 @@ body {
   cursor: pointer; transition: transform .08s, box-shadow .08s;
 }
 .chip:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
-.chip:focus-visible, .btn:focus-visible, .lvl:focus-visible { outline: 3px solid var(--violet); outline-offset: 2px; }
+.chip:focus-visible, .btn:focus-visible, .lvl:focus-visible, .pg:focus-visible { outline: 3px solid var(--violet); outline-offset: 2px; }
 .chip svg { width: 20px; height: 20px; flex: none; }
 .goal {
   text-align: center; background: var(--ink); color: var(--paper);
-  border-radius: 16px; padding: 6px 16px 7px; min-width: 96px; box-shadow: 0 4px 0 rgba(35,40,89,.35);
+  border-radius: 16px; padding: 6px 16px 8px; min-width: 104px; box-shadow: 0 4px 0 rgba(35,40,89,.35);
 }
 .goal small { display: block; font: 800 11px/1.1 var(--font-body); letter-spacing: .12em; text-transform: uppercase; opacity: .75; }
 .goal b { font: 800 30px/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .goal span { font: 800 12px/1.2 var(--font-body); opacity: .85; display: block; }
+.goal .stars { margin-top: 5px; }
+.goal .stars svg { width: 18px; height: 18px; }
+.goal .stars svg.drop { animation: star-drop .6s ease-out; }
+@keyframes star-drop { 0% { transform: scale(1.6) rotate(0); } 40% { transform: scale(.7) rotate(-25deg); } 100% { transform: none; } }
 .bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-#balls { display: flex; gap: 8px; padding: 8px 12px; background: rgba(255,246,230,.82); border: 3px solid var(--ink); border-radius: 999px; box-shadow: 0 4px 0 var(--ink); }
-.ball { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 32% 30%, #6c74d6 0, var(--ink) 55%, #12153a 100%); transition: transform .25s, opacity .25s; }
-.ball.used { opacity: .18; transform: scale(.6); }
-#hint { font: 800 14px/1.3 var(--font-body); color: var(--ink); background: rgba(255,246,230,.82); border-radius: 999px; padding: 6px 14px; transition: opacity .6s; text-align: center; }
+.ammo {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 8px;
+  background: rgba(255,246,230,.9); border: 3px solid var(--ink); border-radius: 999px; box-shadow: 0 4px 0 var(--ink);
+}
+.ammo b { font: 800 24px/1 var(--font-display); font-variant-numeric: tabular-nums; min-width: 1.4ch; }
+.ammo span { font: 800 11px/1.1 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+.ball { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 32% 30%, #6c74d6 0, var(--ink) 55%, #12153a 100%); }
+.ammo.bump .ball { animation: bump .3s ease-out; }
+@keyframes bump { 40% { transform: scale(.6); } }
+#hint { font: 800 14px/1.3 var(--font-body); color: var(--ink); background: rgba(255,246,230,.88); border-radius: 999px; padding: 6px 14px; transition: opacity .6s; text-align: center; }
 #hint.gone { opacity: 0; }
 
 #pops { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
@@ -93,36 +104,46 @@ body {
 
 #overlay {
   position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  padding: calc(16px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
   box-sizing: border-box;
   background: radial-gradient(ellipse at 50% 40%, rgba(35,40,89,.05), rgba(35,40,89,.42));
 }
 #overlay[hidden] { display: none; }
 .panel {
-  width: min(100%, 440px); max-height: 100%; overflow: auto; box-sizing: border-box;
+  width: min(100%, 460px); max-height: 100%; overflow: auto; box-sizing: border-box;
   background: var(--paper); border: 4px solid var(--ink); border-radius: 28px;
   box-shadow: 0 8px 0 var(--ink), 0 30px 60px rgba(35,40,89,.35);
-  padding: 22px 20px 20px; text-align: center;
+  padding: 20px 18px 18px; text-align: center;
   animation: panel-in .45s cubic-bezier(.2,1.3,.4,1) both;
 }
 @keyframes panel-in { from { opacity: 0; transform: translateY(24px) scale(.94); } to { opacity: 1; transform: none; } }
 .kicker { font: 800 12px/1 var(--font-body); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); }
 h1, h2 { margin: 6px 0 4px; font-family: var(--font-display); font-weight: 800; line-height: .95; color: var(--ink); text-wrap: balance; }
-h1 { font-size: clamp(46px, 13vw, 66px); }
+h1 { font-size: clamp(42px, 12vw, 62px); }
 h1 em { font-style: normal; color: var(--coral); display: block; }
 h2 { font-size: 44px; }
-.sub { margin: 8px auto 16px; max-width: 32ch; font-size: 15px; line-height: 1.4; color: var(--ink-soft); font-weight: 700; }
-.levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0 0 16px; }
+.sub { margin: 8px auto 14px; max-width: 34ch; font-size: 15px; line-height: 1.4; color: var(--ink-soft); font-weight: 700; }
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.pager div { font: 800 15px/1.15 var(--font-display); }
+.pager small { display: block; font: 800 11px/1.2 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+.pg {
+  width: 44px; height: 44px; flex: none; border-radius: 14px; border: 3px solid var(--ink); background: #fff;
+  box-shadow: 0 3px 0 var(--ink); font: 800 22px/1 var(--font-display); color: var(--ink); cursor: pointer;
+}
+.pg:disabled { opacity: .3; cursor: default; }
+.levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin: 0 0 14px; }
 .lvl {
-  font: 800 22px/1 var(--font-display); color: var(--ink);
-  background: #fff; border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 3px 0 var(--ink);
-  padding: 8px 0 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
-  transition: transform .08s, box-shadow .08s;
+  font: 800 19px/1 var(--font-display); color: var(--ink);
+  background: #fff; border: 3px solid var(--ink); border-radius: 13px; box-shadow: 0 3px 0 var(--ink);
+  padding: 7px 0 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  transition: transform .08s, box-shadow .08s; min-width: 0;
 }
 .lvl:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
 .lvl.on { background: var(--mustard); }
+.lvl:disabled { background: var(--muted); color: var(--ink-soft); box-shadow: none; cursor: default; transform: none; border-color: rgba(35,40,89,.35); }
+.lvl:disabled svg.lock { width: 14px; height: 14px; }
 .stars { display: inline-flex; gap: 2px; }
-.stars svg { width: 14px; height: 14px; }
+.stars svg { width: 12px; height: 12px; }
 .stars.xl svg { width: 52px; height: 52px; }
 .stars.xl { gap: 6px; margin: 12px 0 6px; }
 .stars.xl svg.on { animation: star-in .5s cubic-bezier(.2,1.6,.4,1) both; }
@@ -141,13 +162,14 @@ h2 { font-size: 44px; }
 .stat { display: flex; justify-content: center; gap: 22px; margin: 6px 0 16px; }
 .stat div { font: 800 12px/1.2 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
 .stat b { display: block; font: 800 28px/1.1 var(--font-display); color: var(--ink); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.rule { font-size: 13px; color: var(--ink-soft); margin: -6px 0 14px; }
 .fallback { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; font-size: 16px; }
 @media (min-aspect-ratio: 5/4) {
   .bottom { align-items: flex-start; }
-  #hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); white-space: nowrap; }
+  #hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); white-space: nowrap; }
 }
-@media (max-width: 420px) { .goal b { font-size: 26px; } .chip { padding: 8px 11px; } }
-@media (prefers-reduced-motion: reduce) { .pop, .panel, .stars.xl svg.on { animation-duration: .01s; animation-delay: 0s !important; } }
+@media (max-width: 420px) { .goal b { font-size: 26px; } .chip { padding: 8px 11px; } .lvl { font-size: 17px; } }
+@media (prefers-reduced-motion: reduce) { .pop, .panel, .stars.xl svg.on, .goal .stars svg.drop { animation-duration: .01s; animation-delay: 0s !important; } }
 </style>
 
 <canvas id="stage" aria-label="Smash Fiesta game board"></canvas>
@@ -158,7 +180,7 @@ h2 { font-size: 44px; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       <span id="lvlLabel">Level 1</span>
     </button>
-    <div class="goal" aria-live="polite"><small>Knock off</small><b id="left">0</b><span>toys left</span></div>
+    <div class="goal" aria-live="polite"><small>Knock off</small><b id="left">0</b><span>toys left</span><div class="stars" id="hudStars"></div></div>
     <div class="tools">
       <button class="chip" id="btnMute" type="button" aria-label="Toggle sound">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path id="muteWaves" d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12"/></svg>
@@ -170,7 +192,7 @@ h2 { font-size: 44px; }
   </div>
   <div class="bottom">
     <div id="hint"></div>
-    <div id="balls" aria-label="Cannonballs left"></div>
+    <div class="ammo" id="ammo" aria-label="Cannonballs left"><i class="ball"></i><b id="ammoN">10</b><span>balls</span></div>
   </div>
 </div>
 <div id="pops"></div>
@@ -195,6 +217,9 @@ const PALETTE = ['#ff6b5b', '#ffc23d', '#1fc2b2', '#8b6cff', '#ff8fb8', '#4da3ff
 const pal = (i) => PALETTE[(((Math.round(i) % 6) + 6) % 6)];
 const isTouch = matchMedia('(pointer: coarse)').matches;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const LEVEL_COUNT = 100;
+const BALLS_PER_LEVEL = 10;
+const PAGE = 20;
 
 function store(key, val) {
   try {
@@ -202,6 +227,14 @@ function store(key, val) {
     localStorage.setItem(key, JSON.stringify(val));
   } catch (e) { /* storage unavailable */ }
   return null;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
 }
 
 /* ---------- renderer / scene ---------- */
@@ -215,41 +248,77 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(col('#ffd2b0'), 55, 150);
+scene.fog = new THREE.Fog(col('#ffd2b0'), 34, 165);
 
-(function makeSky() {
-  const c = document.createElement('canvas'); c.width = 8; c.height = 512;
-  const g = c.getContext('2d');
-  const grad = g.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0, '#5d6fe6');
-  grad.addColorStop(0.38, '#9f9bf0');
-  grad.addColorStop(0.62, '#ffb9a5');
-  grad.addColorStop(0.8, '#ffd2b0');
-  grad.addColorStop(1, '#ffe7cc');
-  g.fillStyle = grad; g.fillRect(0, 0, 8, 512);
-  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
-  scene.background = t;
-})();
-
-const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 400);
+const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 600);
 const camLook = new THREE.Vector3(0, 1.2, -1.2);
 const camPos = new THREE.Vector3();
-let camDist = 26;
+let camDist = 22;
 
-scene.add(new THREE.HemisphereLight(col('#dfe6ff'), col('#ffc9a0'), 0.95));
+const hemi = new THREE.HemisphereLight(col('#dfe6ff'), col('#ffc9a0'), 0.95);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight(col('#fff0d8'), 1.7);
 sun.position.set(9, 19, 11);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -17; sun.shadow.camera.right = 17;
-sun.shadow.camera.top = 17; sun.shadow.camera.bottom = -17;
-sun.shadow.camera.near = 2; sun.shadow.camera.far = 60;
+sun.shadow.camera.left = -19; sun.shadow.camera.right = 19;
+sun.shadow.camera.top = 19; sun.shadow.camera.bottom = -19;
+sun.shadow.camera.near = 2; sun.shadow.camera.far = 64;
 sun.shadow.bias = -0.0006;
 sun.shadow.normalBias = 0.03;
 sun.target.position.set(0, 0, -5);
 scene.add(sun, sun.target);
-const blast = new THREE.PointLight(col('#ffa860'), 0, 22, 2);
+const blast = new THREE.PointLight(col('#ffa860'), 0, 24, 2);
 scene.add(blast);
+
+/* ---------- sky themes (one per world of 10 levels) ---------- */
+const THEMES = [
+  { name: 'Peach Dawn', top: '#5466e0', mid: '#b9a3f0', low: '#ffc3a6', bottom: '#ffe3c6', fog: '#ffd3b4', sun: '#fff0cf', sunDir: [-0.35, 0.2, -1], glow: 0.6,
+    hemiSky: '#dfe6ff', hemiGround: '#ffc9a0', hemiI: 0.95, dirCol: '#fff0d8', dirI: 1.7, cloud: '#fff4ea', cloudEm: '#ffc9b4', stars: 0, spark: '#fff4c8', exposure: 1.08 },
+  { name: 'Blue Skies', top: '#2c74f5', mid: '#7fbaff', low: '#cfe8ff', bottom: '#f1faff', fog: '#d6ecff', sun: '#ffffff', sunDir: [0.45, 0.5, -1], glow: 0.45,
+    hemiSky: '#e8f2ff', hemiGround: '#d9e4c8', hemiI: 1.0, dirCol: '#ffffff', dirI: 1.85, cloud: '#ffffff', cloudEm: '#d6e9ff', stars: 0, spark: '#ffffff', exposure: 1.02 },
+  { name: 'Candy Sunset', top: '#35287e', mid: '#de5689', low: '#ff9c5a', bottom: '#ffd08c', fog: '#ffa982', sun: '#ffe4a6', sunDir: [0.1, 0.05, -1], glow: 1.0,
+    hemiSky: '#ffc6da', hemiGround: '#ff9f6a', hemiI: 0.9, dirCol: '#ffcb9c', dirI: 1.6, cloud: '#ffdcd2', cloudEm: '#ff8a86', stars: 0.25, spark: '#ffe2a0', exposure: 1.1 },
+  { name: 'Starry Night', top: '#060a28', mid: '#1b2768', low: '#4a4ea0', bottom: '#7b6dc0', fog: '#3b4088', sun: '#e2eaff', sunDir: [0.5, 0.42, -1], glow: 0.35,
+    hemiSky: '#a7b6ff', hemiGround: '#5e529e', hemiI: 1.05, dirCol: '#cfd9ff', dirI: 1.25, cloud: '#b7b6ff', cloudEm: '#5859b6', stars: 1, spark: '#fff1a0', exposure: 1.22 },
+];
+const themeFor = (i) => THEMES[Math.floor(i / 10) % THEMES.length];
+
+const skyGroup = new THREE.Group();
+scene.add(skyGroup);
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: {
+    uTop: { value: new THREE.Color() }, uMid: { value: new THREE.Color() }, uLow: { value: new THREE.Color() },
+    uBottom: { value: new THREE.Color() }, uSun: { value: new THREE.Color() }, uSunDir: { value: new THREE.Vector3(0, 0.2, -1) }, uGlow: { value: 0.6 },
+  },
+  vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: [
+    'uniform vec3 uTop, uMid, uLow, uBottom, uSun, uSunDir; uniform float uGlow; varying vec3 vDir;',
+    'void main(){',
+    '  vec3 d = normalize(vDir); float h = d.y; vec3 c;',
+    '  if (h > 0.0) { c = mix(uMid, uTop, smoothstep(0.0, 0.7, h)); c = mix(uLow, c, smoothstep(-0.02, 0.16, h)); }',
+    '  else { c = mix(uLow, uBottom, smoothstep(0.0, 0.45, -h)); }',
+    '  float s = max(dot(d, normalize(uSunDir)), 0.0);',
+    '  c += uSun * (smoothstep(0.9988, 0.9992, s) * 1.1 + pow(s, 48.0) * uGlow * 0.55 + pow(s, 6.0) * uGlow * 0.22);',
+    '  gl_FragColor = vec4(c, 1.0);',
+    '}',
+  ].join('\n'),
+});
+skyGroup.add(new THREE.Mesh(new THREE.SphereGeometry(400, 48, 24), skyMat));
+
+const starGeo = new THREE.BufferGeometry();
+(function () {
+  const pts = [];
+  for (let i = 0; i < 900; i++) {
+    const u = Math.random() * Math.PI * 2, v = Math.random() * 0.95 + 0.04;
+    const r = 380, y = v, k = Math.sqrt(1 - y * y);
+    pts.push(Math.cos(u) * k * r, y * r, Math.sin(u) * k * r);
+  }
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+})();
+const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.7, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false });
+skyGroup.add(new THREE.Points(starGeo, starMat));
 
 function layoutCamera() {
   const w = window.innerWidth, h = window.innerHeight, a = w / h;
@@ -264,25 +333,27 @@ function layoutCamera() {
 }
 window.addEventListener('resize', layoutCamera);
 
-/* ---------- scenery: sun, clouds, floating islets ---------- */
-const scenery = new THREE.Group(); scene.add(scenery);
-const clouds = [];
-(function makeScenery() {
-  const c = document.createElement('canvas'); c.width = c.height = 256;
-  const g = c.getContext('2d');
-  const rg = g.createRadialGradient(128, 128, 0, 128, 128, 128);
-  rg.addColorStop(0, 'rgba(255,248,225,1)'); rg.addColorStop(0.28, 'rgba(255,224,170,.95)');
-  rg.addColorStop(0.6, 'rgba(255,190,150,.25)'); rg.addColorStop(1, 'rgba(255,190,150,0)');
-  g.fillStyle = rg; g.fillRect(0, 0, 256, 256);
-  const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, fog: false, depthWrite: false }));
-  sp.scale.set(120, 120, 1); sp.position.set(-26, 14, -110);
-  scenery.add(sp);
+/* ---------- scenery: cloud sea, near clouds, islets, balloons, sparkles ---------- */
+const cloudMat = new THREE.MeshStandardMaterial({ color: col('#fff4ea'), roughness: 1, emissive: col('#ffcfb8'), emissiveIntensity: 0.4 });
+const drifters = [];
+const cloudSea = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 18, 12), cloudMat, 240);
+(function makeCloudSea() {
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
+  for (let i = 0; i < cloudSea.count; i++) {
+    const near = i < 24;
+    p.set(near ? rand(-60, 60) : rand(-220, 220), -32 + rand(-3, 3), near ? rand(-50, 20) : rand(-280, 40));
+    const k = near ? rand(5, 9) : rand(9, 20);
+    s.set(k, k * rand(0.45, 0.6), k * rand(0.8, 1.1));
+    m.compose(p, q, s); cloudSea.setMatrixAt(i, m);
+  }
+  scene.add(cloudSea);
+})();
 
-  const cloudMat = new THREE.MeshStandardMaterial({ color: col('#fff4ea'), roughness: 1, emissive: col('#ffcfb8'), emissiveIntensity: 0.35 });
+const scenery = new THREE.Group(); scene.add(scenery);
+(function makeScenery() {
   const sphere = new THREE.SphereGeometry(1, 20, 14);
-  const spots = [[-18, -9, -4, 1.3], [17, -12, -12, 1.6], [-26, -4, -28, 1.8], [27, -6, -30, 1.7], [0, -16, -26, 2.4],
-                 [-10, -15, 6, 1.4], [13, -17, 4, 1.5], [-34, -14, -14, 2], [36, -14, -8, 2.1], [4, -10, -58, 3.2], [-30, -2, -60, 3]];
+  const spots = [[-19, -8, -4, 1.2], [18, -10, -12, 1.5], [-27, -3, -30, 1.8], [28, -5, -32, 1.7],
+                 [-11, -13, 7, 1.3], [14, -14, 5, 1.4], [-36, -11, -14, 2], [38, -11, -8, 2.1], [6, -6, -62, 3.2], [-34, 2, -66, 3]];
   for (const [x, y, z, s] of spots) {
     const grp = new THREE.Group();
     const n = 5 + ((Math.random() * 3) | 0);
@@ -295,23 +366,99 @@ const clouds = [];
     }
     grp.scale.setScalar(s); grp.position.set(x, y, z);
     grp.userData.speed = rand(0.12, 0.35) * (Math.random() < .5 ? -1 : 1);
-    scenery.add(grp); clouds.push(grp);
+    scenery.add(grp); drifters.push(grp);
   }
 
-  const islet = (x, y, z, r, top, under) => {
-    const top3 = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.7, 10), new THREE.MeshStandardMaterial({ color: col(top), roughness: .8 }));
-    top3.position.y = -0.35;
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(r, r * 1.8, 10), new THREE.MeshStandardMaterial({ color: col(under), roughness: .9 }));
-    cone.rotation.x = Math.PI; cone.position.y = -0.7 - r * 0.9;
+  const trunkMat = new THREE.MeshStandardMaterial({ color: col('#8a5a44'), roughness: .9 });
+  const islet = (x, y, z, r, top, under, decor) => {
+    const top3 = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.96, 0.8, 12), new THREE.MeshStandardMaterial({ color: col(top), roughness: .8 }));
+    top3.position.y = -0.4;
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(r * 0.96, r * 2, 12), new THREE.MeshStandardMaterial({ color: col(under), roughness: .9, flatShading: true }));
+    cone.rotation.x = Math.PI; cone.position.y = -0.8 - r;
     const grp = new THREE.Group(); grp.add(top3, cone);
+    for (let i = 0; i < decor.n; i++) {
+      const a = i / decor.n * Math.PI * 2 + 0.4, d = r * 0.5;
+      const tr = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.9, 6), trunkMat); trunk.position.y = 0.45;
+      tr.add(trunk);
+      if (decor.kind === 'pine') {
+        for (let k = 0; k < 2; k++) {
+          const c = new THREE.Mesh(new THREE.ConeGeometry(0.75 - k * 0.2, 1.1, 8), new THREE.MeshStandardMaterial({ color: col(decor.color), roughness: .7 }));
+          c.position.y = 1.1 + k * 0.6; tr.add(c);
+        }
+      } else {
+        const c = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 10), new THREE.MeshStandardMaterial({ color: col(decor.color), roughness: .5 }));
+        c.position.y = 1.2; tr.add(c);
+      }
+      tr.position.set(Math.cos(a) * d, 0, Math.sin(a) * d);
+      tr.scale.setScalar(rand(0.8, 1.2));
+      tr.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+      grp.add(tr);
+    }
     grp.position.set(x, y, z); grp.userData.bob = Math.random() * 6; grp.userData.baseY = y;
-    scenery.add(grp); clouds.push(grp);
-    return grp;
+    scenery.add(grp); drifters.push(grp);
   };
-  islet(-17, -2.5, -18, 3.2, '#35d3c1', '#6a52e0');
-  islet(19, -4, -22, 4, '#ff9fc4', '#6a52e0');
-  islet(-24, -6, 4, 2.2, '#ffd35e', '#6a52e0');
+  islet(-17, -2.5, -18, 3.2, '#35d3c1', '#6a52e0', { n: 3, kind: 'pine', color: '#1aa37a' });
+  islet(20, -4, -22, 4, '#ff9fc4', '#6a52e0', { n: 4, kind: 'candy', color: '#ffd35e' });
+  islet(-25, -6, 4, 2.2, '#ffd35e', '#6a52e0', { n: 1, kind: 'candy', color: '#ff6b5b' });
+  islet(30, 4, -50, 3.4, '#35d3c1', '#5b47c9', { n: 3, kind: 'pine', color: '#1aa37a' });
+
+  const stripes = (a, b) => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 32;
+    const g = c.getContext('2d');
+    for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? a : b; g.fillRect(i * 32, 0, 32, 32); }
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
+  };
+  const basketMat = new THREE.MeshStandardMaterial({ color: col('#a8714f'), roughness: .9 });
+  const balloon = (x, y, z, a, b, s) => {
+    const grp = new THREE.Group();
+    const env = new THREE.Mesh(new THREE.SphereGeometry(1.6, 24, 18), new THREE.MeshStandardMaterial({ map: stripes(a, b), roughness: .55 }));
+    env.scale.y = 1.15;
+    const neck = new THREE.Mesh(new THREE.ConeGeometry(1.05, 1.3, 16, 1, true), new THREE.MeshStandardMaterial({ color: col(a), roughness: .6, side: THREE.DoubleSide }));
+    neck.rotation.x = Math.PI; neck.position.y = -1.95;
+    const basket = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.45, 0.6), basketMat); basket.position.y = -3.1;
+    grp.add(env, neck, basket);
+    grp.scale.setScalar(s); grp.position.set(x, y, z);
+    grp.userData.bob = Math.random() * 6; grp.userData.baseY = y; grp.userData.speed = rand(0.25, 0.5);
+    scenery.add(grp); drifters.push(grp);
+  };
+  balloon(-30, 7, -52, '#ff6b5b', '#fff6e6', 1.6);
+  balloon(36, 12, -78, '#1fc2b2', '#ffc23d', 2);
+  balloon(10, 18, -105, '#8b6cff', '#ff8fb8', 2.4);
 })();
+
+const sparkGeo = new THREE.BufferGeometry();
+const SPARKS = 110;
+(function () {
+  const p = new Float32Array(SPARKS * 3);
+  for (let i = 0; i < SPARKS; i++) { p[i * 3] = rand(-18, 18); p[i * 3 + 1] = rand(-4, 14); p[i * 3 + 2] = rand(-18, 10); }
+  sparkGeo.setAttribute('position', new THREE.BufferAttribute(p, 3));
+})();
+const sparkTex = (function () {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), rg = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(0.3, 'rgba(255,255,255,.6)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+})();
+const sparkMat = new THREE.PointsMaterial({ map: sparkTex, size: 0.35, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+scene.add(new THREE.Points(sparkGeo, sparkMat));
+
+let theme = THEMES[0];
+function applyTheme(t) {
+  theme = t;
+  const u = skyMat.uniforms;
+  u.uTop.value.set(t.top); u.uMid.value.set(t.mid); u.uLow.value.set(t.low); u.uBottom.value.set(t.bottom);
+  u.uSun.value.set(t.sun); u.uSunDir.value.set(t.sunDir[0], t.sunDir[1], t.sunDir[2]); u.uGlow.value = t.glow;
+  scene.fog.color.copy(col(t.fog));
+  hemi.color.copy(col(t.hemiSky)); hemi.groundColor.copy(col(t.hemiGround)); hemi.intensity = t.hemiI;
+  sun.color.copy(col(t.dirCol)); sun.intensity = t.dirI;
+  cloudMat.color.copy(col(t.cloud)); cloudMat.emissive.copy(col(t.cloudEm));
+  starMat.opacity = t.stars;
+  sparkMat.color.copy(col(t.spark)); sparkMat.opacity = t.stars > 0.5 ? 0.95 : 0.6;
+  renderer.toneMappingExposure = t.exposure;
+  document.body.style.background = t.bottom;
+}
 
 /* ---------- physics ---------- */
 const world = new CANNON.World();
@@ -322,13 +469,15 @@ world.solver.iterations = 20;
 world.solver.tolerance = 0.0005;
 const toyMat = new CANNON.Material('toy');
 const ballMat = new CANNON.Material('ball');
-world.defaultContactMaterial.friction = 0.55;
+const groundMat = new CANNON.Material('ground');
+world.defaultContactMaterial.friction = 0.45;
 world.defaultContactMaterial.restitution = 0.08;
 world.defaultContactMaterial.contactEquationStiffness = 1e7;
 world.defaultContactMaterial.contactEquationRelaxation = 3;
 world.defaultContactMaterial.frictionEquationStiffness = 1e7;
-world.addContactMaterial(new CANNON.ContactMaterial(toyMat, toyMat, { friction: 0.55, restitution: 0.08, contactEquationStiffness: 1e7, contactEquationRelaxation: 3 }));
-world.addContactMaterial(new CANNON.ContactMaterial(ballMat, toyMat, { friction: 0.25, restitution: 0.3, contactEquationStiffness: 1e7, contactEquationRelaxation: 3 }));
+world.addContactMaterial(new CANNON.ContactMaterial(toyMat, toyMat, { friction: 0.45, restitution: 0.08, contactEquationStiffness: 1e7, contactEquationRelaxation: 3 }));
+world.addContactMaterial(new CANNON.ContactMaterial(groundMat, toyMat, { friction: 0.22, restitution: 0.05, contactEquationStiffness: 1e7, contactEquationRelaxation: 3 }));
+world.addContactMaterial(new CANNON.ContactMaterial(ballMat, toyMat, { friction: 0.2, restitution: 0.3, contactEquationStiffness: 1e7, contactEquationRelaxation: 3 }));
 const FIXED = 1 / 120;
 let acc = 0;
 
@@ -349,17 +498,19 @@ function roundBox(w, h, d, r) {
   }
   return g;
 }
+const cache = new Map();
+const cached = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
+const boxGeo = (w, h, d) => cached('g' + w.toFixed(2) + h.toFixed(2) + d.toFixed(2), () => roundBox(w, h, d, Math.min(0.14, Math.min(w, h, d) * 0.28)));
 
-const texCache = new Map();
 function canvasTex(w, h, draw, key) {
-  if (key && texCache.has(key)) return texCache.get(key);
-  const c = document.createElement('canvas'); c.width = w; c.height = h;
-  draw(c.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(c);
-  t.encoding = THREE.sRGBEncoding;
-  t.anisotropy = 8;
-  if (key) texCache.set(key, t);
-  return t;
+  return cached('t' + key, () => {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    t.anisotropy = 8;
+    return t;
+  });
 }
 
 function drawFace(g, cx, cy, s, variant) {
@@ -403,7 +554,6 @@ function tntTex() {
     g.fillStyle = '#fff6e6'; g.fillRect(0, 38, w, 52);
     g.fillStyle = '#232859'; g.font = '800 44px "Baloo 2", Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('TNT', w / 2, 66);
-    g.fillStyle = '#232859';
     for (let x = -h; x < w + h; x += 24) {
       g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 12, 0); g.lineTo(x + 12 - 18, 18); g.lineTo(x - 18, 18); g.fill();
       g.beginPath(); g.moveTo(x, 110); g.lineTo(x + 12, 110); g.lineTo(x + 12 - 18, 128); g.lineTo(x - 18, 128); g.fill();
@@ -411,20 +561,24 @@ function tntTex() {
   }, 'tnt');
 }
 const physical = (opts) => new THREE.MeshPhysicalMaterial(Object.assign({ roughness: 0.42, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.3 }, opts));
+const sideMat = (hex) => cached('ms' + hex, () => physical({ color: col(hex) }));
+const faceMat = (hex, v) => cached('mf' + hex + v, () => physical({ color: col('#ffffff'), map: faceTex(hex, v) }));
 
 /* ---------- state ---------- */
-let level = null, levelIdx = 0, mode = 'menu';
+let level = null, levelIdx = 0, mode = 'menu', menuPage = 0;
 let things = [], balls = [], fxList = [], levelGroup = null;
 let ballsLeft = 0, ballsTotal = 0, cooldown = 0, score = 0, combo = 0, comboT = 0;
 let settleT = 0, endTimer = 0, endType = '', firedAny = false, timeScale = 1, targetScale = 1, shake = 0, recoil = 0;
 let boomQueue = [];
+let cz = -5.5;
 const aimPoint = new THREE.Vector3(0, 2.6, -5);
-const AIM_Z = -5;
 const cannonDir = new THREE.Vector3(0, 0.2, -1).normalize();
 const aimVel = new THREE.Vector3();
 let aimT = 0.6;
 let aimVisible = true;
 const stars = (() => { const s = store('smash-fiesta-stars'); return Array.isArray(s) ? s : []; })();
+let unlocked = clamp(+store('smash-fiesta-unlocked') || 1, 1, LEVEL_COUNT);
+for (let i = 0; i < stars.length; i++) if (stars[i]) unlocked = Math.max(unlocked, Math.min(LEVEL_COUNT, i + 2));
 
 /* ---------- audio (synth, starts on first gesture) ---------- */
 let AC = null, muted = !!store('smash-fiesta-muted');
@@ -458,17 +612,14 @@ const sfx = {
   knock(k) { tone(260 + Math.random() * 120, 120, 0.07, 'square', 0.03 + 0.04 * k); },
   pop(c) { const f = 520 * Math.pow(2, Math.min(c - 1, 12) / 12); tone(f, f * 1.6, 0.16, 'sine', 0.18); tone(f * 2, f * 2.4, 0.08, 'triangle', 0.06, 0.03); },
   boom() { noise(0.9, 0.7, 1400); tone(90, 28, 0.6, 'sine', 0.5); },
+  starLost() { tone(660, 330, 0.25, 'triangle', 0.12); },
   win() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, f, 0.28, 'triangle', 0.18, i * 0.1)); },
   lose() { [330, 262, 196].forEach((f, i) => tone(f, f * 0.96, 0.3, 'triangle', 0.16, i * 0.16)); },
 };
 
 /* ---------- particles ---------- */
 const pGeo = new THREE.BoxGeometry(1, 1, 1);
-const pMats = new Map();
-function pMat(hex) {
-  if (!pMats.has(hex)) pMats.set(hex, new THREE.MeshBasicMaterial({ color: col(hex), fog: false }));
-  return pMats.get(hex);
-}
+const pMat = (hex) => cached('p' + hex, () => new THREE.MeshBasicMaterial({ color: col(hex), fog: false }));
 function spawnP(pos, vel, hex, size, life, grav = 22) {
   if (fxList.length > 260) { const o = fxList.shift(); scene.remove(o.mesh); }
   const m = new THREE.Mesh(pGeo, pMat(hex));
@@ -507,7 +658,7 @@ const barrel = new THREE.Group();
   const cream = new THREE.MeshStandardMaterial({ color: col('#fff1d6'), roughness: .8 });
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 0.9, 32), cream);
   pad.position.y = -0.45; pad.receiveShadow = true;
-  const rock = new THREE.Mesh(new THREE.ConeGeometry(3.4, 5, 24), new THREE.MeshStandardMaterial({ color: col('#6a52e0'), roughness: .9 }));
+  const rock = new THREE.Mesh(new THREE.ConeGeometry(3.4, 5, 24), new THREE.MeshStandardMaterial({ color: col('#6a52e0'), roughness: .9, flatShading: true }));
   rock.rotation.x = Math.PI; rock.position.y = -3.4;
   const ring = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.12, 8, 40), new THREE.MeshStandardMaterial({ color: col('#ffc23d'), roughness: .5 }));
   ring.rotation.x = Math.PI / 2; ring.position.y = 0.02;
@@ -520,12 +671,12 @@ const barrel = new THREE.Group();
     cannon.add(w, hub);
   }
   pivot.position.set(0, 1.5, 0);
-  const bGeo = new THREE.CylinderGeometry(0.6, 0.78, 2.6, 24); bGeo.rotateX(Math.PI / 2); bGeo.translate(0, 0, 1.2);
-  const tube = new THREE.Mesh(bGeo, new THREE.MeshPhysicalMaterial({ color: col('#7b5cff'), roughness: .35, clearcoat: .8, clearcoatRoughness: .2 }));
-  tube.castShadow = true;
-  const lip = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.15, 10, 24), brass); lip.position.z = 2.5;
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.82, 20, 14), new THREE.MeshPhysicalMaterial({ color: col('#7b5cff'), roughness: .35, clearcoat: .8 })); cap.position.z = -0.05;
-  const band = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.1, 8, 24), brass); band.position.z = 1.1;
+  const purple = new THREE.MeshPhysicalMaterial({ color: col('#7b5cff'), roughness: .35, clearcoat: .8, clearcoatRoughness: .2 });
+  const bGeo = new THREE.CylinderGeometry(0.74, 0.88, 2.6, 24); bGeo.rotateX(Math.PI / 2); bGeo.translate(0, 0, 1.2);
+  const tube = new THREE.Mesh(bGeo, purple); tube.castShadow = true;
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(0.82, 0.16, 10, 24), brass); lip.position.z = 2.5;
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.92, 20, 14), purple); cap.position.z = -0.05;
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.84, 0.1, 8, 24), brass); band.position.z = 1.1;
   barrel.add(tube, lip, cap, band);
   pivot.add(barrel);
   cannon.add(pad, rock, ring, body, pivot);
@@ -533,6 +684,7 @@ const barrel = new THREE.Group();
   scene.add(cannon);
 })();
 const MUZZLE_LEN = 2.6;
+const BALL_R = 0.68;
 
 /* ---------- aim preview ---------- */
 const dots = [];
@@ -549,7 +701,7 @@ function solveAim() {
   let start = p0.clone();
   for (let k = 0; k < 3; k++) {
     const dist = start.distanceTo(aimPoint);
-    aimT = clamp(dist / 27, 0.38, 0.85);
+    aimT = clamp(dist / 30, 0.36, 0.8);
     aimVel.copy(aimPoint).sub(start).divideScalar(aimT);
     aimVel.y += 0.5 * g * aimT;
     start = p0.clone().addScaledVector(aimVel.clone().normalize(), MUZZLE_LEN);
@@ -581,100 +733,99 @@ function updateAimVisuals(start, rdt) {
 }
 
 /* ---------- level building ---------- */
+let lastKnock = 0;
 function addThing(t) {
   t.body.sleep();
-  t.mesh.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  t.mesh.castShadow = true; t.mesh.receiveShadow = true;
   world.addBody(t.body); levelGroup.add(t.mesh);
   things.push(t);
   t.body.addEventListener('collide', (e) => {
     const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
-    if (t.tnt && !t.armed && (e.body.isBall || v > 6.5)) { t.armed = true; boomQueue.push({ t, wait: 0 }); }
+    if (t.tnt && !t.armed && (e.body.isBall || v > 6)) { t.armed = true; boomQueue.push({ t, wait: 0 }); }
     const now = performance.now();
     if (v > 6 && now - lastKnock > 45) { lastKnock = now; sfx.knock(Math.min(1, v / 20)); }
   });
 }
-let lastKnock = 0;
-let cz = -5.5;
-
 function newBody(mass) {
   return new CANNON.Body({ mass, material: toyMat, allowSleep: true, sleepSpeedLimit: 0.3, sleepTimeLimit: 0.45, linearDamping: 0.02, angularDamping: 0.06 });
 }
 const ctx = {
-  box(x, y, z, w, h, d, ci, o = {}) {
+  box(x, y, z, w, h, d, ci) {
     const hex = pal(ci);
-    const b = newBody(o.mass || Math.max(0.5, w * h * d * 0.9));
+    const b = newBody(Math.max(0.4, w * h * d * 0.6));
     b.addShape(new CANNON.Box(new CANNON.Vec3(w / 2, h / 2, d / 2)));
     b.position.set(x, y + h / 2, z);
-    const side = physical({ color: col(hex) });
-    const face = physical({ color: col('#ffffff'), map: faceTex(hex, Math.abs(Math.round(ci + x * 3)) & 3) });
-    const mats = o.plain ? side : [side, side, side, side, face, side];
-    const mesh = new THREE.Mesh(roundBox(w, h, d, Math.min(0.14, Math.min(w, h, d) * 0.28)), mats);
+    const side = sideMat(hex), face = faceMat(hex, Math.abs(Math.round(ci + x * 3)) & 3);
+    const mesh = new THREE.Mesh(boxGeo(w, h, d), [side, side, side, side, face, side]);
     addThing({ body: b, mesh, target: true, hex });
   },
   tnt(x, y, z, s = 1.3) {
-    const b = newBody(s * s * s * 0.9);
+    const b = newBody(s * s * s * 0.6);
     b.addShape(new CANNON.Box(new CANNON.Vec3(s / 2, s / 2, s / 2)));
     b.position.set(x, y + s / 2, z);
-    const mesh = new THREE.Mesh(roundBox(s, s, s, 0.14), physical({ color: col('#ffffff'), map: tntTex() }));
+    const mesh = new THREE.Mesh(boxGeo(s, s, s), cached('mtnt', () => physical({ color: col('#ffffff'), map: tntTex() })));
     addThing({ body: b, mesh, target: false, tnt: true, hex: '#e63946' });
   },
   ball(x, y, z, r, ci) {
-    const hex = pal(ci);
-    const b = newBody((4 / 3) * Math.PI * r * r * r * 0.7);
+    const hex = pal(ci), v = Math.abs(Math.round(ci)) & 3;
+    const b = newBody((4 / 3) * Math.PI * r * r * r * 0.5);
     b.addShape(new CANNON.Sphere(r));
     b.position.set(x, y + r, z);
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 28, 20), physical({ color: col('#ffffff'), map: ballFaceTex(hex, Math.abs(Math.round(ci)) & 3) }));
+    const geo = cached('gs' + r.toFixed(2), () => new THREE.SphereGeometry(r, 28, 20));
+    const mesh = new THREE.Mesh(geo, cached('mb' + hex + v, () => physical({ color: col('#ffffff'), map: ballFaceTex(hex, v) })));
     addThing({ body: b, mesh, target: true, hex });
   },
   pin(x, y, z, ci = 1) {
     const hex = pal(ci), h = 1.6, rt = 0.3, rb = 0.4;
-    const b = newBody(1.3);
+    const b = newBody(1.0);
     b.addShape(new CANNON.Cylinder(rt, rb, h, 10));
     b.position.set(x, y + h / 2, z);
     b.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-    const geo = new THREE.CylinderGeometry(rt, rb, h, 20); geo.rotateX(Math.PI / 2);
+    const geo = cached('gpin', () => { const g = new THREE.CylinderGeometry(rt, rb, h, 20); g.rotateX(Math.PI / 2); return g; });
     const tex = canvasTex(64, 128, (g, w, hh) => {
       g.fillStyle = '#fff6e6'; g.fillRect(0, 0, w, hh);
       g.fillStyle = hex; g.fillRect(0, 0, w, 30); g.fillRect(0, 98, w, 14);
       g.fillStyle = '#232859'; g.beginPath(); g.arc(w / 2, 62, 5, 0, 7); g.fill();
     }, 'pin' + hex);
-    const mesh = new THREE.Mesh(geo, physical({ color: col('#ffffff'), map: tex }));
+    const mesh = new THREE.Mesh(geo, cached('mp' + hex, () => physical({ color: col('#ffffff'), map: tex })));
     addThing({ body: b, mesh, target: true, hex });
   },
 };
 
-const S = 1.3;
-const LEVELS = [
-  { name: 'Warm Up', balls: 4, w: 10, d: 7, build({ box }) {
-    for (let r = 0; r < 5; r++) { const n = 5 - r; for (let i = 0; i < n; i++) box((i - (n - 1) / 2) * (S + 0.02), r * (S + 0.006), cz, S, S, S, r * 2 + i); }
+const S = 1.3, SY = S + 0.006, SX = S + 0.02;
+
+/* Hand-made opening levels */
+const HAND = [
+  { name: 'Warm Up', par: 2, w: 8, d: 5, build({ box }) {
+    for (let r = 0; r < 5; r++) { const n = 5 - r; for (let i = 0; i < n; i++) box((i - (n - 1) / 2) * SX, r * SY, cz, S, S, S, r * 2 + i); }
   } },
-  { name: 'Tower Time', balls: 4, w: 12, d: 7, build({ box, ball }) {
+  { name: 'Tower Time', par: 3, w: 10.5, d: 5, build({ box, ball }) {
     for (const [tx, h] of [[-3.9, 5], [0, 7], [3.9, 5]]) {
-      for (let r = 0; r < h; r++) box(tx, r * (S + 0.006), cz, S, S, S, r + (tx > 0 ? 2 : 0));
-      ball(tx, h * (S + 0.006), cz, 0.62, h);
+      for (let r = 0; r < h; r++) box(tx, r * SY, cz, S, S, S, r + (tx > 0 ? 2 : 0));
+      ball(tx, h * SY, cz, 0.62, h);
     }
   } },
-  { name: 'Bowling Night', balls: 3, w: 10, d: 6.5, build({ pin, box }) {
+  { name: 'Bowling Night', par: 2, w: 9.6, d: 5.4, build({ pin, box }) {
     for (let k = 0; k < 4; k++) for (let i = 0; i <= k; i++) pin((i - k / 2) * 1.05, 0, cz + 1.6 - k * 1.05, (k + i) % 6);
-    for (const sx of [-3.9, 3.9]) for (let r = 0; r < 3; r++) box(sx, r * (S + 0.006), cz - 1.2, S, S, S, r + 2);
+    for (const sx of [-3.9, 3.9]) for (let r = 0; r < 3; r++) box(sx, r * SY, cz - 1.2, S, S, S, r + 2);
   } },
-  { name: 'TNT Alley', balls: 3, w: 12, d: 7, build({ box, tnt, ball }) {
+  { name: 'TNT Alley', par: 2, w: 10.6, d: 5, build({ box, tnt, ball }) {
     for (let r = 0; r < 3; r++) for (let i = 0; i < 7; i++) {
-      const x = (i - 3) * (S + 0.02), y = r * (S + 0.006);
+      const x = (i - 3) * SX, y = r * SY;
       if (r === 1 && (i === 1 || i === 3 || i === 5)) tnt(x, y, cz, S); else box(x, y, cz, S, S, S, i + r);
     }
-    for (const x of [-3.9, 0, 3.9]) ball(x, 3 * (S + 0.006), cz, 0.6, x + 3);
+    for (const x of [-3.9, 0, 3.9]) ball(x, 3 * SY, cz, 0.6, x + 3);
   } },
-  { name: 'Castle Crash', balls: 4, w: 12, d: 8, build({ box, tnt, ball }) {
-    for (let r = 0; r < 3; r++) for (let i = 0; i < 8; i++) box((i - 3.5) * (S + 0.02), r * (S + 0.006), cz - 2.3, S, S, S, r * 3 + i);
+  { name: 'Castle Crash', par: 3, w: 11.8, d: 6.8, build({ box, tnt, ball }) {
+    for (let r = 0; r < 3; r++) for (let i = 0; i < 8; i++) box((i - 3.5) * SX, r * SY, cz - 2.3, S, S, S, r * 3 + i);
     for (const sx of [-4.6, 4.6]) {
-      for (let r = 0; r < 5; r++) box(sx, r * (S + 0.006), cz + 0.2, S, S, S, r + 1);
-      ball(sx, 5 * (S + 0.006), cz + 0.2, 0.62, sx > 0 ? 4 : 1);
+      for (let r = 0; r < 5; r++) box(sx, r * SY, cz + 0.2, S, S, S, r + 1);
+      ball(sx, 5 * SY, cz + 0.2, 0.62, sx > 0 ? 4 : 1);
     }
     for (const x of [-1.5, 0, 1.5]) tnt(x, 0, cz - 0.3, S);
-    for (let i = 0; i < 5; i++) box((i - 2) * (S + 0.02), 0, cz + 2.4, S, S * 0.8, S, i + 2);
+    for (let i = 0; i < 5; i++) box((i - 2) * SX, 0, cz + 2.4, S, S * 0.8, S, i + 2);
   } },
-  { name: 'Wobbly Stack', balls: 3, w: 8, d: 7, build({ box, tnt, ball }) {
+  { name: 'Wobbly Stack', par: 2, w: 6.2, d: 5.6, build({ box, tnt, ball }) {
     const hh = 0.75, L = 3.9, T = 1.3;
     for (let l = 0; l < 9; l++) {
       const y = l * (hh + 0.006);
@@ -686,35 +837,116 @@ const LEVELS = [
     tnt(0, 9 * (hh + 0.006), cz, S);
     ball(0, 9 * (hh + 0.006) + S, cz, 0.6, 2);
   } },
-  { name: 'Zigzag Row', balls: 4, w: 13, d: 7.5, build({ box, tnt, ball }) {
-    const hs = [2, 4, 3, 5, 2, 4, 3, 2];
-    hs.forEach((h, i) => {
+  { name: 'Zigzag Row', par: 3, w: 13.4, d: 5.6, build({ box, tnt, ball }) {
+    [2, 4, 3, 5, 2, 4, 3, 2].forEach((h, i) => {
       const x = (i - 3.5) * (S + 0.3), z = cz + (i % 2 ? 1 : -1) * 0.9;
       for (let r = 0; r < h; r++) {
-        if (r === 1 && (i === 2 || i === 5)) tnt(x, r * (S + 0.006), z, S); else box(x, r * (S + 0.006), z, S, S, S, i + r);
+        if (r === 1 && (i === 2 || i === 5)) tnt(x, r * SY, z, S); else box(x, r * SY, z, S, S, S, i + r);
       }
-      if (i % 3 === 0) ball(x, h * (S + 0.006), z, 0.6, i);
+      if (i % 3 === 0) ball(x, h * SY, z, 0.6, i);
     });
   } },
-  { name: 'Grand Fiesta', balls: 5, w: 14, d: 9, build({ box, tnt, ball }) {
+  { name: 'Grand Fiesta', par: 4, w: 13.4, d: 8.2, build({ box, tnt, ball }) {
     for (let r = 0; r < 6; r++) { const n = 7 - r; for (let i = 0; i < n; i++) {
-      const x = (i - (n - 1) / 2) * (S + 0.02), y = r * (S + 0.006);
+      const x = (i - (n - 1) / 2) * SX, y = r * SY;
       if (r === 1 && i === 2) tnt(x, y, cz, S); else box(x, y, cz - 0.4, S, S, S, r + i);
     } }
-    ball(0, 6 * (S + 0.006), cz - 0.4, 0.65, 3);
+    ball(0, 6 * SY, cz - 0.4, 0.65, 3);
     for (const sx of [-5.6, 5.6]) {
-      for (let r = 0; r < 6; r++) box(sx, r * (S + 0.006), cz - 0.4, S, S, S, r + 3);
-      ball(sx, 6 * (S + 0.006), cz - 0.4, 0.62, sx > 0 ? 0 : 5);
+      for (let r = 0; r < 6; r++) box(sx, r * SY, cz - 0.4, S, S, S, r + 3);
+      ball(sx, 6 * SY, cz - 0.4, 0.62, sx > 0 ? 0 : 5);
     }
     for (const x of [-2.6, 2.6]) tnt(x, 0, cz + 2.4, S);
-    for (let i = 0; i < 4; i++) box((i - 1.5) * (S + 0.02) * 1.0, 0, cz + 3.2, S, S * 0.7, S, i);
+    for (let i = 0; i < 4; i++) box((i - 1.5) * SX, 0, cz + 3.2, S, S * 0.7, S, i);
   } },
 ];
+
+/* Generated levels: each is a seeded row of structure "modules" that grows with the level number. */
+const MODS = {
+  pyramid: { noun: 'Pyramid', plan: (r, d) => ({ rows: Math.min(6, 3 + Math.floor(r() * (1.5 + d * 3))) }), width: (p) => p.rows * SX,
+    build(c, x, z, p, put) { for (let row = 0; row < p.rows; row++) { const n = p.rows - row; for (let i = 0; i < n; i++) put(x + (i - (n - 1) / 2) * SX, row * SY, z, row * 2 + i, row > 0 && row < p.rows - 1); } } },
+  tower: { noun: 'Towers', plan: (r, d) => ({ h: Math.min(8, 3 + Math.floor(r() * (2 + d * 4))), top: r() < 0.6 }), width: () => S + 0.3,
+    build(c, x, z, p, put) { for (let row = 0; row < p.h; row++) put(x, row * SY, z, row + p.hue, row === 1 || row === 3); if (p.top) c.ball(x, p.h * SY, z, 0.6, p.hue + 2); } },
+  wall: { noun: 'Wall', plan: (r, d) => ({ cols: Math.min(7, 3 + Math.floor(r() * (2 + d * 3))), rows: Math.min(4, 2 + Math.floor(r() * (1 + d * 2.2))), top: r() < 0.5 }), width: (p) => p.cols * SX,
+    build(c, x, z, p, put) {
+      for (let row = 0; row < p.rows; row++) for (let i = 0; i < p.cols; i++) put(x + (i - (p.cols - 1) / 2) * SX, row * SY, z, i + row * 2 + p.hue, row < p.rows - 1);
+      if (p.top) for (let i = 0; i < p.cols; i += 2) c.ball(x + (i - (p.cols - 1) / 2) * SX, p.rows * SY, z, 0.58, i + p.hue);
+    } },
+  parade: { noun: 'Parade', plan: (r) => ({ cols: 3 + Math.floor(r() * 4) }), width: (p) => p.cols * (S + 0.4),
+    build(c, x, z, p, put) { for (let i = 0; i < p.cols; i++) { const bx = x + (i - (p.cols - 1) / 2) * (S + 0.4); put(bx, 0, z, i + p.hue, false); c.ball(bx, SY, z, 0.6, i + p.hue + 1); } } },
+  stairs: { noun: 'Stairs', plan: (r, d) => ({ n: Math.min(6, 3 + Math.floor(r() * (2 + d * 2))), flip: r() < 0.5 }), width: (p) => p.n * SX,
+    build(c, x, z, p, put) { for (let i = 0; i < p.n; i++) { const h = p.flip ? p.n - i : i + 1; for (let row = 0; row < h; row++) put(x + (i - (p.n - 1) / 2) * SX, row * SY, z, i + row + p.hue, row === 1); } } },
+  pins: { noun: 'Alley', plan: (r) => ({ rows: 3 + Math.floor(r() * 2) }), width: (p) => p.rows * 1.05 + 0.4,
+    build(c, x, z, p) { for (let k = 0; k < p.rows; k++) for (let i = 0; i <= k; i++) c.pin(x + (i - k / 2) * 1.05, 0, z + (p.rows - 1) * 0.5 - k * 1.05, k + i + p.hue); } },
+  jenga: { noun: 'Stack', plan: (r, d) => ({ layers: Math.min(10, 4 + Math.floor(r() * (2 + d * 5))) }), width: () => 3.9,
+    build(c, x, z, p) {
+      const hh = 0.75, L = 3.9, T = 1.3;
+      for (let l = 0; l < p.layers; l++) for (let k = -1; k <= 1; k++) {
+        if (l % 2 === 0) c.box(x + k * (T + 0.02), l * (hh + 0.006), z, T, hh, L, l + k + p.hue);
+        else c.box(x, l * (hh + 0.006), z + k * (T + 0.02), L, hh, T, l + k + p.hue);
+      }
+      c.ball(x, p.layers * (hh + 0.006), z, 0.6, p.hue);
+    } },
+  bridge: { noun: 'Bridge', plan: (r, d) => ({ h: Math.min(5, 2 + Math.floor(r() * (1.5 + d * 2.5))), top: r() < 0.5 }), width: () => 4.1,
+    build(c, x, z, p, put) {
+      for (const sx of [-1.3, 1.3]) for (let row = 0; row < p.h; row++) put(x + sx, row * SY, z, row + p.hue + (sx > 0 ? 2 : 0), row === 0);
+      c.box(x, p.h * SY, z, 4.0, 0.5, S, p.hue + 1);
+      const y = p.h * SY + 0.506;
+      if (p.top) c.ball(x, y, z, 0.62, p.hue + 3); else { put(x - 0.8, y, z, p.hue + 4, false); put(x + 0.8, y, z, p.hue + 5, false); }
+    } },
+};
+const ADJ = ['Candy', 'Jelly', 'Bubble', 'Sunny', 'Wobble', 'Turbo', 'Fizzy', 'Mega', 'Sparkle', 'Bouncy', 'Toasty', 'Lucky', 'Cosmic', 'Breezy', 'Giggle', 'Puffy', 'Zippy', 'Cheery', 'Rumble', 'Sugar'];
+
+function genLevel(i) {
+  const n = i + 1;
+  const r = mulberry32(n * 7919 + 17);
+  const d = clamp((n - 9) / 80, 0, 1);
+  const pool = ['pyramid', 'tower', 'wall', 'parade', 'stairs', 'pins'];
+  if (n > 14) pool.push('bridge', 'tower');
+  if (n > 20) pool.push('jenga', 'wall');
+  if (n > 40) pool.push('bridge', 'jenga', 'pyramid');
+  const count = clamp(1 + Math.floor(r() * 1.6 + d * 2.6), n > 55 ? 3 : n > 25 ? 2 : 1, 4);
+  const mods = [];
+  let W = 0;
+  for (let k = 0; k < count; k++) {
+    const type = pool[Math.floor(r() * pool.length)];
+    const p = MODS[type].plan(r, d); p.hue = Math.floor(r() * 6);
+    const w = MODS[type].width(p);
+    if (W + w + (mods.length ? 1 : 0) > 16.5) break;
+    W += w + (mods.length ? 1 : 0);
+    mods.push({ type, p, w, dz: (r() - 0.5) * 1.4 });
+  }
+  const tntChance = n < 12 ? 0 : 0.08 + d * 0.16;
+  const maxTnt = n < 12 ? 0 : 1 + Math.floor(d * 4);
+  const main = mods.reduce((a, m) => (m.w > a.w ? m : a), mods[0]);
+  const seed = n * 104729 + 3;
+  return {
+    name: ADJ[Math.floor(r() * ADJ.length)] + ' ' + MODS[main.type].noun,
+    w: clamp(W + 1.8, 6.5, 18.5), d: 5.8, par: null,
+    build(c) {
+      const rr = mulberry32(seed);
+      let tnts = 0;
+      const put = (x, y, z, ci, inner) => {
+        if (inner && tnts < maxTnt && rr() < tntChance) { tnts++; c.tnt(x, y, z, S); } else c.box(x, y, z, S, S, S, ci);
+      };
+      let x = -W / 2;
+      for (const m of mods) {
+        MODS[m.type].build(c, x + m.w / 2, cz + m.dz, m.p, put);
+        x += m.w + 1;
+      }
+    },
+  };
+}
+const levelDefs = [];
+const getLevel = (i) => levelDefs[i] || (levelDefs[i] = i < HAND.length ? HAND[i] : genLevel(i));
 
 function clearLevel() {
   for (const b of balls) scene.remove(b.mesh);
   for (const p of fxList) scene.remove(p.mesh);
-  if (levelGroup) { scene.remove(levelGroup); levelGroup.traverse((o) => { if (o.geometry && !o.userData.keep) o.geometry.dispose(); }); }
+  if (levelGroup) {
+    scene.remove(levelGroup);
+    levelGroup.traverse((o) => { if (o.userData.disposable) o.geometry.dispose(); });
+  }
   for (const b of [...world.bodies]) world.remove(b);
   things = []; balls = []; fxList = []; boomQueue = [];
   levelGroup = new THREE.Group(); scene.add(levelGroup);
@@ -728,49 +960,66 @@ function buildPlatform(w, d) {
   }, 'checker');
   const top = checker.clone(); top.needsUpdate = true;
   top.wrapS = top.wrapT = THREE.RepeatWrapping; top.repeat.set(w / 3, d / 3);
-  const sideM = new THREE.MeshStandardMaterial({ color: col('#ff7a66'), roughness: .6 });
+  const sideM = cached('platSide', () => new THREE.MeshStandardMaterial({ color: col('#ff7a66'), roughness: .6 }));
   const mats = [sideM, sideM, new THREE.MeshStandardMaterial({ map: top, roughness: .85 }), sideM, sideM, sideM];
   const slab = new THREE.Mesh(roundBox(w, 1.2, d, 0.3), mats);
   slab.position.set(0, -0.6, cz); slab.receiveShadow = true; slab.castShadow = true;
-  const rock = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.18, 6, 4, 1), new THREE.MeshStandardMaterial({ color: col('#6a52e0'), roughness: .9, flatShading: true }));
-  rock.scale.set(w * 1.02, 1, d * 1.02); rock.rotation.y = Math.PI / 4; rock.position.set(0, -4.2, cz);
-  const trim = new THREE.Mesh(roundBox(w + 0.5, 0.4, d + 0.5, 0.15), new THREE.MeshStandardMaterial({ color: col('#ffc23d'), roughness: .5 }));
+  const rock = new THREE.Mesh(cached('gRock', () => { const g = new THREE.ConeGeometry(1, 1, 9, 3); g.rotateX(Math.PI); return g; }), cached('platRock', () => new THREE.MeshStandardMaterial({ color: col('#5b47c9'), roughness: .9, flatShading: true })));
+  rock.scale.set(w * 0.62, 6.5, d * 0.66); rock.position.set(0, -4.6, cz);
+  const trim = new THREE.Mesh(roundBox(w + 0.5, 0.4, d + 0.5, 0.15), cached('platTrim', () => new THREE.MeshStandardMaterial({ color: col('#ffc23d'), roughness: .5 })));
   trim.position.set(0, -1.35, cz);
+  for (const m of [slab, trim]) m.userData.disposable = true;
   grp.add(slab, rock, trim);
   return grp;
 }
 
 function loadLevel(i) {
-  levelIdx = clamp(i, 0, LEVELS.length - 1);
-  level = LEVELS[levelIdx];
+  levelIdx = clamp(i, 0, LEVEL_COUNT - 1);
+  level = getLevel(levelIdx);
+  applyTheme(themeFor(levelIdx));
   clearLevel();
   cz = -2 - level.d / 2;
   levelGroup.add(buildPlatform(level.w, level.d));
-  const ground = new CANNON.Body({ mass: 0, material: toyMat });
+  const ground = new CANNON.Body({ mass: 0, material: groundMat });
   ground.addShape(new CANNON.Box(new CANNON.Vec3(level.w / 2, 0.6, level.d / 2)));
   ground.position.set(0, -0.6, cz);
   world.addBody(ground);
   level.build(ctx);
-  ballsTotal = ballsLeft = level.balls;
+  if (level.par == null) {
+    const targets = things.filter((t) => t.target).length, tnt = things.length - targets;
+    level.par = clamp(Math.round(targets / 9 + 0.6 - tnt * 0.35), 1, 6);
+  }
+  ballsTotal = ballsLeft = BALLS_PER_LEVEL;
   cooldown = 0; score = 0; combo = 0; comboT = 0; endTimer = 0; endType = ''; settleT = 0; firedAny = false;
   targetScale = 1; timeScale = 1; acc = 0; shake = 0;
-  aimPoint.set(0, 2.6, cz);
+  aimPoint.set(0, 2.2, cz + level.d / 2 - 1);
   aimVisible = !isTouch;
   camLook.set(0, 1.2, -1.2);
   layoutCamera();
   $('#lvlLabel').textContent = 'Level ' + (levelIdx + 1);
   const h = $('#hint');
-  h.textContent = isTouch ? 'Drag to aim, let go to fire' : 'Move to aim, click to fire';
+  h.textContent = isTouch ? 'Drag onto a toy, let go to fire' : 'Point at a toy, click to fire';
   h.classList.remove('gone');
-  renderBalls(); renderLeft();
+  lastStars = 3;
+  renderAmmo(); renderLeft();
 }
 
 /* ---------- HUD ---------- */
-function renderBalls() {
-  const el = $('#balls');
-  let html = '';
-  for (let i = 0; i < ballsTotal; i++) html += '<div class="ball' + (i >= ballsLeft ? ' used' : '') + '"></div>';
-  el.innerHTML = html;
+const starsFor = (used) => (used <= level.par ? 3 : used <= level.par + 3 ? 2 : 1);
+let lastStars = 3;
+function renderAmmo() {
+  $('#ammoN').textContent = ballsLeft;
+  const used = ballsTotal - ballsLeft;
+  const n = starsFor(used);
+  const el = $('#hudStars');
+  el.innerHTML = [0, 1, 2].map((i) => starSvg(i < n)).join('');
+  if (n < lastStars) {
+    const lost = el.children[n];
+    if (lost) lost.classList.add('drop');
+    sfx.starLost();
+  }
+  lastStars = n;
+  const ammo = $('#ammo'); ammo.classList.remove('bump'); void ammo.offsetWidth; ammo.classList.add('bump');
 }
 let lastLeft = -1;
 function remainingTargets() { let n = 0; for (const t of things) if (t.target && !t.fallen) n++; return n; }
@@ -791,27 +1040,49 @@ function popText(world3, text, big) {
 function starSvg(on) {
   return '<svg viewBox="0 0 24 24" class="' + (on ? 'on' : '') + '"><path d="M12 2.6l2.9 6 6.5.9-4.7 4.6 1.1 6.5L12 17.5 6.2 20.6l1.1-6.5L2.6 9.5l6.5-.9z" fill="' + (on ? '#ffc23d' : '#e2d9c8') + '" stroke="#232859" stroke-width="1.8" stroke-linejoin="round"/></svg>';
 }
+const lockSvg = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2.5" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>';
 const starsHtml = (n, cls = '') => '<span class="stars ' + cls + '">' + [0, 1, 2].map((i) => starSvg(i < n)).join('') + '</span>';
+
+function menuHtml() {
+  const from = menuPage * PAGE, to = Math.min(LEVEL_COUNT, from + PAGE);
+  const worlds = [...new Set([from, to - 1].map((i) => themeFor(i).name))].join(' & ');
+  const total = stars.reduce((a, s) => a + (s || 0), 0);
+  let grid = '';
+  for (let i = from; i < to; i++) {
+    const open = i < unlocked;
+    grid += open
+      ? '<button class="lvl' + (i === levelIdx ? ' on' : '') + '" data-act="level" data-i="' + i + '" type="button" aria-label="Level ' + (i + 1) + ', ' + (stars[i] || 0) + ' stars">' + (i + 1) + starsHtml(stars[i] || 0) + '</button>'
+      : '<button class="lvl" type="button" disabled aria-label="Level ' + (i + 1) + ' locked">' + (i + 1) + lockSvg + '</button>';
+  }
+  return '<div class="panel"><div class="kicker">Cannon puzzle · ' + total + ' / ' + LEVEL_COUNT * 3 + ' stars</div><h1>Smash<em>Fiesta</em></h1>' +
+    '<p class="sub">Knock every toy off the island. You get 10 balls a level. Clear it in fewer shots to keep all 3 stars.</p>' +
+    '<div class="pager"><button class="pg" data-act="page" data-d="-1" type="button" aria-label="Previous levels"' + (menuPage === 0 ? ' disabled' : '') + '>‹</button>' +
+    '<div>Levels ' + (from + 1) + '–' + to + '<small>' + worlds + '</small></div>' +
+    '<button class="pg" data-act="page" data-d="1" type="button" aria-label="Next levels"' + (to >= LEVEL_COUNT ? ' disabled' : '') + '>›</button></div>' +
+    '<div class="levels">' + grid + '</div>' +
+    '<div class="row"><button class="btn" data-act="play" type="button">Play level ' + (levelIdx + 1) + '</button></div></div>';
+}
 
 function showOverlay(kind) {
   const ov = $('#overlay');
   ov.hidden = false;
   if (kind === 'menu') {
-    ov.innerHTML = '<div class="panel"><div class="kicker">Cannon puzzle</div><h1>Smash<em>Fiesta</em></h1>' +
-      '<p class="sub">Aim the cannon and knock every toy off the island before you run out of balls. TNT blows up on a hard hit.</p>' +
-      '<div class="levels">' + LEVELS.map((l, i) => '<button class="lvl' + (i === levelIdx ? ' on' : '') + '" data-act="level" data-i="' + i + '" type="button" aria-label="Level ' + (i + 1) + ': ' + l.name + '">' + (i + 1) + starsHtml(stars[i] || 0) + '</button>').join('') + '</div>' +
-      '<div class="row"><button class="btn" data-act="play" type="button">Play level ' + (levelIdx + 1) + '</button></div></div>';
+    ov.innerHTML = menuHtml();
   } else if (kind === 'win') {
-    const earned = ballsLeft / ballsTotal >= 0.5 ? 3 : ballsLeft >= 1 ? 2 : 1;
+    const used = ballsTotal - ballsLeft;
+    const earned = starsFor(used);
     if ((stars[levelIdx] || 0) < earned) { stars[levelIdx] = earned; store('smash-fiesta-stars', stars); }
-    const last = levelIdx >= LEVELS.length - 1;
-    ov.innerHTML = '<div class="panel"><div class="kicker">' + level.name + '</div><h2>Smashed it!</h2>' + starsHtml(earned, 'xl') +
-      '<div class="stat"><div><b>' + score + '</b>score</div><div><b>' + (ballsTotal - ballsLeft) + '/' + ballsTotal + '</b>balls used</div></div>' +
+    if (unlocked < levelIdx + 2) { unlocked = Math.min(LEVEL_COUNT, levelIdx + 2); store('smash-fiesta-unlocked', unlocked); }
+    const last = levelIdx >= LEVEL_COUNT - 1;
+    ov.innerHTML = '<div class="panel"><div class="kicker">Level ' + (levelIdx + 1) + ' · ' + level.name + '</div><h2>' + (last ? 'All 100 smashed!' : 'Smashed it!') + '</h2>' + starsHtml(earned, 'xl') +
+      '<div class="stat"><div><b>' + score + '</b>score</div><div><b>' + used + '</b>balls used</div></div>' +
+      (earned < 3 ? '<p class="rule">Clear it in ' + level.par + ' ball' + (level.par === 1 ? '' : 's') + ' for 3 stars.</p>' : '') +
       '<div class="row">' + (last ? '' : '<button class="btn" data-act="next" type="button">Next level</button>') +
       '<button class="btn alt" data-act="retry" type="button">Play again</button><button class="btn alt" data-act="menu" type="button">All levels</button></div></div>';
   } else {
-    ov.innerHTML = '<div class="panel"><div class="kicker">' + level.name + '</div><h2>Out of balls</h2>' +
-      '<p class="sub">' + remainingTargets() + ' toy' + (remainingTargets() === 1 ? '' : 's') + ' still on the island. Aim for the base of a stack, or hit TNT.</p>' +
+    const n = remainingTargets();
+    ov.innerHTML = '<div class="panel"><div class="kicker">Level ' + (levelIdx + 1) + ' · ' + level.name + '</div><h2>Out of balls</h2>' +
+      '<p class="sub">' + n + ' toy' + (n === 1 ? '' : 's') + ' still on the island. Aim low at the base of a stack, or hit the TNT.</p>' +
       '<div class="row"><button class="btn" data-act="retry" type="button">Try again</button><button class="btn alt" data-act="menu" type="button">All levels</button></div></div>';
   }
   const first = ov.querySelector('.btn'); if (first) first.focus({ preventScroll: true });
@@ -825,32 +1096,47 @@ function startPlay() {
   hideOverlay();
   ac();
 }
+function openMenu() {
+  mode = 'menu'; $('#hud').hidden = true;
+  menuPage = Math.floor(levelIdx / PAGE);
+  loadLevel(levelIdx); showOverlay('menu');
+}
 $('#overlay').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-act]'); if (!b) return;
+  const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
   ac();
   const act = b.dataset.act;
   if (act === 'level') { levelIdx = +b.dataset.i; loadLevel(levelIdx); showOverlay('menu'); }
+  else if (act === 'page') { menuPage = clamp(menuPage + +b.dataset.d, 0, Math.ceil(LEVEL_COUNT / PAGE) - 1); showOverlay('menu'); }
   else if (act === 'play' || act === 'retry') startPlay();
-  else if (act === 'next') { levelIdx = Math.min(levelIdx + 1, LEVELS.length - 1); startPlay(); }
-  else if (act === 'menu') { mode = 'menu'; $('#hud').hidden = true; loadLevel(levelIdx); showOverlay('menu'); }
+  else if (act === 'next') { levelIdx = Math.min(levelIdx + 1, LEVEL_COUNT - 1); startPlay(); }
+  else if (act === 'menu') openMenu();
 });
-$('#btnMenu').addEventListener('click', () => { mode = 'menu'; $('#hud').hidden = true; loadLevel(levelIdx); showOverlay('menu'); });
+$('#btnMenu').addEventListener('click', openMenu);
 $('#btnRestart').addEventListener('click', () => { ac(); startPlay(); });
 function syncMute() { $('#muteWaves').style.display = muted ? 'none' : ''; }
 $('#btnMute').addEventListener('click', () => { muted = !muted; store('smash-fiesta-muted', muted); syncMute(); ac(); });
 syncMute();
 
-/* ---------- input ---------- */
+/* ---------- input: aim at the toy under the pointer ---------- */
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-const aimPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -AIM_Z);
+const aimPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 5);
 function setAim(ev) {
   const r = canvas.getBoundingClientRect();
   ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  const hit = new THREE.Vector3();
-  if (ray.ray.intersectPlane(aimPlane, hit)) {
-    const hw = (level ? level.w / 2 : 6) + 3;
-    aimPoint.set(clamp(hit.x, -hw, hw), clamp(hit.y, 0.9, 9), AIM_Z);
+  const meshes = [];
+  for (const t of things) if (!t.fallen) meshes.push(t.mesh);
+  const hits = ray.intersectObjects(meshes, false);
+  if (hits.length) {
+    aimPoint.copy(hits[0].point);
+    aimPoint.y = Math.max(aimPoint.y, BALL_R + 0.15);
+  } else {
+    aimPlane.constant = -cz;
+    const hit = new THREE.Vector3();
+    if (ray.ray.intersectPlane(aimPlane, hit)) {
+      const hw = (level ? level.w / 2 : 6) + 3;
+      aimPoint.set(clamp(hit.x, -hw, hw), clamp(hit.y, BALL_R + 0.15, 11), cz);
+    }
   }
   aimVisible = true;
 }
@@ -864,17 +1150,16 @@ window.addEventListener('keydown', (e) => { if (mode === 'play' && (e.code === '
 function fire() {
   if (mode !== 'play' || ballsLeft <= 0 || cooldown > 0 || endTimer > 0) return;
   const start = solveAim();
-  ballsLeft--; cooldown = 0.55; firedAny = true; settleT = 0;
+  ballsLeft--; cooldown = 0.45; firedAny = true; settleT = 0;
   $('#hint').classList.add('gone');
-  renderBalls();
-  const r = 0.55;
-  const body = new CANNON.Body({ mass: 9, material: ballMat, linearDamping: 0.01, allowSleep: false });
-  body.addShape(new CANNON.Sphere(r));
+  renderAmmo();
+  const body = new CANNON.Body({ mass: 14, material: ballMat, linearDamping: 0.01, allowSleep: false });
+  body.addShape(new CANNON.Sphere(BALL_R));
   body.position.set(start.x, start.y, start.z);
   body.velocity.set(aimVel.x, aimVel.y, aimVel.z);
   body.angularVelocity.set(rand(-6, 6), rand(-6, 6), 0);
   body.isBall = true;
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 28, 20), new THREE.MeshPhysicalMaterial({ color: col('#2b3070'), roughness: .25, clearcoat: 1, clearcoatRoughness: .1 }));
+  const mesh = new THREE.Mesh(cached('gball', () => new THREE.SphereGeometry(BALL_R, 28, 20)), cached('mball', () => new THREE.MeshPhysicalMaterial({ color: col('#2b3070'), roughness: .25, clearcoat: 1, clearcoatRoughness: .1 })));
   mesh.castShadow = true;
   scene.add(mesh); world.addBody(body);
   const ball = { body, mesh, life: 0, trail: 0, hit: 0 };
@@ -896,14 +1181,13 @@ function fire() {
   sfx.shoot();
 }
 
-function queueBoom(t, wait) { boomQueue.push({ t, wait }); }
 function explode(t) {
   if (t.exploded) return;
   t.exploded = true;
   const p = new THREE.Vector3(t.body.position.x, t.body.position.y, t.body.position.z);
   world.remove(t.body); levelGroup.remove(t.mesh);
   const i = things.indexOf(t); if (i >= 0) things.splice(i, 1);
-  const R = 5.2;
+  const R = 6.2;
   for (const o of things) {
     const dx = o.body.position.x - p.x, dy = o.body.position.y - p.y, dz = o.body.position.z - p.z;
     const dist = Math.hypot(dx, dy, dz);
@@ -911,11 +1195,11 @@ function explode(t) {
       const k = 1 - dist / R;
       o.body.wakeUp();
       const inv = 1 / Math.max(dist, 0.3);
-      o.body.velocity.x += dx * inv * 20 * k;
-      o.body.velocity.y += dy * inv * 8 * k + 9 * k;
-      o.body.velocity.z += dz * inv * 20 * k;
+      o.body.velocity.x += dx * inv * 24 * k;
+      o.body.velocity.y += dy * inv * 9 * k + 10 * k;
+      o.body.velocity.z += dz * inv * 24 * k;
       o.body.angularVelocity.set(rand(-9, 9) * k, rand(-9, 9) * k, rand(-9, 9) * k);
-      if (o.tnt && !o.armed && dist < R * 0.8) { o.armed = true; queueBoom(o, 0.12); }
+      if (o.tnt && !o.armed && dist < R * 0.8) { o.armed = true; boomQueue.push({ t: o, wait: 0.12 }); }
     }
   }
   burst(p, 34, ['#ffc23d', '#ff6b5b', '#fff6e6', '#e63946'], 15, 5, 0.34, 0.8);
@@ -942,7 +1226,7 @@ function afterPhysics(dt, rdt) {
   comboT -= rdt; if (comboT <= 0) combo = 0;
   for (let i = things.length - 1; i >= 0; i--) {
     const t = things[i];
-    if (!t.fallen && t.body.position.y < -1.8) {
+    if (!t.fallen && t.body.position.y < -0.9) {
       t.fallen = true;
       if (t.target) {
         combo = comboT > 0 ? combo + 1 : 1; comboT = 1.1;
@@ -950,7 +1234,7 @@ function afterPhysics(dt, rdt) {
         const p = t.mesh.position.clone(); p.y = Math.max(p.y, -1.5) + 1.2;
         popText(p, '+' + pts, combo >= 3);
         sfx.pop(combo);
-        burst(t.mesh.position.clone().setY(-1), 6, [t.hex, '#ffffff'], 5, 4, 0.2, 0.6);
+        burst(t.mesh.position.clone().setY(-0.6), 6, [t.hex, '#ffffff'], 5, 4, 0.2, 0.6);
       }
     }
     if (t.body.position.y < -22) {
@@ -964,10 +1248,10 @@ function afterPhysics(dt, rdt) {
     b.trail -= dt;
     if (b.trail <= 0 && b.life < 1.2) {
       b.trail = 0.03;
-      spawnP(b.mesh.position.clone(), new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)), '#fff6e6', 0.2, 0.35, 0);
+      spawnP(b.mesh.position.clone(), new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)), '#fff6e6', 0.22, 0.35, 0);
     }
-    const dead = b.life > 3.6 || b.body.position.y < -8;
-    if (b.life > 3.2) b.mesh.scale.setScalar(clamp((3.6 - b.life) / 0.4, 0.01, 1));
+    const dead = b.life > 3.4 || b.body.position.y < -8;
+    if (b.life > 3.0) b.mesh.scale.setScalar(clamp((3.4 - b.life) / 0.4, 0.01, 1));
     if (dead) { world.remove(b.body); scene.remove(b.mesh); balls.splice(i, 1); }
   }
   blast.intensity *= Math.pow(0.0025, rdt);
@@ -989,9 +1273,8 @@ function gameLogic(rdt) {
   }
   if (remainingTargets() === 0) {
     endType = 'win'; endTimer = 1.5; targetScale = 0.3;
-    const cols = PALETTE;
     for (let i = 0; i < 70; i++) {
-      spawnP(new THREE.Vector3(rand(-6, 6), rand(6, 11), cz + rand(-3, 3)), new THREE.Vector3(rand(-4, 4), rand(-2, 4), rand(-4, 4)), cols[i % cols.length], rand(0.18, 0.34), rand(1.2, 2.2), 6);
+      spawnP(new THREE.Vector3(rand(-6, 6), rand(6, 11), cz + rand(-3, 3)), new THREE.Vector3(rand(-4, 4), rand(-2, 4), rand(-4, 4)), PALETTE[i % PALETTE.length], rand(0.18, 0.34), rand(1.2, 2.2), 6);
     }
     return;
   }
@@ -1009,6 +1292,26 @@ function updateCamera(rdt, now) {
   const s = reduceMotion ? 0 : shake * shake * 0.5;
   camera.position.set(camPos.x + sway + rand(-s, s), camPos.y + rand(-s, s), camPos.z + rand(-s, s));
   camera.lookAt(camLook.x + sway * 0.3, camLook.y, camLook.z);
+  skyGroup.position.copy(camera.position);
+}
+
+function updateScenery(rdt, now) {
+  for (const c of drifters) {
+    if (c.userData.bob !== undefined) {
+      c.position.y = c.userData.baseY + Math.sin(now / 1500 + c.userData.bob) * 0.35;
+      if (c.userData.speed) { c.position.x += c.userData.speed * rdt; if (c.position.x > 60) c.position.x = -60; }
+    } else { c.position.x += c.userData.speed * rdt; if (Math.abs(c.position.x) > 48) c.position.x *= -0.98; }
+  }
+  cloudSea.position.x = Math.sin(now / 40000) * 10;
+  const pos = sparkGeo.attributes.position;
+  for (let i = 0; i < SPARKS; i++) {
+    let y = pos.getY(i) + rdt * (0.3 + (i % 5) * 0.08);
+    if (y > 14) y = -4;
+    pos.setY(i, y);
+    pos.setX(i, pos.getX(i) + Math.sin(now / 1200 + i) * rdt * 0.2);
+  }
+  pos.needsUpdate = true;
+  if (theme.stars > 0) starMat.opacity = theme.stars * (0.85 + Math.sin(now / 700) * 0.15);
 }
 
 /* ---------- loop ---------- */
@@ -1025,22 +1328,20 @@ function frame(now) {
   gameLogic(rdt);
   updateFx(dt);
   updateCamera(rdt, now);
+  updateScenery(rdt, now);
   const start = solveAim();
   updateAimVisuals(start, rdt);
-  for (const c of clouds) {
-    if (c.userData.bob !== undefined) c.position.y = c.userData.baseY + Math.sin(now / 1500 + c.userData.bob) * 0.35;
-    else { c.position.x += c.userData.speed * rdt; if (Math.abs(c.position.x) > 45) c.position.x *= -0.98; }
-  }
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 
 /* ---------- boot ---------- */
-levelIdx = (() => { const n = stars.findIndex((s) => !s); return n < 0 ? 0 : clamp(n, 0, LEVELS.length - 1); })();
+levelIdx = clamp(unlocked - 1, 0, LEVEL_COUNT - 1);
+menuPage = Math.floor(levelIdx / PAGE);
 loadLevel(levelIdx);
 showOverlay('menu');
 requestAnimationFrame(frame);
-window.__fiesta = { fire, startPlay, loadLevel, get mode() { return mode; }, get left() { return remainingTargets(); }, aim(x, y) { aimPoint.set(x, y, AIM_Z); aimVisible = true; }, get things() { return things.length; } };
+window.__fiesta = { fire, startPlay, loadLevel, unlockAll() { unlocked = LEVEL_COUNT; }, get mode() { return mode; }, get left() { return remainingTargets(); }, get par() { return level.par; }, aim(x, y, z) { aimPoint.set(x, y, z == null ? cz : z); aimVisible = true; }, get things() { return things.length; }, targets() { return things.filter((t) => t.target && !t.fallen).map((t) => [t.body.position.x, t.body.position.y, t.body.position.z]); } };
 })();
 </script>
 
