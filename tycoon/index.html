@@ -17,7 +17,26 @@ canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
 .coin{width:46px;height:46px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%,#fff3a8,#ffcc2e 45%,#d99a00);box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 0 0 3px #b07800;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:26px;color:#8a5a00}
 #cash{font-size:34px;font-weight:700;color:var(--green);line-height:1;text-shadow:0 3px 0 rgba(0,0,0,.35)}
 #rate{font-size:15px;color:#cfe;opacity:.9;margin-top:3px}
-#rebirths{display:none;margin-top:4px;font-size:13px;font-weight:700;color:#3a2600;background:var(--gold);border-radius:8px;padding:1px 8px;width:max-content}
+#floorName{font-size:13px;opacity:.75;margin-top:3px}
+[hidden]{display:none!important}
+#nextText .where{color:#9fe8ff;font-size:14px}
+#skBadge{background:var(--gold);color:#3a2600;border-radius:8px;padding:0 6px;margin-left:6px;font-size:13px}
+#skills.glow{animation:glow 1.2s ease-in-out infinite alternate}
+@keyframes glow{to{box-shadow:0 4px 0 rgba(0,0,0,.28),0 0 18px 4px rgba(255,212,71,.75)}}
+#skillsPanel{background:linear-gradient(180deg,#2a2e39,#1b1e26);position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(580px,calc(100vw - 28px));max-height:calc(100% - 40px);overflow:auto;padding:18px;z-index:20}
+.skHead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.skTitle{font-size:26px;font-weight:700}
+#skPoints{color:var(--gold);font-weight:600;margin-top:2px}
+#skList{display:grid;gap:10px}
+.sk{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06)}
+.skIcon{font-size:28px;text-align:center}
+.skName{font-weight:700;font-size:17px}
+.skDesc{font-size:14px;opacity:.85}
+.pips{display:flex;gap:4px;margin-top:6px}.pip{width:20px;height:6px;border-radius:3px;background:rgba(255,255,255,.18)}.pip.on{background:var(--gold)}
+.sk .btn[disabled]{opacity:.45;cursor:default;filter:none;transform:none}
+.skFoot{margin-top:14px;font-size:13px;opacity:.7;text-align:center}
+.btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#rebirths{margin-top:4px;font-size:13px;font-weight:700;color:#3a2600;background:var(--gold);border-radius:8px;padding:1px 8px;width:max-content}
 #next{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);padding:9px 16px 11px;min-width:280px;max-width:calc(100vw - 28px);text-align:center}
 #nextText{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #nextText b{color:var(--gold)}
@@ -48,11 +67,16 @@ canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
 <body>
 <canvas id="c" tabindex="0"></canvas>
 <div id="labels"></div>
-<div id="money" class="panel"><div class="coin">$</div><div><div id="cash">$0</div><div id="rate">+$0/s</div><div id="rebirths"></div></div></div>
+<div id="money" class="panel"><div class="coin">$</div><div><div id="cash">$0</div><div id="rate">+$0/s</div><div id="rebirths" hidden></div><div id="floorName"></div></div></div>
 <div id="next" class="panel"><div id="nextText"></div><div id="bar"><div id="barFill"></div></div></div>
-<div id="controls"><button id="gfx" class="btn" title="Graphics quality">HD</button><button id="sound" class="btn" title="Sound (M)">🔊</button><button id="reset" class="btn" title="Delete save">Reset</button></div>
+<div id="controls"><button id="skills" class="btn" title="Skill tree (K)">★ Skills<span id="skBadge" hidden></span></button><button id="gfx" class="btn" title="Graphics quality">HD</button><button id="sound" class="btn" title="Sound (M)">🔊</button><button id="reset" class="btn" title="Delete save">Reset</button></div>
 <div id="toasts"></div>
-<div id="help" class="panel">WASD / arrows to walk · Space to jump · drag to look · scroll to zoom · step on buttons to buy</div>
+<div id="skillsPanel" class="panel" hidden>
+  <div class="skHead"><div><div class="skTitle">★ Skill Tree</div><div id="skPoints"></div></div><button id="skClose" class="btn">Close</button></div>
+  <div id="skList"></div>
+  <div class="skFoot">Every rebirth earns 1 skill point. Skills are never reset.</div>
+</div>
+<div id="help" class="panel">WASD / arrows to walk · Space to jump · drag to look · scroll to zoom · step on buttons to buy · K for skills</div>
 <div id="stick"><div id="knob"></div></div>
 <button id="jump" class="btn">JUMP</button>
 <div id="loading"><div>🏭 Mega Factory Tycoon</div><div style="font-size:18px;opacity:.85">Loading…</div></div>
@@ -85,12 +109,21 @@ const START_CASH = 0;
 const REBIRTH_BONUS = 0.5;       // +50% income per rebirth
 const BELT_SPEED = 10;           // studs per second
 const DEFAULT_INTERVAL = 1.5;    // seconds between drops
-const MAX_DROPS = 200;
-const OFFLINE_CAP = 2 * 3600;    // seconds of away earnings
-const WALK_SPEED = 16, JUMP_SPEED = 40, GRAVITY = 120, PLAYER_RADIUS = 1;
+const MAX_DROPS = 320;
+const WALK_SPEED = 16, JUMP_SPEED = 40, GRAVITY = 120, PLAYER_RADIUS = 1, PLAYER_HEIGHT = 5.5;
 
-// Purchase tree in button order. A button appears once everything in
-// `requires` is owned; 'all' means every item except the rebirth.
+// Floors stack above the ground plot. Each unlocks at a rebirth count and has
+// its own belt, furnace and buttons; every furnace pays into the one bank.
+const FLOORS = [
+  {name:'Ground Factory', y:0, unlock:0, tile:0xffffff, rail:0xffc61a, fire:[0xff6a14, 0xffb42a], furnace:'🔥 FURNACE'},
+  {name:'Crystal Lab', y:30, unlock:1, tile:0xd8ccff, rail:0x4de3ff, fire:[0x6a5cff, 0x4de3ff], furnace:'💎 REFINERY'},
+  {name:'Space Factory', y:60, unlock:3, tile:0x737899, rail:0xff4dd8, fire:[0xff3cd2, 0xa05cff], furnace:'🌌 REACTOR'},
+];
+const FLOOR_GAP = 30;
+
+// Purchase tree in button order. A button appears once its floor is open and
+// everything in `requires` is owned; 'all' means every item on the open
+// floors except the rebirth itself.
 const ITEMS = [
   {id:'dropper1', name:'Basic Dropper', kind:'dropper', cost:0, value:2, lane:1, color:0xb8bcc4},
   {id:'dropper2', name:'Copper Dropper', kind:'dropper', cost:40, requires:['dropper1'], value:4, lane:2, color:0xd9773a},
@@ -105,18 +138,54 @@ const ITEMS = [
   {id:'dropper6', name:'Diamond Dropper', kind:'dropper', cost:25000, requires:['dropper5'], value:150, lane:6, color:0x5ff0ff},
   {id:'upgrader3', name:'Gold Plater ×3', kind:'upgrader', cost:60000, requires:['dropper6','furnace'], mult:3, lane:3, color:0xffaa00},
   {id:'dropper7', name:'Mega Dropper', kind:'dropper', cost:150000, requires:['upgrader3'], value:400, interval:1, lane:7, color:0xff3c8c},
-  {id:'rebirth', name:'REBIRTH +50% income', kind:'rebirth', cost:500000, requires:'all'},
-];
-const BY_ID = Object.fromEntries(ITEMS.map((it, i) => [it.id, Object.assign(it, {slot:i})]));
+  {id:'rebirth', name:'REBIRTH +50% income +1★', kind:'rebirth', requires:'all'},
 
-// Plot layout, in studs. +X runs along the belt toward the furnace and +Z
-// points out of the entrance.
+  {floor:1, id:'c_dropper1', name:'Amethyst Dropper', kind:'dropper', cost:12e3, value:150, lane:1, color:0x9b5cff},
+  {floor:1, id:'c_dropper2', name:'Sapphire Dropper', kind:'dropper', cost:5e4, requires:['c_dropper1'], value:400, lane:2, color:0x2f6bff},
+  {floor:1, id:'c_upgrader1', name:'Prism ×2', kind:'upgrader', cost:1.5e5, requires:['c_dropper2'], mult:2, lane:1, color:0x4de3ff},
+  {floor:1, id:'c_dropper3', name:'Emerald Dropper', kind:'dropper', cost:4e5, requires:['c_upgrader1'], value:1000, lane:3, color:0x1fd17a},
+  {floor:1, id:'c_dropper4', name:'Ruby Dropper', kind:'dropper', cost:1e6, requires:['c_dropper3'], value:2500, lane:4, color:0xff2a4d},
+  {floor:1, id:'c_upgrader2', name:'Laser Etcher ×3', kind:'upgrader', cost:2.5e6, requires:['c_dropper4'], mult:3, lane:2, color:0xff4df0},
+  {floor:1, id:'c_dropper5', name:'Opal Dropper', kind:'dropper', cost:6e6, requires:['c_upgrader2'], value:6000, interval:1, lane:5, color:0xf4f0ff},
+
+  {floor:2, id:'s_dropper1', name:'Meteor Dropper', kind:'dropper', cost:2e7, value:4e4, lane:1, color:0xa86a42},
+  {floor:2, id:'s_dropper2', name:'Plasma Dropper', kind:'dropper', cost:6e7, requires:['s_dropper1'], value:1e5, lane:2, color:0x39ff88},
+  {floor:2, id:'s_upgrader1', name:'Gravity Well ×2.5', kind:'upgrader', cost:1.5e8, requires:['s_dropper2'], mult:2.5, lane:1, color:0x7a5cff},
+  {floor:2, id:'s_dropper3', name:'Nebula Dropper', kind:'dropper', cost:4e8, requires:['s_upgrader1'], value:2.5e5, lane:3, color:0xff5cc8},
+  {floor:2, id:'s_dropper4', name:'Quasar Dropper', kind:'dropper', cost:1e9, requires:['s_dropper3'], value:6e5, lane:4, color:0x5cf2ff},
+  {floor:2, id:'s_upgrader2', name:'Antimatter ×4', kind:'upgrader', cost:2.5e9, requires:['s_dropper4'], mult:4, lane:2, color:0xff3030},
+  {floor:2, id:'s_dropper5', name:'Black Hole Dropper', kind:'dropper', cost:6e9, requires:['s_upgrader2'], value:1.5e6, interval:1, lane:5, color:0x3a2466},
+];
+const slotsUsed = FLOORS.map(() => 0);
+const BY_ID = Object.fromEntries(ITEMS.map(it => {
+  it.floor ??= 0;
+  it.slot = slotsUsed[it.floor]++;
+  return [it.id, it];
+}));
+// Rebirths get much dearer once a new floor's income is in play.
+const rebirthCost = r => [5e5, 2e7, 4e7, 2e10][r] ?? 4e10 * (r - 3);
+
+// Every rebirth earns one skill point; skills are never reset.
+const SKILLS = [
+  {id:'lucky', name:'Lucky Gems', icon:'🍀', max:3, desc:l => `${4 * l}% of gems turn gold, worth ×10`},
+  {id:'turbo', name:'Turbo Droppers', icon:'⚡', max:3, desc:l => `Droppers drop ${10 * l}% faster`},
+  {id:'bargain', name:'Bargain Hunter', icon:'🏷️', max:3, desc:l => `Buttons cost ${10 * l}% less`},
+  {id:'magnet', name:'Cash Magnet', icon:'🧲', max:1, desc:() => 'Your cash is collected for you every second'},
+  {id:'speed', name:'Speedy Shoes', icon:'👟', max:3, desc:l => `Walk ${15 * l}% faster`},
+  {id:'jump', name:'Double Jump', icon:'🦘', max:1, desc:() => 'Press jump again in mid-air'},
+  {id:'overtime', name:'Overtime', icon:'🌙', max:2, desc:l => `Earn while away for up to ${2 + 2 * l} hours`},
+];
+
+// Plot layout, in studs, relative to each floor. +X runs along the belt
+// toward the furnace and +Z points out of the entrance.
 const PLOT = 100, BELT_Z = -25, BELT_W = 6, BELT_TOP = 3, BELT_X0 = -40, BELT_X1 = 24;
 const DROPPER_X0 = -36, UPGRADER_X0 = 6, LANE = 6;
 const FURNACE_X = BELT_X1 + 6;
 const PAD = {x:30, z:-8, r:4};
 const SPAWN = {x:0, z:24.5}; // between button rows
 const WALL_H = 9;
+const TELEPORTS = [null, {x:-42, z:42}, {x:42, z:42}]; // where the pad up to floor f sits
+const FY = f => FLOORS[f].y;
 const dropperX = lane => DROPPER_X0 + (lane - 1) * LANE;
 const upgraderX = lane => UPGRADER_X0 + (lane - 1) * LANE;
 const buttonPos = slot => ({x:-32 + (slot % 5) * 16, z:8 + Math.floor(slot / 5) * 11});
@@ -138,32 +207,44 @@ function short(n) {
 const money = n => '$' + short(n);
 
 let resetting = false;
-const state = {cash:START_CASH, bank:0, rebirths:0, owned:new Set(), savedAt:Date.now()};
+const state = {cash:START_CASH, bank:0, rebirths:0, owned:new Set(), skills:{}, savedAt:Date.now()};
+const lvl = id => state.skills[id] || 0;
+const skillPoints = () => state.rebirths - Object.values(state.skills).reduce((a, b) => a + b, 0);
+const floorOpen = f => state.rebirths >= FLOORS[f].unlock;
 const rebirthMult = () => 1 + state.rebirths * REBIRTH_BONUS;
-const costOf = it => it.kind === 'rebirth' ? it.cost * (state.rebirths + 1) : it.cost;
-const intervalMult = () => state.owned.has('overclock') ? BY_ID.overclock.mult : 1;
+const costOf = it => it.kind === 'rebirth' ? rebirthCost(state.rebirths) : Math.round(it.cost * (1 - 0.1 * lvl('bargain')));
+const intervalMult = () => (state.owned.has('overclock') ? BY_ID.overclock.mult : 1) / (1 + 0.1 * lvl('turbo'));
 const furnaceMult = () => state.owned.has('furnace') ? BY_ID.furnace.mult : 1;
+const luckChance = () => 0.04 * lvl('lucky');
+const offlineCap = () => (2 + 2 * lvl('overtime')) * 3600;
 function requirementsMet(it) {
-  if (it.requires === 'all') return ITEMS.every(o => o.kind === 'rebirth' || state.owned.has(o.id));
+  if (!floorOpen(it.floor)) return false;
+  if (it.requires === 'all') return ITEMS.every(o => o.kind === 'rebirth' || !floorOpen(o.floor) || state.owned.has(o.id));
   return (it.requires || []).every(id => state.owned.has(id));
 }
 
-// Steady-state earnings, used for the HUD and for time spent away.
+// Steady-state earnings, used for the HUD and for time spent away. Upgraders
+// only touch gems on their own floor.
 function incomePerSecond() {
-  let perSec = 0, mult = furnaceMult() * rebirthMult();
-  for (const it of ITEMS) {
-    if (!state.owned.has(it.id)) continue;
-    if (it.kind === 'dropper') perSec += it.value / ((it.interval || DEFAULT_INTERVAL) * intervalMult());
-    if (it.kind === 'upgrader') mult *= it.mult;
-  }
-  return perSec * mult;
+  let total = 0;
+  FLOORS.forEach((_, f) => {
+    let perSec = 0, mult = 1;
+    for (const it of ITEMS) {
+      if (it.floor !== f || !state.owned.has(it.id)) continue;
+      if (it.kind === 'dropper') perSec += it.value / ((it.interval || DEFAULT_INTERVAL) * intervalMult());
+      if (it.kind === 'upgrader') mult *= it.mult;
+    }
+    total += perSec * mult;
+  });
+  return total * furnaceMult() * rebirthMult() * (1 + luckChance() * 9);
 }
 
 function save() {
   if (resetting) return; // a reset is reloading the page; don't write the save back
   state.savedAt = Date.now();
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({cash:state.cash, bank:state.bank, rebirths:state.rebirths, owned:[...state.owned], savedAt:state.savedAt}));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({cash:state.cash, bank:state.bank, rebirths:state.rebirths,
+      owned:[...state.owned], skills:state.skills, savedAt:state.savedAt}));
   } catch {}
 }
 function load() {
@@ -172,7 +253,12 @@ function load() {
   if (!raw || typeof raw !== 'object') return 0;
   const num = v => Number.isFinite(+v) && +v >= 0 ? +v : 0;
   state.cash = num(raw.cash); state.bank = num(raw.bank); state.rebirths = Math.floor(num(raw.rebirths));
-  state.owned = new Set((Array.isArray(raw.owned) ? raw.owned : []).filter(id => BY_ID[id] && id !== 'rebirth'));
+  state.owned = new Set((Array.isArray(raw.owned) ? raw.owned : []).filter(id => BY_ID[id] && id !== 'rebirth' && floorOpen(BY_ID[id].floor)));
+  state.skills = {};
+  if (raw.skills && typeof raw.skills === 'object') {
+    for (const s of SKILLS) { const v = Math.floor(num(raw.skills[s.id])); if (v) state.skills[s.id] = Math.min(s.max, v); }
+  }
+  if (skillPoints() < 0) state.skills = {}; // more spent than earned: refund them all
   return Math.max(0, (Date.now() - num(raw.savedAt)) / 1000);
 }
 
@@ -191,6 +277,9 @@ const sfx = {
   coin: () => { tone(988, 0.08); tone(1319, 0.18, 'square', 0.05, 0.08); },
   error: () => tone(130, 0.22, 'sawtooth', 0.05),
   rebirth: () => [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, 0.25, 'triangle', 0.07, i * 0.09)),
+  teleport: () => [300, 450, 680, 1000].forEach((f, i) => tone(f, 0.12, 'sine', 0.06, i * 0.04)),
+  skill: () => [659, 880, 1175].forEach((f, i) => tone(f, 0.18, 'triangle', 0.06, i * 0.08)),
+  jump: () => tone(520, 0.1, 'sine', 0.04),
 };
 function unlockAudio() {
   if (actx) return;
@@ -377,7 +466,7 @@ const ownMat = (color, neon = 0.8) => new THREE.MeshStandardMaterial({color, emi
 const baseColliders = [];
 const itemColliders = new Map();
 let colliders = [];
-const solid = (list, x0, x1, z0, z1, top, belt = false) => list.push({x0, x1, z0, z1, top, belt});
+const solid = (list, x0, x1, z0, z1, top, belt = false, y0 = 0) => list.push({x0, x1, z0, z1, top, belt, y0});
 function rebuildColliders() { colliders = baseColliders.concat(...itemColliders.values()); }
 
 const DARK = 0x2a2d35, STEEL = 0x8a929e, TRIM = 0x3a3f4a;
@@ -457,91 +546,19 @@ for (let i = 0; i < 16; i++) {
   scene.add(c); clouds.push(c);
 }
 
-// ----------------------------------------------------------------- plot --
-// Everything here exists before anything is bought.
-const plot = new THREE.Group();
-scene.add(plot);
-const floor = shadowed(new THREE.Mesh(new THREE.BoxGeometry(PLOT, 0.5, PLOT), new THREE.MeshStandardMaterial({map:tileTex, roughness:0.75, metalness:0.05})), false);
-floor.position.y = -0.24;
-plot.add(floor);
-for (const [w, d, x, z] of [[PLOT + 1.6, 0.8, 0, PLOT / 2 + 0.4], [PLOT + 1.6, 0.8, 0, -PLOT / 2 - 0.4], [0.8, PLOT, PLOT / 2 + 0.4, 0], [0.8, PLOT, -PLOT / 2 - 0.4, 0]]) {
-  box(plot, w, 0.7, d, x, 0.1, z, 0xffc61a, {rough:0.5});
-}
-
-const beltLen = BELT_X1 - BELT_X0, beltCx = (BELT_X0 + BELT_X1) / 2;
-texBox(plot, beltLen, BELT_TOP - 0.05, BELT_W, beltCx, (BELT_TOP - 0.05) / 2, BELT_Z, mat(0x3a3f4a, {metal:0.6, rough:0.45}));
-const beltTex = tiled(chevronTex, beltLen / 4, 1);
-const beltTop = shadowed(new THREE.Mesh(new THREE.PlaneGeometry(beltLen, BELT_W - 0.2), new THREE.MeshStandardMaterial({map:beltTex, roughness:0.85})), false);
-beltTop.rotation.x = -Math.PI / 2; beltTop.position.set(beltCx, BELT_TOP + 0.01, BELT_Z);
-plot.add(beltTop);
-const railMat = new THREE.MeshStandardMaterial({map:tiled(hazardTex, beltLen / 3, 1), roughness:0.5, metalness:0.2});
-// Rails are a low lip so the drops on the belt stay in view.
-const RAIL_TOP = BELT_TOP + 0.9;
-for (const side of [-1, 1]) {
-  texBox(plot, beltLen, RAIL_TOP - BELT_TOP, 0.5, beltCx, (RAIL_TOP + BELT_TOP) / 2, BELT_Z + side * (BELT_W / 2 + 0.25), railMat);
-}
-texBox(plot, 0.5, RAIL_TOP, BELT_W + 1, BELT_X0 - 0.25, RAIL_TOP / 2, BELT_Z, railMat);
-for (let x = BELT_X0 + 4; x < BELT_X1; x += 8) for (const side of [-1, 1]) box(plot, 1, BELT_TOP, 0.6, x, BELT_TOP / 2, BELT_Z + side * 3.8, TRIM, {metal:0.6});
-
-// Furnace: brick body, glowing mouth over the belt end, vent on top.
-const furnaceGroup = new THREE.Group();
-plot.add(furnaceGroup);
-texBox(furnaceGroup, 8, 10, 10, FURNACE_X, 5, BELT_Z, new THREE.MeshStandardMaterial({map:brickTex, roughness:0.85}));
-box(furnaceGroup, 8.6, 0.8, 10.6, FURNACE_X, 10.2, BELT_Z, TRIM, {metal:0.7, rough:0.35});
-box(furnaceGroup, 8.6, 0.8, 10.6, FURNACE_X, 0.4, BELT_Z, TRIM, {metal:0.7, rough:0.35});
-box(furnaceGroup, 3.5, 1.4, 3.5, FURNACE_X + 1, 11.3, BELT_Z, DARK, {metal:0.6});
-const intakeMat = ownMat(0xff6a14, 1.6);
-const intake = texBox(furnaceGroup, 2, 6, BELT_W + 1, BELT_X1 + 1, BELT_TOP + 3, BELT_Z, intakeMat);
-box(furnaceGroup, 2.4, 0.8, BELT_W + 2, BELT_X1 + 1, BELT_TOP + 6.4, BELT_Z, TRIM, {metal:0.7});
-const fireLight = new THREE.PointLight(0xff7a2a, 40, 30, 1.6);
-fireLight.position.set(BELT_X1 - 1, BELT_TOP + 3, BELT_Z);
-plot.add(fireLight);
-
-// Collect pad.
-cyl(plot, 4.5, 4.7, 0.5, PAD.x, 0.25, PAD.z, mat(DARK, {metal:0.5, rough:0.4}), 40);
-const padMat = new THREE.MeshStandardMaterial({map:padTex, emissiveMap:padTex, emissive:0xffffff, emissiveIntensity:0.5, roughness:0.4});
-const padTop = new THREE.Mesh(new THREE.CircleGeometry(4, 48), padMat);
-padTop.rotation.x = -Math.PI / 2; padTop.position.set(PAD.x, 0.52, PAD.z); padTop.receiveShadow = true;
-plot.add(padTop);
-
-// Entrance arch with the factory sign.
-const archMat = mat(0xe8402a, {rough:0.45});
-for (const side of [-1, 1]) {
-  texBox(plot, 1.6, 26, 1.6, side * 11, 13, PLOT / 2 - 0.5, archMat);
-  box(plot, 2.4, 1, 2.4, side * 11, 0.5, PLOT / 2 - 0.5, TRIM, {metal:0.6});
-  box(plot, 2.2, 0.8, 2.2, side * 11, 26.2, PLOT / 2 - 0.5, 0xffd447, {neon:0.6});
-}
-const signMat = new THREE.MeshStandardMaterial({map:signTex, emissiveMap:signTex, emissive:0xffffff, emissiveIntensity:0.35, roughness:0.5});
-const sign = shadowed(new THREE.Mesh(new THREE.BoxGeometry(24, 4.5, 0.8), [archMat, archMat, archMat, archMat, signMat, signMat]));
-sign.position.set(0, 23.5, PLOT / 2 - 0.5);
-plot.add(sign);
-
-solid(baseColliders, BELT_X0, BELT_X1, BELT_Z - 3, BELT_Z + 3, BELT_TOP, true);
-solid(baseColliders, BELT_X0, BELT_X1, BELT_Z - 3.5, BELT_Z - 3, RAIL_TOP);
-solid(baseColliders, BELT_X0, BELT_X1, BELT_Z + 3, BELT_Z + 3.5, RAIL_TOP);
-solid(baseColliders, BELT_X0 - 0.5, BELT_X0, BELT_Z - 3.5, BELT_Z + 3.5, RAIL_TOP);
-solid(baseColliders, BELT_X1, BELT_X1 + 2, BELT_Z - 3.5, BELT_Z + 3.5, BELT_TOP + 6);
-solid(baseColliders, BELT_X1 + 2, BELT_X1 + 10, BELT_Z - 5, BELT_Z + 5, 10);
-for (const side of [-1, 1]) solid(baseColliders, side * 11 - 0.8, side * 11 + 0.8, PLOT / 2 - 1.3, PLOT / 2 + 0.3, 26);
-rebuildColliders();
-
 // --------------------------------------------------------------- labels --
 const labelLayer = document.getElementById('labels');
 const labels = new Set();
-function makeLabel(pos, maxDist, cls = '') {
+// A label with a floor only shows while the player is on that floor.
+function makeLabel(pos, maxDist, cls = '', floor) {
   const el = document.createElement('div');
   el.className = 'label ' + cls;
   labelLayer.appendChild(el);
-  const l = {el, pos:new THREE.Vector3(pos.x, pos.y, pos.z), maxDist};
+  const l = {el, pos:new THREE.Vector3(pos.x, pos.y, pos.z), maxDist, floor};
   labels.add(l);
   return l;
 }
 function removeLabel(l) { l.el.remove(); labels.delete(l); }
-const furnaceLabel = makeLabel({x:FURNACE_X, y:13.5, z:BELT_Z}, 140);
-furnaceLabel.el.innerHTML = '<div class="pill"><div class="name" style="color:#ffb27a">🔥 FURNACE</div></div>';
-const padLabel = makeLabel({x:PAD.x, y:4.2, z:PAD.z}, 100);
-padLabel.el.innerHTML = '<div class="pill"><div class="name" style="color:#c8ffd2">STEP TO COLLECT</div><div class="cost" style="color:var(--green)">$0</div></div>';
-const padCost = padLabel.el.querySelector('.cost');
 
 // Floating "+$" numbers that rise and fade.
 const floaters = [];
@@ -550,6 +567,139 @@ function floatText(text, pos, color) {
   l.el.textContent = text;
   if (color) l.el.style.color = color;
   floaters.push({l, life:0});
+}
+
+// --------------------------------------------------------------- floors --
+const plot = new THREE.Group();
+scene.add(plot);
+const floorGroups = [];  // f -> Group, built when the floor unlocks
+const furnaces = [];     // f -> {intakeMat, light, glow}
+const padCosts = [];     // bank readouts on every floor's collect pad
+const teleporters = [];  // {x, z, floor, to, ring}
+
+const beltLen = BELT_X1 - BELT_X0, beltCx = (BELT_X0 + BELT_X1) / 2;
+const beltTex = tiled(chevronTex, beltLen / 4, 1);
+const beltMat = new THREE.MeshStandardMaterial({map:beltTex, roughness:0.85});
+const hazardRail = new THREE.MeshStandardMaterial({map:tiled(hazardTex, beltLen / 3, 1), roughness:0.5, metalness:0.2});
+const RAIL_TOP = BELT_TOP + 0.9; // a low lip, so the gems on the belt stay in view
+const padMat = new THREE.MeshStandardMaterial({map:padTex, emissiveMap:padTex, emissive:0xffffff, emissiveIntensity:0.5, roughness:0.4});
+const padTopGeo = new THREE.CircleGeometry(4, 48);
+// Colliders take heights relative to floor f.
+const solidF = (list, f, x0, x1, z0, z1, top, belt = false, bottom = 0) => solid(list, x0, x1, z0, z1, FY(f) + top, belt, FY(f) + bottom);
+
+function buildFloor(f, animate) {
+  const F = FLOORS[f], g = new THREE.Group();
+  g.position.y = FY(f);
+  plot.add(g);
+  floorGroups[f] = g;
+
+  if (f === 0) {
+    const ground = shadowed(new THREE.Mesh(new THREE.BoxGeometry(PLOT, 0.5, PLOT), new THREE.MeshStandardMaterial({map:tileTex, roughness:0.75, metalness:0.05})), false);
+    ground.position.y = -0.24;
+    g.add(ground);
+    for (const [w, d, x, z] of [[PLOT + 1.6, 0.8, 0, PLOT / 2 + 0.4], [PLOT + 1.6, 0.8, 0, -PLOT / 2 - 0.4], [0.8, PLOT, PLOT / 2 + 0.4, 0], [0.8, PLOT, -PLOT / 2 - 0.4, 0]]) {
+      box(g, w, 0.7, d, x, 0.1, z, 0xffc61a, {rough:0.5});
+    }
+    // Entrance arch with the factory sign.
+    const archMat = mat(0xe8402a, {rough:0.45});
+    for (const side of [-1, 1]) {
+      texBox(g, 1.6, 26, 1.6, side * 11, 13, PLOT / 2 - 0.5, archMat);
+      box(g, 2.4, 1, 2.4, side * 11, 0.5, PLOT / 2 - 0.5, TRIM, {metal:0.6});
+      box(g, 2.2, 0.8, 2.2, side * 11, 26.2, PLOT / 2 - 0.5, 0xffd447, {neon:0.6});
+      solidF(baseColliders, f, side * 11 - 0.8, side * 11 + 0.8, PLOT / 2 - 1.3, PLOT / 2 + 0.3, 26);
+    }
+    const signMat = new THREE.MeshStandardMaterial({map:signTex, emissiveMap:signTex, emissive:0xffffff, emissiveIntensity:0.35, roughness:0.5});
+    const sign = shadowed(new THREE.Mesh(new THREE.BoxGeometry(24, 4.5, 0.8), [archMat, archMat, archMat, archMat, signMat, signMat]));
+    sign.position.set(0, 23.5, PLOT / 2 - 0.5);
+    g.add(sign);
+  } else {
+    // A slab held up by pillars, with a glass railing around the edge. The
+    // slab casts no shadow so the floor below stays lit.
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(PLOT, 0.6, PLOT), new THREE.MeshStandardMaterial({map:tileTex, color:F.tile, roughness:0.7}));
+    slab.position.y = -0.3; slab.receiveShadow = true;
+    g.add(slab);
+    box(g, PLOT + 0.4, 0.5, PLOT + 0.4, 0, -0.75, 0, F.rail, {neon:1.2}).castShadow = false;
+    solid(baseColliders, -PLOT / 2, PLOT / 2, -PLOT / 2, PLOT / 2, FY(f), false, FY(f) - 0.6);
+    for (const [w, d, x, z] of [[PLOT, 0.4, 0, -PLOT / 2 + 0.2], [PLOT, 0.4, 0, PLOT / 2 - 0.2], [0.4, PLOT, -PLOT / 2 + 0.2, 0], [0.4, PLOT, PLOT / 2 - 0.2, 0]]) {
+      box(g, w, 2.2, d, x, 1.1, z, F.rail, {opacity:0.3, rough:0.1});
+      box(g, w + 0.2, 0.3, d + 0.2, x, 2.35, z, F.rail, {neon:1.8});
+      solidF(baseColliders, f, x - w / 2, x + w / 2, z - d / 2, z + d / 2, 2.5);
+    }
+    const h = FLOOR_GAP - 0.6;
+    for (const [x, z] of [[-47, -47], [47, -47], [-47, 47], [47, 47], [-47, 0], [47, 0]]) {
+      box(g, 2, h, 2, x, -0.6 - h / 2, z, TRIM, {metal:0.6, rough:0.4});
+      solid(baseColliders, x - 1, x + 1, z - 1, z + 1, FY(f) - 0.6, false, FY(f - 1));
+    }
+    const title = makeLabel({x:0, y:FY(f) + 8, z:-46}, 160, '', f);
+    title.el.innerHTML = `<div class="pill"><div class="name">Floor ${f + 1}</div><div class="cost" style="color:#${F.rail.toString(16).padStart(6, '0')}">${F.name}</div></div>`;
+    const tp = TELEPORTS[f];
+    addTeleporter(f - 1, tp, f, `▲ ${F.name}`);
+    addTeleporter(f, tp, f - 1, `▼ ${FLOORS[f - 1].name}`);
+  }
+
+  // Conveyor.
+  texBox(g, beltLen, BELT_TOP - 0.05, BELT_W, beltCx, (BELT_TOP - 0.05) / 2, BELT_Z, mat(0x3a3f4a, {metal:0.6, rough:0.45}));
+  const beltTop = shadowed(new THREE.Mesh(new THREE.PlaneGeometry(beltLen, BELT_W - 0.2), beltMat), false);
+  beltTop.rotation.x = -Math.PI / 2; beltTop.position.set(beltCx, BELT_TOP + 0.01, BELT_Z);
+  g.add(beltTop);
+  const railMat = f === 0 ? hazardRail : mat(F.rail, {neon:0.9});
+  for (const side of [-1, 1]) {
+    texBox(g, beltLen, RAIL_TOP - BELT_TOP, 0.5, beltCx, (RAIL_TOP + BELT_TOP) / 2, BELT_Z + side * (BELT_W / 2 + 0.25), railMat);
+  }
+  texBox(g, 0.5, RAIL_TOP, BELT_W + 1, BELT_X0 - 0.25, RAIL_TOP / 2, BELT_Z, railMat);
+  for (let x = BELT_X0 + 4; x < BELT_X1; x += 8) for (const side of [-1, 1]) box(g, 1, BELT_TOP, 0.6, x, BELT_TOP / 2, BELT_Z + side * 3.8, TRIM, {metal:0.6});
+
+  // Furnace: brick body, glowing mouth over the belt end, vent on top.
+  texBox(g, 8, 10, 10, FURNACE_X, 5, BELT_Z, new THREE.MeshStandardMaterial({map:brickTex, roughness:0.85, color:f ? F.tile : 0xffffff}));
+  box(g, 8.6, 0.8, 10.6, FURNACE_X, 10.2, BELT_Z, TRIM, {metal:0.7, rough:0.35});
+  box(g, 8.6, 0.8, 10.6, FURNACE_X, 0.4, BELT_Z, TRIM, {metal:0.7, rough:0.35});
+  box(g, 3.5, 1.4, 3.5, FURNACE_X + 1, 11.3, BELT_Z, DARK, {metal:0.6});
+  const intakeMat = ownMat(F.fire[0], 1.6);
+  texBox(g, 2, 6, BELT_W + 1, BELT_X1 + 1, BELT_TOP + 3, BELT_Z, intakeMat);
+  box(g, 2.4, 0.8, BELT_W + 2, BELT_X1 + 1, BELT_TOP + 6.4, BELT_Z, TRIM, {metal:0.7});
+  const light = new THREE.PointLight(F.fire[0], 40, 30, 1.6);
+  light.position.set(BELT_X1 - 1, BELT_TOP + 3, BELT_Z);
+  g.add(light);
+  furnaces[f] = {intakeMat, light, glow:0, sold:0};
+
+  // Collect pad. Every floor has one, and they all empty the same bank.
+  cyl(g, 4.5, 4.7, 0.5, PAD.x, 0.25, PAD.z, mat(DARK, {metal:0.5, rough:0.4}), 40);
+  const padTop = new THREE.Mesh(padTopGeo, padMat);
+  padTop.rotation.x = -Math.PI / 2; padTop.position.set(PAD.x, 0.52, PAD.z); padTop.receiveShadow = true;
+  g.add(padTop);
+
+  const furnaceLabel = makeLabel({x:FURNACE_X, y:FY(f) + 13.5, z:BELT_Z}, 140, '', f);
+  furnaceLabel.el.innerHTML = `<div class="pill"><div class="name" style="color:#ffb27a">${F.furnace}</div></div>`;
+  const padLabel = makeLabel({x:PAD.x, y:FY(f) + 4.2, z:PAD.z}, 100, '', f);
+  padLabel.el.innerHTML = '<div class="pill"><div class="name" style="color:#c8ffd2">STEP TO COLLECT</div><div class="cost" style="color:var(--green)">$0</div></div>';
+  padCosts.push(padLabel.el.querySelector('.cost'));
+
+  solidF(baseColliders, f, BELT_X0, BELT_X1, BELT_Z - 3, BELT_Z + 3, BELT_TOP, true);
+  solidF(baseColliders, f, BELT_X0, BELT_X1, BELT_Z - 3.5, BELT_Z - 3, RAIL_TOP);
+  solidF(baseColliders, f, BELT_X0, BELT_X1, BELT_Z + 3, BELT_Z + 3.5, RAIL_TOP);
+  solidF(baseColliders, f, BELT_X0 - 0.5, BELT_X0, BELT_Z - 3.5, BELT_Z + 3.5, RAIL_TOP);
+  solidF(baseColliders, f, BELT_X1, BELT_X1 + 2, BELT_Z - 3.5, BELT_Z + 3.5, BELT_TOP + 6);
+  solidF(baseColliders, f, BELT_X1 + 2, BELT_X1 + 10, BELT_Z - 5, BELT_Z + 5, 10);
+  rebuildColliders();
+  lastBankShown = -1;
+
+  if (animate) {
+    popIn(g);
+    confetti.emit(new THREE.Vector3(0, FY(f) + 4, 0), 200, {colors:CONFETTI, speed:30, up:30, spread:30, life:2.4});
+  }
+}
+
+// Glowing pads that carry the player between floors.
+function addTeleporter(floor, pos, to, text) {
+  const g = floorGroups[floor], up = to > floor, color = up ? 0x7dd3ff : 0xffb35c;
+  cyl(g, 2.8, 3, 0.4, pos.x, 0.2, pos.z, mat(DARK, {metal:0.6, rough:0.4}), 32);
+  cyl(g, 2.3, 2.3, 0.2, pos.x, 0.45, pos.z, ownMat(color, 1.4), 32);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.14, 8, 40), mat(color, {neon:2.2}));
+  ring.rotation.x = Math.PI / 2; ring.position.set(pos.x, 1.5, pos.z);
+  g.add(ring);
+  const l = makeLabel({x:pos.x, y:FY(floor) + 5, z:pos.z}, 110, '', floor);
+  l.el.innerHTML = `<div class="pill"><div class="name" style="color:#${color.toString(16)}">${text}</div></div>`;
+  teleporters.push({x:pos.x, z:pos.z, floor, to, ring, phase:Math.random() * 6});
 }
 
 // ------------------------------------------------------------ particles --
@@ -628,13 +778,13 @@ const CONFETTI = [0xff4d6d, 0xffd447, 0x4dd2ff, 0x7dff7a, 0xc77dff, 0xffffff];
 const itemGroups = new Map();
 const pops = [];      // parts scaling in after a purchase
 const droppers = [];  // {item, body, light, t, squish}
-const upgraders = []; // {item, x, field}
+const upgraders = []; // {item, x, field, floor}
 let chimneyOn = false;
 
 function popIn(obj, delay = 0) { obj.userData.full = obj.scale.clone(); obj.scale.setScalar(0.001); pops.push({obj, t:-delay}); }
 
 function buildItem(it, animate) {
-  const g = new THREE.Group(), cols = [];
+  const g = new THREE.Group(), cols = [], f = it.floor, fy = FY(f);
   let effectAt = null;
   if (it.kind === 'dropper') {
     const x = dropperX(it.lane), body = mat(it.color, {metal:0.55, rough:0.3});
@@ -645,44 +795,43 @@ function buildItem(it, animate) {
     cyl(g, 0.9, 2.2, 1.1, x, 13.15, BELT_Z, mat(DARK, {metal:0.7, rough:0.35}));
     cyl(g, 2.15, 0.75, 1.6, x, 8.6, BELT_Z, mat(DARK, {metal:0.7, rough:0.35}));
     cyl(g, 0.75, 0.75, 0.5, x, 7.6, BELT_Z, mat(TRIM, {metal:0.7}), 16);
-    const band = new THREE.Mesh(new THREE.TorusGeometry(2.15, 0.2, 10, 32), mat(it.color, {neon:2.2}));
+    const bandColor = it.color === 0x3a2466 ? 0xb07dff : it.color;
+    const band = new THREE.Mesh(new THREE.TorusGeometry(2.15, 0.2, 10, 32), mat(bandColor, {neon:2.2}));
     band.rotation.x = Math.PI / 2; band.position.set(x, 11, BELT_Z); g.add(band);
-    const light = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), ownMat(it.color, 1.2));
+    const light = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), ownMat(bandColor, 1.2));
     light.position.set(x, 13.95, BELT_Z); g.add(light);
-    solid(cols, x - 0.7, x + 0.7, BELT_Z - 6.2, BELT_Z - 4.8, 14);
+    solidF(cols, f, x - 0.7, x + 0.7, BELT_Z - 6.2, BELT_Z - 4.8, 14);
     droppers.push({item:it, body:hull, light, t:0, squish:0});
-    effectAt = new THREE.Vector3(x, 12, BELT_Z);
+    effectAt = new THREE.Vector3(x, fy + 12, BELT_Z);
   } else if (it.kind === 'upgrader') {
     const x = upgraderX(it.lane);
     for (const side of [-1, 1]) {
       box(g, 1.2, 9, 1.2, x, 4.5, BELT_Z + side * 4, STEEL, {metal:0.8, rough:0.3});
       box(g, 0.3, 7.5, 0.3, x + 0.62, 4.5, BELT_Z + side * 4, it.color, {neon:2});
       box(g, 2, 0.6, 2, x, 0.3, BELT_Z + side * 4, TRIM, {metal:0.6});
-      solid(cols, x - 0.6, x + 0.6, BELT_Z + side * 4 - 0.6, BELT_Z + side * 4 + 0.6, 9);
+      solidF(cols, f, x - 0.6, x + 0.6, BELT_Z + side * 4 - 0.6, BELT_Z + side * 4 + 0.6, 9);
     }
     box(g, 1.6, 1.4, 9.6, x, 9.2, BELT_Z, it.color, {metal:0.5, rough:0.3});
     box(g, 1.7, 0.3, 7, x, 8.4, BELT_Z, it.color, {neon:2.4});
     const fieldMat = new THREE.MeshBasicMaterial({color:it.color, map:scanTex, transparent:true, opacity:0.55, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide});
     const field = new THREE.Mesh(new THREE.BoxGeometry(1.4, 5, BELT_W), fieldMat);
     field.position.set(x, BELT_TOP + 2.5, BELT_Z); g.add(field);
-    upgraders.push({item:it, x, field});
-    effectAt = new THREE.Vector3(x, 7, BELT_Z);
+    upgraders.push({item:it, x, field, floor:f});
+    effectAt = new THREE.Vector3(x, fy + 7, BELT_Z);
   } else if (it.kind === 'walls') {
     const half = PLOT / 2, gap = 20, seg = (PLOT - gap) / 2;
-    const wm = new THREE.MeshStandardMaterial({map:tiled(wallTex, 1, 1), roughness:0.8});
     const pieces = [[PLOT, 1, 0, -half + 0.5], [1, PLOT, -half + 0.5, 0], [1, PLOT, half - 0.5, 0],
       [seg, 1, -(gap + seg) / 2, half - 0.5], [seg, 1, (gap + seg) / 2, half - 0.5]];
     for (const [w, d, x, z] of pieces) {
-      const len = Math.max(w, d), m = wm.clone();
-      m.map = tiled(wallTex, len / 9, 1);
+      const m = new THREE.MeshStandardMaterial({map:tiled(wallTex, Math.max(w, d) / 9, 1), roughness:0.8});
       texBox(g, w, WALL_H, d, x, WALL_H / 2, z, m);
       box(g, w + 0.5, 0.7, d + 0.5, x, WALL_H + 0.1, z, 0xc9c1b0, {rough:0.7});
-      solid(cols, x - w / 2, x + w / 2, z - d / 2, z + d / 2, WALL_H);
+      solidF(cols, f, x - w / 2, x + w / 2, z - d / 2, z + d / 2, WALL_H);
     }
     for (const [x, z] of [[-half + 0.5, -half + 0.5], [half - 0.5, -half + 0.5], [-half + 0.5, half - 0.5], [half - 0.5, half - 0.5]]) {
       box(g, 2.4, WALL_H + 1.6, 2.4, x, (WALL_H + 1.6) / 2, z, 0xb8442e, {rough:0.6});
     }
-    effectAt = new THREE.Vector3(0, WALL_H, 0);
+    effectAt = new THREE.Vector3(0, fy + WALL_H, 0);
   } else if (it.kind === 'overclock') {
     const x = -20, z = BELT_Z - 13;
     box(g, 6, 5, 6, x, 2.5, z, DARK, {metal:0.7, rough:0.35});
@@ -692,16 +841,16 @@ function buildItem(it, animate) {
     core.position.set(x, 8.2, z); core.userData.spin = 1.4; g.add(core);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(3, 0.18, 8, 40), mat(0x9fffe9, {neon:2}));
     ring.position.set(x, 8.2, z); ring.userData.spin = -2.2; ring.userData.tilt = true; g.add(ring);
-    solid(cols, x - 3, x + 3, z - 3, z + 3, 5.5);
-    effectAt = new THREE.Vector3(x, 8, z);
+    solidF(cols, f, x - 3, x + 3, z - 3, z + 3, 5.5);
+    effectAt = new THREE.Vector3(x, fy + 8, z);
   } else if (it.kind === 'furnace') {
     box(g, 3, 10, 3, FURNACE_X - 2, 16, BELT_Z + 2, DARK, {metal:0.6, rough:0.4});
     box(g, 3.6, 0.8, 3.6, FURNACE_X - 2, 21.2, BELT_Z + 2, 0xff5a14, {neon:2});
     box(g, 8.7, 0.7, 10.7, FURNACE_X, 7.5, BELT_Z, 0xff5a14, {neon:2});
     chimneyOn = true;
-    effectAt = new THREE.Vector3(FURNACE_X, 12, BELT_Z);
+    effectAt = new THREE.Vector3(FURNACE_X, fy + 12, BELT_Z);
   }
-  plot.add(g);
+  floorGroups[f].add(g);
   itemGroups.set(it.id, g);
   itemColliders.set(it.id, cols);
   rebuildColliders();
@@ -712,39 +861,55 @@ function buildItem(it, animate) {
 }
 
 function clearItems() {
-  for (const g of itemGroups.values()) plot.remove(g);
+  for (const g of itemGroups.values()) g.parent.remove(g);
   itemGroups.clear(); itemColliders.clear(); rebuildColliders();
-  droppers.length = 0; upgraders.length = 0; drops.length = 0; pops.length = 0;
+  droppers.length = 0; upgraders.length = 0; drops.length = 0;
+  pops.length = 0;
   chimneyOn = false;
 }
 
 // -------------------------------------------------------------- buttons --
-const buttons = new Map(); // id -> {mesh, top, label, cost, item, x, z}
-const beacon = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.6, 46, 24, 1, true),
+const buttons = new Map(); // id -> {mesh, top, label, costEl, cost, item, x, z, floor}
+const beacon = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.6, 22, 24, 1, true),
   new THREE.MeshBasicMaterial({color:0x8dffb0, map:scanTex, transparent:true, opacity:0.35, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide}));
 beacon.visible = false;
 scene.add(beacon);
 const buttonBase = new THREE.CylinderGeometry(3.1, 3.4, 0.6, 40), buttonTop = new THREE.CylinderGeometry(2.6, 2.6, 0.35, 40);
 
+function removeButton(id) {
+  const b = buttons.get(id);
+  b.mesh.parent.remove(b.mesh); removeLabel(b.label); buttons.delete(id);
+}
+// Builds any floor the rebirth count has opened but that isn't built yet.
+function ensureFloors(announce) {
+  FLOORS.forEach((F, f) => {
+    if (!floorOpen(f) || floorGroups[f]) return;
+    buildFloor(f, announce);
+    if (announce) toast(`New floor: ${F.name}! Take the blue pad in the corner up.`, 'gold');
+  });
+}
 function refreshButtons() {
+  ensureFloors(false);
   for (const it of ITEMS) {
     const show = !state.owned.has(it.id) && requirementsMet(it);
-    const b = buttons.get(it.id);
+    const b = buttons.get(it.id), cost = costOf(it);
     if (show && !b) {
-      const p = buttonPos(it.slot), cost = costOf(it);
+      const p = buttonPos(it.slot);
       const mesh = new THREE.Group();
       mesh.add(shadowed(new THREE.Mesh(buttonBase, mat(DARK, {metal:0.6, rough:0.35}))));
       const top = shadowed(new THREE.Mesh(buttonTop, ownMat(0xff5050, 0.7)));
       top.position.y = 0.4; mesh.add(top);
       mesh.position.set(p.x, 0.3, p.z);
-      plot.add(mesh); popIn(mesh);
-      const label = makeLabel({x:p.x, y:4.4, z:p.z}, 110);
-      const rebirthStyle = it.kind === 'rebirth' ? ' style="color:var(--gold)"' : '';
-      label.el.innerHTML = `<div class="pill"><div class="name"${rebirthStyle}>${it.name}</div><div class="cost">${cost === 0 ? 'FREE' : money(cost)}</div></div>`;
-      buttons.set(it.id, {mesh, top, label, cost, item:it, x:p.x, z:p.z, costEl:label.el.querySelector('.cost')});
+      floorGroups[it.floor].add(mesh); popIn(mesh);
+      const label = makeLabel({x:p.x, y:FY(it.floor) + 4.4, z:p.z}, 110, '', it.floor);
+      const nameStyle = it.kind === 'rebirth' ? ' style="color:var(--gold)"' : '';
+      label.el.innerHTML = `<div class="pill"><div class="name"${nameStyle}>${it.name}</div><div class="cost"></div></div>`;
+      buttons.set(it.id, {mesh, top, label, costEl:label.el.querySelector('.cost'), cost:-1, item:it, x:p.x, z:p.z, floor:it.floor});
     } else if (!show && b) {
-      plot.remove(b.mesh); removeLabel(b.label); buttons.delete(it.id);
+      removeButton(it.id);
     }
+    const nb = buttons.get(it.id);
+    if (nb && nb.cost !== cost) { nb.cost = cost; nb.costEl.textContent = cost === 0 ? 'FREE' : money(cost); }
   }
   recolorButtons();
 }
@@ -757,12 +922,12 @@ function recolorButtons() {
     if (!target || b.cost < target.cost) target = b;
   }
   beacon.visible = !!target;
-  if (target) beacon.position.set(target.x, 23, target.z);
+  if (target) beacon.position.set(target.x, FY(target.floor) + 11, target.z);
   const next = $('next');
-  next.style.display = target ? '' : 'none';
+  next.hidden = !target;
   if (!target) return;
-  const ok = state.cash >= target.cost;
-  $('nextText').innerHTML = ok ? `Step on the green button: <b>${target.item.name}</b>` : `Next: <b>${target.item.name}</b> — ${money(target.cost)}`;
+  const ok = state.cash >= target.cost, where = target.floor ? ` <span class="where">(${FLOORS[target.floor].name})</span>` : '';
+  $('nextText').innerHTML = ok ? `Step on the green button: <b>${target.item.name}</b>${where}` : `Next: <b>${target.item.name}</b>${where} — ${money(target.cost)}`;
   $('barFill').style.width = (target.cost ? Math.min(100, state.cash / target.cost * 100) : 100) + '%';
 }
 
@@ -778,9 +943,12 @@ function purchase(id) {
     state.rebirths++;
     state.cash = START_CASH; state.bank = 0; state.owned.clear();
     clearItems();
-    for (const key of [...buttons.keys()]) { const x = buttons.get(key); plot.remove(x.mesh); removeLabel(x.label); buttons.delete(key); }
-    confetti.emit(new THREE.Vector3(player.x, 2, player.z), 160, {colors:[0xffd447, 0xffffff, 0xffa514], speed:26, up:34, spread:6, life:2.4});
+    for (const key of [...buttons.keys()]) removeButton(key);
+    confetti.emit(new THREE.Vector3(player.x, player.y + 2, player.z), 160, {colors:[0xffd447, 0xffffff, 0xffa514], speed:26, up:34, spread:6, life:2.4});
     toast(`REBIRTH ${state.rebirths}! All income ×${rebirthMult()}`, 'gold'); sfx.rebirth();
+    ensureFloors(true);
+    toast('+1 skill point! Press ★ Skills to spend it.', 'gold');
+    renderSkills();
   } else {
     state.owned.add(id);
     buildItem(b.item, true);
@@ -791,17 +959,18 @@ function purchase(id) {
 }
 
 // ---------------------------------------------------------------- drops --
-const drops = []; // {x, y, z, vy, value, color, ups:Set, spin}
+const drops = []; // {x, y, z, vy, floor, value, color, lucky, ups:Set, spin}
 const dropMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.05, 0), new THREE.MeshStandardMaterial({roughness:0.2, metalness:0.35, flatShading:true, emissive:0x222222}), MAX_DROPS);
 dropMesh.castShadow = true; dropMesh.frustumCulled = false; dropMesh.count = 0;
 dropMesh.setColorAt(0, new THREE.Color(1, 1, 1));
 scene.add(dropMesh);
-let intakeGlow = 0, soldPending = 0;
+const GOLD = new THREE.Color(0xffd23a);
 
 function spawnDrop(it) {
   if (drops.length >= MAX_DROPS) return;
-  drops.push({x:dropperX(it.lane), y:BELT_TOP + 3.6, z:BELT_Z + (Math.random() - 0.5) * 2.4, vy:0,
-    value:it.value, color:new THREE.Color(it.color), ups:new Set(), spin:Math.random() * 6});
+  const lucky = Math.random() < luckChance();
+  drops.push({x:dropperX(it.lane), y:FY(it.floor) + BELT_TOP + 3.6, z:BELT_Z + (Math.random() - 0.5) * 2.4, vy:0, floor:it.floor,
+    value:it.value * (lucky ? 10 : 1), color:lucky ? GOLD.clone() : new THREE.Color(it.color), lucky, ups:new Set(), spin:Math.random() * 6});
 }
 
 function stepSim(dt) {
@@ -811,23 +980,22 @@ function stepSim(dt) {
     d.t += dt;
     while (d.t >= iv) { d.t -= iv; spawnDrop(d.item); d.squish = 1; }
   }
-  const rest = BELT_TOP + 0.9, sell = furnaceMult() * rebirthMult();
+  const sell = furnaceMult() * rebirthMult();
   for (let i = drops.length - 1; i >= 0; i--) {
-    const d = drops[i];
+    const d = drops[i], rest = FY(d.floor) + BELT_TOP + 0.9;
     if (d.y > rest) { d.vy -= GRAVITY * 0.5 * dt; d.y = Math.max(rest, d.y + d.vy * dt); continue; }
     d.x += BELT_SPEED * dt;
     for (const u of upgraders) {
-      if (d.x >= u.x && !d.ups.has(u.item.id)) {
+      if (u.floor === d.floor && d.x >= u.x && !d.ups.has(u.item.id)) {
         d.ups.add(u.item.id); d.value *= u.item.mult;
-        d.color.lerp(new THREE.Color(u.item.color), 0.6);
+        if (!d.lucky) d.color.lerp(new THREE.Color(u.item.color), 0.6);
         d.flash = 1;
       }
     }
     if (d.x >= BELT_X1 - 0.2) {
-      const earned = d.value * sell;
-      state.bank += earned; soldPending += earned;
+      const earned = d.value * sell, fur = furnaces[d.floor];
+      state.bank += earned; fur.sold += earned; fur.glow = 1;
       drops.splice(i, 1);
-      intakeGlow = 1;
     }
   }
 }
@@ -858,7 +1026,7 @@ function makeAvatar() {
 }
 const avatar = makeAvatar();
 scene.add(avatar.g);
-const player = {x:SPAWN.x, y:0, z:SPAWN.z, vy:0, yaw:Math.PI, grounded:true, walk:0, onBelt:false, ground:0};
+const player = {x:SPAWN.x, y:0, z:SPAWN.z, vy:0, yaw:Math.PI, grounded:true, walk:0, onBelt:false, airJumps:0};
 const cam = {yaw:0.3, pitch:0.55, dist:28, actual:28};
 const keys = new Set();
 const stick = {id:null, x:0, y:0, ox:0, oy:0};
@@ -866,7 +1034,7 @@ let jumpQueued = false;
 
 function resolveWalls(p) {
   for (const b of colliders) {
-    if (p.y >= b.top - 0.05) continue;
+    if (p.y >= b.top - 0.05 || p.y + PLAYER_HEIGHT <= b.y0) continue;
     const cx = Math.max(b.x0, Math.min(p.x, b.x1)), cz = Math.max(b.z0, Math.min(p.z, b.z1));
     const dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
     if (d2 >= PLAYER_RADIUS * PLAYER_RADIUS) continue;
@@ -889,7 +1057,12 @@ function groundUnder(p) {
   }
   return {h, belt};
 }
-const insideSolid = (x, y, z) => colliders.some(b => y < b.top + 0.3 && x > b.x0 - 0.3 && x < b.x1 + 0.3 && z > b.z0 - 0.3 && z < b.z1 + 0.3);
+const insideSolid = (x, y, z) => colliders.some(b => y < b.top + 0.3 && y > b.y0 - 0.3 && x > b.x0 - 0.3 && x < b.x1 + 0.3 && z > b.z0 - 0.3 && z < b.z1 + 0.3);
+function currentFloor() {
+  let f = 0;
+  for (let i = 1; i < FLOORS.length; i++) if (floorGroups[i] && player.y >= FY(i) - 2) f = i;
+  return f;
+}
 
 function stepPlayer(dt) {
   let ix = stick.x, iy = -stick.y;
@@ -899,9 +1072,10 @@ function stepPlayer(dt) {
   if (keys.has('KeyD') || keys.has('ArrowRight')) ix += 1;
   const len = Math.hypot(ix, iy);
   if (len > 1) { ix /= len; iy /= len; }
+  const speed = WALK_SPEED * (1 + 0.15 * lvl('speed'));
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
   const mx = fx * iy + rx * ix, mz = fz * iy + rz * ix, moving = Math.hypot(mx, mz) > 0.05;
-  player.x += mx * WALK_SPEED * dt; player.z += mz * WALK_SPEED * dt;
+  player.x += mx * speed * dt; player.z += mz * speed * dt;
   if (player.onBelt) player.x += BELT_SPEED * dt;
   if (moving) {
     const target = Math.atan2(mx, mz);
@@ -911,16 +1085,21 @@ function stepPlayer(dt) {
   player.x = Math.max(-250, Math.min(250, player.x)); player.z = Math.max(-250, Math.min(250, player.z));
   resolveWalls(player);
 
-  if ((jumpQueued || keys.has('Space')) && player.grounded) { player.vy = JUMP_SPEED; player.grounded = false; }
+  if (jumpQueued) {
+    if (player.grounded) { player.vy = JUMP_SPEED; player.grounded = false; player.airJumps = 0; sfx.jump(); }
+    else if (lvl('jump') && player.airJumps < 1) {
+      player.vy = JUMP_SPEED * 0.9; player.airJumps++; sfx.jump();
+      for (let i = 0; i < 6; i++) sprite(tmpP.set(player.x + (Math.random() - 0.5) * 2, player.y, player.z + (Math.random() - 0.5) * 2), tmpS.set(0, -3, 0), 0.5, 2, 0xffffff, {grow:2, opacity:0.6});
+    }
+  }
   jumpQueued = false;
   player.vy -= GRAVITY * dt;
   player.y += player.vy * dt;
   const g = groundUnder(player);
-  player.ground = g.h;
   if (player.y <= g.h) { player.y = g.h; player.vy = 0; player.grounded = true; player.onBelt = g.belt; }
   else { player.grounded = false; player.onBelt = false; }
 
-  player.walk = moving && player.grounded ? player.walk + dt * 11 : player.walk * 0.8;
+  player.walk = moving && player.grounded ? player.walk + dt * 11 * speed / WALK_SPEED : player.walk * 0.8;
   const swing = Math.sin(player.walk) * (moving ? 0.85 : 0);
   avatar.arms[0].rotation.x = swing; avatar.arms[1].rotation.x = -swing;
   avatar.legs[0].rotation.x = -swing; avatar.legs[1].rotation.x = swing;
@@ -931,12 +1110,26 @@ function stepPlayer(dt) {
   avatar.shadowBlob.scale.setScalar(Math.max(0.4, 1 - (player.y - g.h) / 14));
 }
 
-// Pads under the player's feet: buttons buy, the green pad collects.
-let standingOn = null, onPad = false, lastErrorAt = 0;
+// Pads under the player's feet: buttons buy, the green pad collects, the
+// corner pads change floors.
+let standingOn = null, onPad = false, lastErrorAt = 0, tpLock = false;
+function collect(showOff) {
+  const amount = Math.floor(state.bank);
+  if (amount < 1) return 0;
+  state.bank -= amount; state.cash += amount;
+  if (showOff) {
+    toast('+' + money(amount), 'success'); sfx.coin();
+    const fy = FY(currentFloor());
+    coins.emit(new THREE.Vector3(PAD.x, fy + 1, PAD.z), Math.min(40, 8 + Math.floor(Math.log10(amount + 1) * 6)), {colors:[0xffcf33], speed:9, up:26, spread:3});
+    floatText('+' + money(amount), {x:PAD.x, y:fy + 5, z:PAD.z});
+  }
+  recolorButtons(); updateHud(true);
+  return amount;
+}
 function stepPads() {
-  const feet = player.y < 0.8;
+  const f = currentFloor(), feet = player.y - FY(f) < 0.8;
   let here = null;
-  if (feet) for (const [id, b] of buttons) if (Math.hypot(player.x - b.x, player.z - b.z) < 3) here = id;
+  if (feet) for (const [id, b] of buttons) if (b.floor === f && Math.hypot(player.x - b.x, player.z - b.z) < 3) here = id;
   if (here) {
     const b = buttons.get(here);
     if (state.cash >= b.cost) purchase(here);
@@ -945,30 +1138,74 @@ function stepPads() {
   standingOn = here;
 
   const nowOnPad = feet && Math.hypot(player.x - PAD.x, player.z - PAD.z) < PAD.r;
-  if (nowOnPad && state.bank >= 1) {
-    const amount = Math.floor(state.bank);
-    state.bank -= amount; state.cash += amount;
-    if (!onPad) {
-      toast('+' + money(amount), 'success'); sfx.coin();
-      coins.emit(new THREE.Vector3(PAD.x, 1, PAD.z), Math.min(40, 8 + Math.floor(Math.log10(amount + 1) * 6)), {colors:[0xffcf33], speed:9, up:26, spread:3});
-      floatText('+' + money(amount), {x:PAD.x, y:5, z:PAD.z});
-    }
-    recolorButtons(); updateHud(true);
-  }
+  if (nowOnPad) collect(!onPad);
   onPad = nowOnPad;
+
+  const tp = feet && teleporters.find(t => t.floor === f && Math.hypot(player.x - t.x, player.z - t.z) < 2.4);
+  if (tp && !tpLock) {
+    player.x = tp.x; player.z = tp.z; player.y = FY(tp.to); player.vy = 0;
+    sfx.teleport();
+    for (let i = 0; i < 24; i++) {
+      sprite(tmpP.set(tp.x + (Math.random() - 0.5) * 4, FY(tp.to) + Math.random() * 6, tp.z + (Math.random() - 0.5) * 4), tmpS.set(0, 6, 0), 0.8, 1.4, 0x9fe8ff, {grow:0.3});
+    }
+    toast(`Floor ${tp.to + 1}: ${FLOORS[tp.to].name}`, 'gold');
+  }
+  tpLock = !!tp;
+}
+
+// --------------------------------------------------------------- skills --
+function renderSkills() {
+  const pts = skillPoints();
+  $('skPoints').textContent = pts === 1 ? '1 skill point to spend' : `${pts} skill points to spend`;
+  $('skBadge').textContent = pts;
+  $('skBadge').hidden = pts <= 0;
+  $('skills').classList.toggle('glow', pts > 0);
+  const list = $('skList');
+  list.textContent = '';
+  for (const s of SKILLS) {
+    const l = lvl(s.id), maxed = l >= s.max;
+    const row = document.createElement('div');
+    row.className = 'sk';
+    const text = maxed || !l ? s.desc(Math.max(l, 1)) : `Next level: ${s.desc(l + 1)}`;
+    const pips = Array.from({length:s.max}, (_, i) => `<span class="pip${i < l ? ' on' : ''}"></span>`).join('');
+    row.innerHTML = `<div class="skIcon">${s.icon}</div><div class="skBody"><div class="skName">${s.name}</div><div class="skDesc"></div><div class="pips">${pips}</div></div>`;
+    row.querySelector('.skDesc').textContent = text;
+    const btn = document.createElement('button');
+    btn.className = 'btn'; btn.id = 'sk-' + s.id;
+    btn.textContent = maxed ? 'Maxed' : 'Upgrade · 1★';
+    btn.disabled = maxed || pts <= 0;
+    btn.addEventListener('click', () => { unlockAudio(); buySkill(s.id); });
+    row.appendChild(btn);
+    list.appendChild(row);
+  }
+}
+function buySkill(id) {
+  const s = SKILLS.find(k => k.id === id);
+  if (!s || lvl(id) >= s.max || skillPoints() <= 0) return false;
+  state.skills[id] = lvl(id) + 1;
+  sfx.skill();
+  toast(`${s.name} ${s.max > 1 ? 'level ' + lvl(id) : 'unlocked'}!`, 'gold');
+  refreshButtons(); renderSkills(); updateHud(); save();
+  return true;
+}
+function toggleSkills(open = $('skillsPanel').hidden) {
+  $('skillsPanel').hidden = !open;
+  if (open) { renderSkills(); $('help').style.opacity = 0; }
 }
 
 // ------------------------------------------------------------------ HUD --
 function $(id) { return document.getElementById(id); }
-let lastCashShown = -1, lastBankShown = -1;
+let lastCashShown = -1, lastBankShown = -1, lastFloorShown = -1;
 function updateHud(pop = false) {
   if (state.cash !== lastCashShown) { $('cash').textContent = money(state.cash); lastCashShown = state.cash; }
   $('rate').textContent = `+${money(incomePerSecond())}/s`;
   const rb = $('rebirths');
-  rb.style.display = state.rebirths ? 'block' : 'none';
+  rb.hidden = !state.rebirths;
   rb.textContent = `★ Rebirth ${state.rebirths} · ×${rebirthMult()} income`;
   const bank = Math.floor(state.bank);
-  if (bank !== lastBankShown) { padCost.textContent = money(bank); lastBankShown = bank; }
+  if (bank !== lastBankShown) { for (const el of padCosts) el.textContent = money(bank); lastBankShown = bank; }
+  const f = currentFloor();
+  if (f !== lastFloorShown) { $('floorName').textContent = `Floor ${f + 1} · ${FLOORS[f].name}`; lastFloorShown = f; }
   if (pop) { $('money').classList.add('pop'); setTimeout(() => $('money').classList.remove('pop'), 120); }
 }
 function toast(text, kind = '') {
@@ -976,16 +1213,16 @@ function toast(text, kind = '') {
   el.className = 'toast panel ' + kind; el.textContent = text;
   holder.appendChild(el);
   while (holder.children.length > 4) holder.firstChild.remove();
-  setTimeout(() => { el.style.opacity = 0; setTimeout(() => el.remove(), 400); }, 2400);
+  setTimeout(() => { el.style.opacity = 0; setTimeout(() => el.remove(), 400); }, 2800);
 }
 
 const v3 = new THREE.Vector3();
 function placeLabels() {
-  const w = innerWidth, h = innerHeight;
+  const w = innerWidth, h = innerHeight, f = currentFloor();
   for (const l of labels) {
     const dist = camera.position.distanceTo(l.pos);
     v3.copy(l.pos).project(camera);
-    if (v3.z > 1 || dist > l.maxDist || Math.abs(v3.x) > 1.2 || Math.abs(v3.y) > 1.2) { l.el.style.display = 'none'; continue; }
+    if ((l.floor !== undefined && l.floor !== f) || v3.z > 1 || dist > l.maxDist || Math.abs(v3.x) > 1.2 || Math.abs(v3.y) > 1.2) { l.el.style.display = 'none'; continue; }
     const s = Math.max(0.55, Math.min(1.2, 40 / dist));
     l.el.style.display = '';
     l.el.style.transform = `translate(${(v3.x + 1) / 2 * w}px,${(1 - v3.y) / 2 * h}px) translate(-50%,-100%) scale(${s})`;
@@ -1018,9 +1255,7 @@ function updateVisuals(dt) {
     m.rotation.y += m.userData.spin * dt;
     if (m.userData.tilt) m.rotation.x = Math.PI / 2 + Math.sin(clock * 1.3) * 0.5;
   }
-  intakeGlow = Math.max(0, intakeGlow - dt * 4);
-  intakeMat.emissiveIntensity = 1.4 + intakeGlow * 1.6 + Math.sin(clock * 9) * 0.15;
-  fireLight.intensity = 34 + intakeGlow * 30 + Math.sin(clock * 13) * 6;
+  for (const t of teleporters) { t.ring.position.y = 1.6 + Math.sin(clock * 2.5 + t.phase) * 1.1; t.ring.rotation.z += dt * 2; }
   padMat.emissiveIntensity = state.bank >= 1 ? 0.55 + Math.sin(clock * 5) * 0.3 : 0.25;
   beacon.material.opacity = 0.3 + Math.sin(clock * 3) * 0.08;
   beacon.rotation.y += dt;
@@ -1030,26 +1265,36 @@ function updateVisuals(dt) {
   }
   for (const c of clouds) { c.position.x += dt * 3; if (c.position.x > 520) c.position.x = -520; }
 
-  // Fire at the furnace mouth, smoke from the vent or chimney.
+  // Furnaces: glow on each sale, fire at the mouth, smoke from the vent.
   fxTimer += dt;
-  while (fxTimer > 0.05) {
-    fxTimer -= 0.05;
-    sprite(tmpP.set(BELT_X1 - 0.5 + Math.random(), BELT_TOP + 1 + Math.random() * 4, BELT_Z + (Math.random() - 0.5) * 5),
-      tmpS.set(-1 + Math.random(), 3 + Math.random() * 3, 0), 0.6, 1.6 + Math.random(), Math.random() < 0.5 ? 0xff6a14 : 0xffb42a, {grow:0.4});
-    if (Math.random() < 0.35) {
-      const sx = chimneyOn ? FURNACE_X - 2 : FURNACE_X + 1, sy = chimneyOn ? 21.8 : 12.2, sz = chimneyOn ? BELT_Z + 2 : BELT_Z;
-      sprite(tmpP.set(sx + (Math.random() - 0.5), sy, sz + (Math.random() - 0.5)), tmpS.set(1.5 + Math.random(), 4 + Math.random() * 2, (Math.random() - 0.5) * 1.5),
-        3.2, 2.5, 0x8a8f99, {additive:false, grow:3.2, opacity:0.45});
+  const ticks = Math.floor(fxTimer / 0.05);
+  fxTimer -= ticks * 0.05;
+  furnaces.forEach((fur, f) => {
+    const fy = FY(f), F = FLOORS[f];
+    fur.glow = Math.max(0, fur.glow - dt * 4);
+    fur.intakeMat.emissiveIntensity = 1.4 + fur.glow * 1.6 + Math.sin(clock * 9 + f) * 0.15;
+    fur.light.intensity = 34 + fur.glow * 30 + Math.sin(clock * 13 + f) * 6;
+    for (let k = 0; k < ticks; k++) {
+      sprite(tmpP.set(BELT_X1 - 0.5 + Math.random(), fy + BELT_TOP + 1 + Math.random() * 4, BELT_Z + (Math.random() - 0.5) * 5),
+        tmpS.set(-1 + Math.random(), 3 + Math.random() * 3, 0), 0.6, 1.6 + Math.random(), F.fire[Math.random() < 0.5 ? 0 : 1], {grow:0.4});
+      if (Math.random() < 0.3) {
+        const chim = f === 0 && chimneyOn;
+        sprite(tmpP.set((chim ? FURNACE_X - 2 : FURNACE_X + 1) + (Math.random() - 0.5), fy + (chim ? 21.8 : 12.2), (chim ? BELT_Z + 2 : BELT_Z) + (Math.random() - 0.5)),
+          tmpS.set(1.5 + Math.random(), 4 + Math.random() * 2, (Math.random() - 0.5) * 1.5), 3.2, 2.5, 0x8a8f99, {additive:false, grow:3.2, opacity:0.45});
+      }
     }
-  }
+  });
   stepSprites(dt);
   confetti.step(dt); coins.step(dt);
 
-  // Sales add up into one "+$" every so often instead of one per drop.
+  // Sales add up into one "+$" per furnace every so often, not one per gem.
   sellTimer += dt;
-  if (sellTimer > 0.8 && soldPending > 0) {
-    floatText('+' + money(soldPending), {x:FURNACE_X - 3 + Math.random() * 2, y:12, z:BELT_Z + 2});
-    soldPending = 0; sellTimer = 0;
+  if (sellTimer > 0.8) {
+    sellTimer = 0;
+    furnaces.forEach((fur, f) => {
+      if (fur.sold > 0 && f === currentFloor()) floatText('+' + money(fur.sold), {x:FURNACE_X - 3 + Math.random() * 2, y:FY(f) + 12, z:BELT_Z + 2});
+      fur.sold = 0;
+    });
   }
   for (let i = floaters.length - 1; i >= 0; i--) {
     const f = floaters[i]; f.life += dt;
@@ -1061,11 +1306,12 @@ function updateVisuals(dt) {
   dropMesh.count = drops.length;
   for (let i = 0; i < drops.length; i++) {
     const d = drops[i];
-    d.spin += dt * (d.y > BELT_TOP + 0.9 ? 7 : 1.5);
+    d.spin += dt * (d.y > FY(d.floor) + BELT_TOP + 0.9 ? 7 : 1.5);
     d.flash = Math.max(0, (d.flash || 0) - dt * 3);
+    const shine = d.lucky ? 0.35 + Math.sin(clock * 10 + i) * 0.25 : 0;
     tmpQ.setFromEuler(tmpE.set(d.spin * 0.7, d.spin, 0));
-    tmpM.compose(tmpP.set(d.x, d.y, d.z), tmpQ, tmpS.setScalar(1 + d.flash * 0.4));
-    dropMesh.setMatrixAt(i, tmpM); dropMesh.setColorAt(i, tmpC.copy(d.color).lerp(WHITE, d.flash * 0.7));
+    tmpM.compose(tmpP.set(d.x, d.y, d.z), tmpQ, tmpS.setScalar((d.lucky ? 1.35 : 1) + d.flash * 0.4));
+    dropMesh.setMatrixAt(i, tmpM); dropMesh.setColorAt(i, tmpC.copy(d.color).lerp(WHITE, Math.max(d.flash * 0.7, shine)));
   }
   dropMesh.instanceMatrix.needsUpdate = true;
   if (dropMesh.instanceColor) dropMesh.instanceColor.needsUpdate = true;
@@ -1082,7 +1328,7 @@ function updateVisuals(dt) {
   camera.position.set(tx + dir.x * cam.actual, Math.max(1.5, ty + dir.y * cam.actual), tz + dir.z * cam.actual);
   camera.lookAt(tx, ty, tz);
   sky.position.copy(camera.position);
-  sun.position.set(player.x + 70, 120, player.z + 45); sun.target.position.set(player.x, 0, player.z);
+  sun.position.set(player.x + 70, player.y + 120, player.z + 45); sun.target.position.set(player.x, player.y, player.z);
 }
 
 function render() {
@@ -1090,11 +1336,12 @@ function render() {
   placeLabels();
 }
 
-let hudTimer = 0, saveTimer = 0;
+let hudTimer = 0, saveTimer = 0, magnetTimer = 0;
 function update(dt) {
   stepSim(dt);
   stepPlayer(dt);
   stepPads();
+  if (lvl('magnet') && (magnetTimer += dt) > 1) { magnetTimer = 0; collect(false); }
   updateVisuals(dt);
   hudTimer += dt; saveTimer += dt;
   if (hudTimer > 0.1) { hudTimer = 0; updateHud(); }
@@ -1102,7 +1349,6 @@ function update(dt) {
 }
 
 function applyGraphics() {
-  renderer.shadowMap.enabled = true;
   sun.shadow.mapSize.set(hd ? 2048 : 1024, hd ? 2048 : 1024);
   if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
   renderer.setPixelRatio(Math.min(devicePixelRatio, hd ? 2 : 1.25));
@@ -1128,6 +1374,9 @@ if (isTouch) {
 addEventListener('keydown', e => {
   unlockAudio();
   if (e.code === 'KeyM') { toggleSound(); return; }
+  if (e.code === 'KeyK') { toggleSkills(); return; }
+  if (e.code === 'Escape') { toggleSkills(false); return; }
+  if (e.code === 'Space' && !e.repeat) jumpQueued = true;
   keys.add(e.code);
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   hideHelpSoon();
@@ -1182,6 +1431,8 @@ function toggleSound() {
 }
 $('sound').textContent = muted ? '🔇' : '🔊';
 $('sound').addEventListener('click', () => { unlockAudio(); toggleSound(); });
+$('skills').addEventListener('click', () => { unlockAudio(); toggleSkills(); });
+$('skClose').addEventListener('click', () => toggleSkills(false));
 $('gfx').addEventListener('click', () => {
   hd = !hd; applyGraphics();
   try { localStorage.setItem(SAVE_KEY + '.gfx', hd ? 'hd' : 'fast'); } catch {}
@@ -1211,10 +1462,10 @@ function hideHelpSoon() {
 // collected from the pad like any other cash.
 function creditAway(seconds) {
   if (seconds < 20) return;
-  const earned = incomePerSecond() * Math.min(seconds, OFFLINE_CAP);
+  const earned = incomePerSecond() * Math.min(seconds, offlineCap());
   if (earned < 1) return;
   state.bank += earned;
-  toast(`While you were away: +${money(earned)} — collect it on the green pad`, 'gold');
+  toast(`While you were away: +${money(earned)}. Collect it on the green pad.`, 'gold');
 }
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
@@ -1225,8 +1476,10 @@ addEventListener('beforeunload', save);
 
 // ----------------------------------------------------------------- boot --
 const away = load();
+ensureFloors(false);
 for (const it of ITEMS) if (state.owned.has(it.id)) buildItem(it, false);
 refreshButtons();
+renderSkills();
 creditAway(away);
 updateHud();
 updateVisuals(0);
@@ -1243,8 +1496,9 @@ function frame(now) {
 if (TEST) render(); else requestAnimationFrame(frame);
 
 // Hooks for tests/tycoon.test.cjs.
-window.tycoon = {state, player, cam, drops, buttons, ITEMS, short, incomePerSecond, update, render, save, load, purchase,
-  teleport(x, z) { player.x = x; player.z = z; player.y = 0; player.vy = 0; },
+window.tycoon = {state, player, cam, drops, buttons, ITEMS, FLOORS, SKILLS, short, incomePerSecond, update, render, save, load, purchase,
+  buySkill, skillPoints, currentFloor, teleporters, rebirthCost,
+  teleport(x, z, floor = 0) { player.x = x; player.z = z; player.y = FY(floor); player.vy = 0; },
   buttonPos, PAD, skipSaveOnUnload() { resetting = true; }};
 </script>
 </body>

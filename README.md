@@ -95,6 +95,11 @@ Three.js (loaded from unpkg, no build step). Walk a blocky avatar around your fa
 plot and step on buttons to buy droppers, upgraders and boosts. Drops ride the
 conveyor through upgraders into the furnace, and you step on the green pad to collect.
 Buying everything unlocks Rebirth, which resets the plot for +50% income each time.
+Rebirth 1 opens Floor 2 (Crystal Lab) and Rebirth 3 opens Floor 3 (Space Factory), each
+with its own belt, droppers and upgraders; the corner pads carry you between floors.
+Every rebirth also earns a skill point for the skill tree (K): lucky gold gems, faster
+droppers, cheaper buttons, auto-collect, faster walking, double jump and longer
+away earnings.
 Progress saves to `localStorage`, and time away (up to 2 hours) is paid into the bank.
 
 ```sh

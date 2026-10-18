@@ -136,13 +136,74 @@ function serve() {
     const s = await get(() => ({r: tycoon.state.rebirths, owned: tycoon.state.owned.size, cash: tycoon.state.cash, drops: tycoon.drops.length}));
     assert.deepEqual(s, {r: 1, owned: 0, cash: 0, drops: 0});
     assert.equal(await get(() => tycoon.incomePerSecond()), 0);
-    assert.deepEqual(await get(() => [...tycoon.buttons.keys()]), ['dropper1']);
+    // Rebirth 1 opens the Crystal Lab, whose first button needs nothing.
+    assert.deepEqual(await get(() => [...tycoon.buttons.keys()]), ['dropper1', 'c_dropper1']);
+    assert.equal(await get(() => tycoon.skillPoints()), 1);
+  });
+
+  test('the corner pad carries the player up to the new floor and back', async () => {
+    const tp = await get(() => tycoon.teleporters.find(t => t.floor === 0 && t.to === 1));
+    assert.ok(tp, 'no teleporter up from the ground floor');
+    await stand(tp.x, tp.z);
+    await run(0.2);
+    assert.equal(await get(() => tycoon.currentFloor()), 1);
+    assert.equal(await get(() => tycoon.player.y), 30);
+    await run(0.5); // standing still on the arrival pad must not bounce back down
+    assert.equal(await get(() => tycoon.currentFloor()), 1);
+    if (shotDir) await page.screenshot({path: path.join(shotDir, 'tycoon_floor2.png')});
+    await page.evaluate(([x, z]) => tycoon.teleport(x - 8, z - 8, 1), [tp.x, tp.z]);
+    await run(0.2);
+    await page.evaluate(([x, z]) => tycoon.teleport(x, z, 1), [tp.x, tp.z]);
+    await run(0.2);
+    assert.equal(await get(() => tycoon.currentFloor()), 0);
+  });
+
+  test('crystal lab droppers earn on their own floor', async () => {
+    await page.evaluate(() => { tycoon.state.cash = 1e6; });
+    const p = await get(() => tycoon.buttonPos(tycoon.ITEMS.find(i => i.id === 'c_dropper1').slot));
+    await page.evaluate(([x, z]) => tycoon.teleport(x, z, 1), [p.x, p.z]);
+    await run(0.1);
+    assert.ok(await get(() => tycoon.state.owned.has('c_dropper1')), 'stepping on the floor 2 button did not buy');
+    const before = await get(() => tycoon.state.bank);
+    await run(12);
+    const gained = (await get(() => tycoon.state.bank)) - before;
+    assert.ok(gained >= 150 * 1.5 * 3, `floor 2 earned only ${gained}`); // value 150, x1.5 rebirth bonus
+  });
+
+  test('skills cost a point each and change the game', async () => {
+    assert.ok(await page.evaluate(() => tycoon.buySkill('bargain')));
+    assert.equal(await get(() => tycoon.skillPoints()), 0);
+    assert.ok(!(await page.evaluate(() => tycoon.buySkill('speed'))), 'bought a skill with no points');
+    const cost = await get(() => tycoon.buttons.get('dropper2')?.cost ?? tycoon.buttons.get('c_dropper2')?.cost);
+    assert.ok(cost === 36 || cost === 45000, `bargain did not discount, cost ${cost}`);
+    await page.evaluate(() => { tycoon.state.rebirths += 2; tycoon.buySkill('jump'); tycoon.buySkill('lucky'); });
+    // Double jump: a second press in mid-air goes higher than one jump can.
+    await stand(-30, 30);
+    await page.keyboard.press('Space');
+    await run(0.25);
+    await page.keyboard.press('Space');
+    await run(0.25);
+    const y = await get(() => tycoon.player.y);
+    assert.ok(y > 7, `double jump only reached ${y}`);
+    await run(2);
+    const rate = await get(() => tycoon.incomePerSecond());
+    await page.evaluate(() => { tycoon.state.skills.lucky = 0; });
+    const plain = await get(() => tycoon.incomePerSecond());
+    assert.ok(Math.abs(rate / plain - 1.36) < 1e-9, `lucky gems should add 36% expected value, got ${rate / plain}`);
+  });
+
+  test('skills and floors survive a reload', async () => {
+    await page.evaluate(() => { tycoon.state.skills.lucky = 1; tycoon.save(); });
+    await page.reload();
+    await page.waitForFunction(() => window.tycoon);
+    const s = await get(() => ({r: tycoon.state.rebirths, skills: tycoon.state.skills, floors: tycoon.teleporters.length}));
+    assert.deepEqual(s, {r: 3, skills: {bargain: 1, jump: 1, lucky: 1}, floors: 4});
   });
 
   test('time away is credited to the bank', async () => {
     await page.evaluate(() => {
       tycoon.skipSaveOnUnload();
-      localStorage.setItem('megatycoon.v1', JSON.stringify({cash: 0, bank: 0, rebirths: 0, owned: ['dropper1'], savedAt: Date.now() - 600e3}));
+      localStorage.setItem('megatycoon.v1', JSON.stringify({cash: 0, bank: 0, rebirths: 0, owned: ['dropper1'], skills: {}, savedAt: Date.now() - 600e3}));
     });
     await page.reload();
     await page.waitForFunction(() => window.tycoon);
