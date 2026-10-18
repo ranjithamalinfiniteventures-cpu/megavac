@@ -3,8 +3,8 @@
 A procedural vacuum game: clean a kitchen, garage, street, skyline, and orbit.
 Single HTML file, no build step, no image assets. Existing `megavac.v1` saves are preserved.
 
-This repo also holds a separate Roblox game, **Dropper Tycoon**, in
-[`roblox-tycoon/`](roblox-tycoon/README.md).
+This repo also holds **Mega Factory Tycoon**, a 3D idle tycoon in Three.js —
+see [`tycoon/`](#mega-factory-tycoon) below.
 
 ## Play locally
 
@@ -87,3 +87,24 @@ python3 tools/package_game.py
 Creates `release/megavac-crazygames.zip` with `index.html`, `music.m4a`, and `music.mp3`
 at its root. It excludes backups, development previews, and tests. See `RELEASE_NOTES.md`
 for scope, verification, and remaining launch work.
+
+## Mega Factory Tycoon
+
+A 3D idle tycoon in a single file, [`tycoon/index.html`](tycoon/index.html), built with
+Three.js (loaded from unpkg, no build step). Walk a blocky avatar around your factory
+plot and step on buttons to buy droppers, upgraders and boosts. Drops ride the
+conveyor through upgraders into the furnace, and you step on the green pad to collect.
+Buying everything unlocks Rebirth, which resets the plot for +50% income each time.
+Progress saves to `localStorage`, and time away (up to 2 hours) is paid into the bank.
+
+```sh
+python3 -m http.server 8787 --directory tycoon
+```
+
+Open http://localhost:8787/. Use WASD / arrows to walk, Space to jump, drag to turn the
+camera and scroll to zoom. On touch screens, the left side is a joystick and the right
+side turns the camera. M toggles sound. Costs and drop values are in the `ITEMS` list
+at the top of the script.
+
+`node tests/tycoon.test.cjs` drives the page in headless Chromium (needs network
+access for three.js).

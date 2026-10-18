@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Mega Factory Tycoon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#fff;--panel:rgba(22,24,30,.78);--green:#5ce67a;--red:#ff5f5f;--gold:#ffd25a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#8fd3ff;font-family:Fredoka,"Trebuchet MS",system-ui,sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none}
+canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
+#money{position:fixed;top:12px;left:12px;padding:10px 16px;border-radius:14px;background:var(--panel);min-width:170px;transition:transform .12s}
+#money.pop{transform:scale(1.06)}
+#cash{font-size:32px;font-weight:700;color:var(--green);line-height:1.1}
+#rate{font-size:15px;opacity:.85}
+#rebirths{font-size:15px;color:var(--gold)}
+#next{position:fixed;top:12px;left:50%;transform:translateX(-50%);padding:8px 16px;border-radius:12px;background:var(--panel);font-size:16px;max-width:calc(100vw - 24px);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#controls{position:fixed;top:12px;right:12px;display:flex;gap:8px}
+#controls button,#jump{font:inherit;font-size:15px;color:#fff;background:var(--panel);border:0;border-radius:12px;padding:8px 12px;cursor:pointer}
+#controls button:hover{background:rgba(50,54,66,.9)}
+#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.label{position:absolute;left:0;top:0;text-align:center;white-space:nowrap;font-weight:700;text-shadow:0 2px 0 #0008,0 0 6px #0008;will-change:transform}
+.label .name{font-size:17px}
+.label .cost{font-size:20px}
+.label.sign .name{font-size:30px}
+#toasts{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;width:min(440px,calc(100vw - 32px))}
+.toast{padding:8px 16px;border-radius:12px;background:var(--panel);font-size:18px;font-weight:700;text-align:center;animation:in .2s ease-out;transition:opacity .4s}
+.toast.success{color:var(--green)}.toast.error{color:var(--red)}.toast.gold{color:var(--gold)}
+@keyframes in{from{transform:translateY(10px);opacity:0}}
+#help{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);padding:8px 14px;border-radius:12px;background:var(--panel);font-size:14px;opacity:.9;text-align:center;max-width:calc(100vw - 32px);transition:opacity 1s}
+#stick{position:fixed;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.35);display:none;pointer-events:none}
+#knob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.55)}
+#jump{position:fixed;right:24px;bottom:28px;width:76px;height:76px;border-radius:50%;font-size:18px;display:none;touch-action:none}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;background:#8fd3ff;color:#123}
+@media (max-width:600px){#cash{font-size:24px}#money{min-width:0;padding:8px 12px}#next{top:auto;bottom:118px;font-size:14px}#controls button{padding:6px 10px;font-size:13px}}
+</style>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+</head>
+<body>
+<canvas id="c" tabindex="0"></canvas>
+<div id="labels"></div>
+<div id="money"><div id="cash">$0</div><div id="rate">+$0/s</div><div id="rebirths"></div></div>
+<div id="next"></div>
+<div id="controls"><button id="sound" title="Sound (M)">🔊</button><button id="reset" title="Delete save">Reset</button></div>
+<div id="toasts"></div>
+<div id="help">WASD / arrows to walk · Space to jump · drag to look · scroll to zoom · step on buttons to buy</div>
+<div id="stick"><div id="knob"></div></div>
+<button id="jump">JUMP</button>
+<div id="loading">Loading factory…</div>
+<script type="module">
+import * as THREE from 'three';
+
+// ---------------------------------------------------------------- config --
+const SAVE_KEY = 'megatycoon.v1';
+const START_CASH = 0;
+const REBIRTH_BONUS = 0.5;       // +50% income per rebirth
+const BELT_SPEED = 10;           // studs per second
+const DEFAULT_INTERVAL = 1.5;    // seconds between drops
+const MAX_DROPS = 200;
+const OFFLINE_CAP = 2 * 3600;    // seconds of away earnings
+const WALK_SPEED = 16, JUMP_SPEED = 40, GRAVITY = 120, PLAYER_RADIUS = 1;
+
+// Purchase tree in button order. A button appears once everything in
+// `requires` is owned; 'all' means every item except the rebirth.
+const ITEMS = [
+  {id:'dropper1', name:'Basic Dropper', kind:'dropper', cost:0, value:2, lane:1, color:0xa3a2a5},
+  {id:'dropper2', name:'Copper Dropper', kind:'dropper', cost:40, requires:['dropper1'], value:4, lane:2, color:0xc4703e},
+  {id:'walls', name:'Factory Walls', kind:'walls', cost:100, requires:['dropper1']},
+  {id:'upgrader1', name:'Washer ×1.5', kind:'upgrader', cost:200, requires:['dropper2'], mult:1.5, lane:1, color:0x50c8ff},
+  {id:'dropper3', name:'Iron Dropper', kind:'dropper', cost:400, requires:['upgrader1'], value:10, lane:3, color:0x6e737d},
+  {id:'overclock', name:'Overclock +33%', kind:'overclock', cost:750, requires:['dropper3'], mult:0.75},
+  {id:'dropper4', name:'Silver Dropper', kind:'dropper', cost:1500, requires:['dropper3'], value:25, lane:4, color:0xdce1eb},
+  {id:'upgrader2', name:'Polisher ×2', kind:'upgrader', cost:3000, requires:['dropper4'], mult:2, lane:2, color:0xb45aff},
+  {id:'dropper5', name:'Gold Dropper', kind:'dropper', cost:6000, requires:['upgrader2'], value:60, lane:5, color:0xffc828},
+  {id:'furnace', name:'Furnace Mk II ×1.5', kind:'furnace', cost:12000, requires:['dropper5'], mult:1.5},
+  {id:'dropper6', name:'Diamond Dropper', kind:'dropper', cost:25000, requires:['dropper5'], value:150, lane:6, color:0x78f0ff},
+  {id:'upgrader3', name:'Gold Plater ×3', kind:'upgrader', cost:60000, requires:['dropper6','furnace'], mult:3, lane:3, color:0xffaa00},
+  {id:'dropper7', name:'Mega Dropper', kind:'dropper', cost:150000, requires:['upgrader3'], value:400, interval:1, lane:7, color:0xff3c78},
+  {id:'rebirth', name:'REBIRTH +50% income', kind:'rebirth', cost:500000, requires:'all'},
+];
+const BY_ID = Object.fromEntries(ITEMS.map((it, i) => [it.id, Object.assign(it, {slot:i})]));
+
+// Plot layout, in studs. +X runs along the belt toward the furnace and +Z
+// points out of the entrance.
+const PLOT = 100, BELT_Z = -25, BELT_W = 6, BELT_TOP = 3, BELT_X0 = -40, BELT_X1 = 24;
+const DROPPER_X0 = -36, UPGRADER_X0 = 6, LANE = 6;
+const PAD = {x:30, z:-8, r:4};
+const SPAWN = {x:0, z:42};
+const dropperX = lane => DROPPER_X0 + (lane - 1) * LANE;
+const upgraderX = lane => UPGRADER_X0 + (lane - 1) * LANE;
+const buttonPos = slot => ({x:-32 + (slot % 5) * 16, z:8 + Math.floor(slot / 5) * 11});
+
+// ------------------------------------------------------------- economy --
+const SUFFIXES = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+function short(n) {
+  if (!Number.isFinite(n)) return '0';
+  const sign = n < 0 ? '-' : '';
+  n = Math.abs(n);
+  if (n < 1000) return sign + Math.floor(n);
+  let tier = Math.min(Math.floor(Math.log10(n) / 3), SUFFIXES.length - 1);
+  const fmt = t => { const s = n / 10 ** (t * 3); return s.toFixed(s < 10 ? 2 : s < 100 ? 1 : 0); };
+  let s = fmt(tier);
+  if (+s >= 1000 && tier < SUFFIXES.length - 1) s = fmt(++tier); // 999,999 -> 1M, not 1000K
+  if (s.includes('.')) s = s.replace(/0+$/, '').replace(/\.$/, '');
+  return sign + s + SUFFIXES[tier];
+}
+const money = n => '$' + short(n);
+
+let resetting = false;
+const state = {cash:START_CASH, bank:0, rebirths:0, owned:new Set(), savedAt:Date.now()};
+const rebirthMult = () => 1 + state.rebirths * REBIRTH_BONUS;
+const costOf = it => it.kind === 'rebirth' ? it.cost * (state.rebirths + 1) : it.cost;
+const intervalMult = () => state.owned.has('overclock') ? BY_ID.overclock.mult : 1;
+const furnaceMult = () => state.owned.has('furnace') ? BY_ID.furnace.mult : 1;
+function requirementsMet(it) {
+  if (it.requires === 'all') return ITEMS.every(o => o.kind === 'rebirth' || state.owned.has(o.id));
+  return (it.requires || []).every(id => state.owned.has(id));
+}
+const available = () => ITEMS.filter(it => !state.owned.has(it.id) && requirementsMet(it));
+
+// Steady-state earnings, used for the HUD and for time spent away.
+function incomePerSecond() {
+  let perSec = 0, mult = furnaceMult() * rebirthMult();
+  for (const it of ITEMS) {
+    if (!state.owned.has(it.id)) continue;
+    if (it.kind === 'dropper') perSec += it.value / ((it.interval || DEFAULT_INTERVAL) * intervalMult());
+    if (it.kind === 'upgrader') mult *= it.mult;
+  }
+  return perSec * mult;
+}
+
+function save() {
+  if (resetting) return; // a reset is reloading the page; don't write the save back
+  state.savedAt = Date.now();
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({cash:state.cash, bank:state.bank, rebirths:state.rebirths, owned:[...state.owned], savedAt:state.savedAt}));
+  } catch {}
+}
+function load() {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch {}
+  if (!raw || typeof raw !== 'object') return 0;
+  const num = v => Number.isFinite(+v) && +v >= 0 ? +v : 0;
+  state.cash = num(raw.cash); state.bank = num(raw.bank); state.rebirths = Math.floor(num(raw.rebirths));
+  state.owned = new Set((Array.isArray(raw.owned) ? raw.owned : []).filter(id => BY_ID[id] && id !== 'rebirth'));
+  return Math.max(0, (Date.now() - num(raw.savedAt)) / 1000);
+}
+
+// ---------------------------------------------------------------- sound --
+let actx = null, muted = false;
+try { muted = localStorage.getItem(SAVE_KEY + '.muted') === '1'; } catch {}
+function tone(freq, dur, type = 'square', vol = 0.05, delay = 0) {
+  if (muted || !actx) return;
+  const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur);
+}
+const sfx = {
+  buy: () => [523, 659, 784].forEach((f, i) => tone(f, 0.14, 'square', 0.05, i * 0.07)),
+  coin: () => { tone(988, 0.08); tone(1319, 0.18, 'square', 0.05, 0.08); },
+  error: () => tone(130, 0.22, 'sawtooth', 0.05),
+  rebirth: () => [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, 0.25, 'triangle', 0.07, i * 0.09)),
+};
+function unlockAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+}
+
+// ---------------------------------------------------------------- scene --
+const TEST = new URLSearchParams(location.search).has('test');
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, preserveDrawingBuffer:TEST});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8fd3ff);
+scene.fog = new THREE.Fog(0x8fd3ff, 160, 380);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.5, 600);
+
+scene.add(new THREE.HemisphereLight(0xdff2ff, 0x5a7a3a, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 1.9);
+sun.position.set(60, 110, 50);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left:-75, right:75, top:75, bottom:-75, near:10, far:300});
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const UNIT = new THREE.BoxGeometry(1, 1, 1);
+const materials = new Map();
+function mat(color, {neon = false, metal = 0.1, rough = 0.65, opacity = 1} = {}) {
+  const key = [color, neon, metal, rough, opacity].join();
+  if (!materials.has(key)) {
+    materials.set(key, new THREE.MeshStandardMaterial({
+      color, metalness:metal, roughness:rough,
+      emissive:neon ? color : 0x000000, emissiveIntensity:neon ? 0.8 : 0,
+      transparent:opacity < 1, opacity, depthWrite:opacity === 1,
+    }));
+  }
+  return materials.get(key);
+}
+function box(parent, w, h, d, x, y, z, color, opts) {
+  const m = new THREE.Mesh(UNIT, mat(color, opts));
+  m.scale.set(w, h, d); m.position.set(x, y, z);
+  m.castShadow = m.receiveShadow = !(opts && opts.opacity < 1);
+  parent.add(m);
+  return m;
+}
+function cylinder(parent, r, h, x, y, z, color, opts, segments = 32) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, segments), opts?.own ? new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:0.6, roughness:0.4}) : mat(color, opts));
+  m.position.set(x, y, z); m.castShadow = m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+
+// Solid boxes the player walks into or stands on: [x0, x1, z0, z1, top].
+const baseColliders = [];
+const itemColliders = new Map();
+let colliders = [];
+const solid = (list, x0, x1, z0, z1, top, belt = false) => list.push({x0, x1, z0, z1, top, belt});
+function rebuildColliders() { colliders = baseColliders.concat(...itemColliders.values()); }
+
+// World: grass, road and trees around the plot.
+const DARK = 0x2d2f37, STEEL = 0x5a5f69, YELLOW = 0xf0be1e;
+const ground = box(scene, 800, 1, 800, 0, -0.55, 0, 0x6fa44a);
+ground.castShadow = false;
+box(scene, 800, 0.1, 30, 0, -0.03, 72, 0x46484e).castShadow = false;
+for (let i = -12; i <= 12; i++) box(scene, 6, 0.12, 0.8, i * 16, 0, 72, 0xf0f0f0).castShadow = false;
+const trunkGeo = new THREE.CylinderGeometry(0.8, 1.1, 6, 8), leafGeo = new THREE.IcosahedronGeometry(5, 0);
+let seed = 7; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+for (let i = 0; i < 70; i++) {
+  const a = rand() * Math.PI * 2, d = 75 + rand() * 170, x = Math.cos(a) * d, z = Math.sin(a) * d;
+  if (Math.abs(z - 72) < 20) continue;
+  const s = 0.8 + rand() * 0.8, tree = new THREE.Group();
+  const trunk = new THREE.Mesh(trunkGeo, mat(0x7a5232)); trunk.position.y = 3; trunk.castShadow = true;
+  const leaves = new THREE.Mesh(leafGeo, mat(rand() < 0.5 ? 0x3f8f3a : 0x4fa846, {rough:0.9})); leaves.position.y = 8.5; leaves.castShadow = true;
+  tree.add(trunk, leaves); tree.position.set(x, 0, z); tree.scale.setScalar(s); tree.rotation.y = rand() * 6;
+  scene.add(tree);
+}
+
+// The plot: everything here exists before anything is bought.
+const plot = new THREE.Group();
+scene.add(plot);
+box(plot, PLOT, 0.4, PLOT, 0, -0.2, 0, 0x8a9a6a).castShadow = false;
+box(plot, PLOT + 2, 0.3, 1, 0, -0.1, PLOT / 2 + 0.5, 0xe8e8e8).castShadow = false;
+
+const beltLen = BELT_X1 - BELT_X0, beltCx = (BELT_X0 + BELT_X1) / 2;
+box(plot, beltLen, BELT_TOP - 0.05, BELT_W, beltCx, (BELT_TOP - 0.05) / 2, BELT_Z, 0x26272c, {metal:0.5});
+const stripes = document.createElement('canvas'); stripes.width = 64; stripes.height = 16;
+const sctx = stripes.getContext('2d');
+sctx.fillStyle = '#222328'; sctx.fillRect(0, 0, 64, 16);
+sctx.fillStyle = '#3c3e46'; sctx.fillRect(0, 0, 10, 16);
+const beltTex = new THREE.CanvasTexture(stripes);
+beltTex.wrapS = THREE.RepeatWrapping; beltTex.repeat.set(beltLen / 2, 1);
+beltTex.colorSpace = THREE.SRGBColorSpace;
+const beltTop = new THREE.Mesh(new THREE.PlaneGeometry(beltLen, BELT_W), new THREE.MeshStandardMaterial({map:beltTex, roughness:0.8}));
+beltTop.rotation.x = -Math.PI / 2; beltTop.position.set(beltCx, BELT_TOP, BELT_Z); beltTop.receiveShadow = true;
+plot.add(beltTop);
+for (const side of [-1, 1]) {
+  box(plot, beltLen, BELT_TOP + 2, 0.5, beltCx, (BELT_TOP + 2) / 2, BELT_Z + side * (BELT_W / 2 + 0.25), YELLOW);
+}
+box(plot, 0.5, BELT_TOP + 2, BELT_W + 1, BELT_X0 - 0.25, (BELT_TOP + 2) / 2, BELT_Z, YELLOW);
+const intake = box(plot, 2, 6, BELT_W + 1, BELT_X1 + 1, BELT_TOP + 3, BELT_Z, 0xff6e14);
+intake.material = new THREE.MeshStandardMaterial({color:0xff6e14, emissive:0xff6e14, emissiveIntensity:0.7});
+box(plot, 8, 10, 10, BELT_X1 + 6, 5, BELT_Z, DARK, {metal:0.6, rough:0.4});
+const pad = cylinder(plot, PAD.r, 0.4, PAD.x, 0.2, PAD.z, 0x3cdc5a, {own:true});
+for (const side of [-1, 1]) box(plot, 1, 26, 1, side * 11, 13, PLOT / 2 - 0.5, STEEL);
+box(plot, 23, 4, 1, 0, 27, PLOT / 2 - 0.5, DARK);
+
+solid(baseColliders, BELT_X0, BELT_X1, BELT_Z - 3, BELT_Z + 3, BELT_TOP, true);
+solid(baseColliders, BELT_X0, BELT_X1, BELT_Z - 3.5, BELT_Z - 3, BELT_TOP + 2);
+solid(baseColliders, BELT_X0, BELT_X1, BELT_Z + 3, BELT_Z + 3.5, BELT_TOP + 2);
+solid(baseColliders, BELT_X0 - 0.5, BELT_X0, BELT_Z - 3.5, BELT_Z + 3.5, BELT_TOP + 2);
+solid(baseColliders, BELT_X1, BELT_X1 + 2, BELT_Z - 3.5, BELT_Z + 3.5, BELT_TOP + 6);
+solid(baseColliders, BELT_X1 + 2, BELT_X1 + 10, BELT_Z - 5, BELT_Z + 5, 10);
+for (const side of [-1, 1]) solid(baseColliders, side * 11 - 0.5, side * 11 + 0.5, PLOT / 2 - 1, PLOT / 2, 26);
+rebuildColliders();
+
+// --------------------------------------------------------------- labels --
+const labelLayer = document.getElementById('labels');
+const labels = new Set();
+function makeLabel(pos, maxDist, cls = '') {
+  const el = document.createElement('div');
+  el.className = 'label ' + cls;
+  labelLayer.appendChild(el);
+  const l = {el, pos:new THREE.Vector3(pos.x, pos.y, pos.z), maxDist};
+  labels.add(l);
+  return l;
+}
+function removeLabel(l) { l.el.remove(); labels.delete(l); }
+const furnaceLabel = makeLabel({x:BELT_X1 + 6, y:12.5, z:BELT_Z}, 140);
+furnaceLabel.el.innerHTML = '<div class="name" style="color:#ffb070">FURNACE</div>';
+const padLabel = makeLabel({x:PAD.x, y:4, z:PAD.z}, 90);
+const signLabel = makeLabel({x:0, y:29.5, z:PLOT / 2 - 0.5}, 260, 'sign');
+signLabel.el.innerHTML = '<div class="name">Your Factory</div>';
+
+// ---------------------------------------------------------------- items --
+const itemGroups = new Map();
+const pops = [];   // models scaling in after a purchase
+const droppers = []; // {item, body, t, squish}
+const upgraders = []; // {item, x}
+
+function popIn(obj, delay = 0) { obj.scale.setScalar(0.001); pops.push({obj, t:-delay}); }
+
+function buildItem(it, animate) {
+  const g = new THREE.Group(), cols = [];
+  if (it.kind === 'dropper') {
+    const x = dropperX(it.lane);
+    box(g, 1.5, 13, 1.5, x, 6.5, BELT_Z - 5, STEEL);
+    box(g, 1.5, 1.5, 3, x, 12, BELT_Z - 3.5, STEEL);
+    const body = box(g, 4, 4, 4, x, 11, BELT_Z, it.color, {metal:0.5, rough:0.35});
+    box(g, 2, 2, 2, x, 8, BELT_Z, DARK);
+    box(g, 4.2, 0.6, 4.2, x, 13.1, BELT_Z, it.color, {neon:true});
+    solid(cols, x - 0.75, x + 0.75, BELT_Z - 5.75, BELT_Z - 4.25, 13);
+    droppers.push({item:it, body, t:0, squish:0});
+  } else if (it.kind === 'upgrader') {
+    const x = upgraderX(it.lane);
+    for (const side of [-1, 1]) {
+      box(g, 1, 9, 1, x, 4.5, BELT_Z + side * 4, STEEL);
+      solid(cols, x - 0.5, x + 0.5, BELT_Z + side * 4 - 0.5, BELT_Z + side * 4 + 0.5, 9);
+    }
+    box(g, 1, 1, 9, x, 9, BELT_Z, it.color, {neon:true});
+    box(g, 1.5, 5, BELT_W, x, BELT_TOP + 2.5, BELT_Z, it.color, {neon:true, opacity:0.35});
+    upgraders.push({item:it, x});
+  } else if (it.kind === 'walls') {
+    const h = 14, half = PLOT / 2, gap = 20, seg = (PLOT - gap) / 2;
+    const pieces = [[PLOT, 1, 0, -half + 0.5], [1, PLOT, -half + 0.5, 0], [1, PLOT, half - 0.5, 0],
+      [seg, 1, -(gap + seg) / 2, half - 0.5], [seg, 1, (gap + seg) / 2, half - 0.5]];
+    for (const [w, d, x, z] of pieces) {
+      box(g, w, h, d, x, h / 2, z, 0xd8d2c4, {rough:0.9});
+      box(g, w + 0.2, 0.8, d + 0.2, x, h, z, 0xb8442e);
+      solid(cols, x - w / 2, x + w / 2, z - d / 2, z + d / 2, h);
+    }
+  } else if (it.kind === 'overclock') {
+    box(g, 6, 6, 6, -20, 3, BELT_Z - 13, DARK, {metal:0.6, rough:0.4});
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2.2, 1), mat(0x00ffc8, {neon:true}));
+    core.position.set(-20, 8.4, BELT_Z - 13); core.castShadow = true; core.userData.spin = 1.5;
+    g.add(core);
+    solid(cols, -23, -17, BELT_Z - 16, BELT_Z - 10, 6);
+  } else if (it.kind === 'furnace') {
+    box(g, 3, 10, 3, BELT_X1 + 6, 15, BELT_Z, DARK, {metal:0.6});
+    box(g, 8.4, 1, 10.4, BELT_X1 + 6, 9, BELT_Z, 0xff3c00, {neon:true});
+    box(g, 3.4, 0.8, 3.4, BELT_X1 + 6, 20, BELT_Z, 0xff3c00, {neon:true});
+  }
+  plot.add(g);
+  itemGroups.set(it.id, g);
+  itemColliders.set(it.id, cols);
+  rebuildColliders();
+  if (animate) {
+    // Pop each part in from its own centre, a little after the last.
+    g.children.forEach((m, i) => { m.userData.full = m.scale.clone(); popIn(m, i * 0.04); });
+  }
+}
+
+function clearItems() {
+  for (const g of itemGroups.values()) plot.remove(g);
+  itemGroups.clear(); itemColliders.clear(); rebuildColliders();
+  droppers.length = 0; upgraders.length = 0; drops.length = 0; pops.length = 0;
+}
+
+// -------------------------------------------------------------- buttons --
+const buttons = new Map(); // id -> {mesh, label, cost}
+const beacon = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 40, 16, 1, true),
+  new THREE.MeshBasicMaterial({color:0x7dffa0, transparent:true, opacity:0.22, depthWrite:false, side:THREE.DoubleSide}));
+beacon.visible = false;
+scene.add(beacon);
+
+function refreshButtons() {
+  for (const it of ITEMS) {
+    const show = !state.owned.has(it.id) && requirementsMet(it);
+    const b = buttons.get(it.id);
+    if (show && !b) {
+      const p = buttonPos(it.slot), cost = costOf(it);
+      const mesh = cylinder(plot, 3, 0.4, p.x, 0.2, p.z, 0xff5050, {own:true});
+      mesh.userData.full = mesh.scale.clone(); popIn(mesh);
+      const label = makeLabel({x:p.x, y:3.6, z:p.z}, 95);
+      label.el.innerHTML = `<div class="name">${it.name}</div><div class="cost">${cost === 0 ? 'FREE' : money(cost)}</div>`;
+      buttons.set(it.id, {mesh, label, cost, item:it, x:p.x, z:p.z});
+    } else if (!show && b) {
+      plot.remove(b.mesh); removeLabel(b.label); buttons.delete(it.id);
+    }
+  }
+  recolorButtons();
+}
+function recolorButtons() {
+  let target = null;
+  for (const b of buttons.values()) {
+    const ok = state.cash >= b.cost, color = ok ? 0x46e664 : 0xff5050;
+    b.mesh.material.color.setHex(color); b.mesh.material.emissive.setHex(color);
+    b.label.el.querySelector('.cost').style.color = ok ? 'var(--green)' : 'var(--red)';
+    if (!target || b.cost < target.cost) target = b;
+  }
+  beacon.visible = !!target;
+  if (target) beacon.position.set(target.x, 20, target.z);
+  const next = document.getElementById('next');
+  next.textContent = target
+    ? (state.cash >= target.cost ? `Step on the green button: ${target.item.name}` : `Next: ${target.item.name} — ${money(target.cost)}`)
+    : '';
+  next.style.display = target ? '' : 'none';
+}
+
+function purchase(id) {
+  const b = buttons.get(id);
+  if (!b) return false;
+  if (state.cash < b.cost) {
+    toast(`Need ${money(b.cost - state.cash)} more`, 'error'); sfx.error();
+    return false;
+  }
+  state.cash -= b.cost;
+  if (b.item.kind === 'rebirth') {
+    state.rebirths++;
+    state.cash = START_CASH; state.bank = 0; state.owned.clear();
+    clearItems();
+    for (const bb of [...buttons.keys()]) { const x = buttons.get(bb); plot.remove(x.mesh); removeLabel(x.label); buttons.delete(bb); }
+    toast(`REBIRTH ${state.rebirths}! All income ×${rebirthMult()}`, 'gold'); sfx.rebirth();
+  } else {
+    state.owned.add(id);
+    buildItem(b.item, true);
+    toast(`Bought ${b.item.name}!`, 'success'); sfx.buy();
+  }
+  refreshButtons(); updateHud(); save();
+  return true;
+}
+
+// ---------------------------------------------------------------- drops --
+const drops = []; // {x, y, z, vy, value, color, ups:Set, spin}
+const dropMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({roughness:0.35, metalness:0.3}), MAX_DROPS);
+dropMesh.castShadow = true; dropMesh.frustumCulled = false; dropMesh.count = 0;
+dropMesh.setColorAt(0, new THREE.Color(1, 1, 1));
+scene.add(dropMesh);
+let intakeGlow = 0;
+
+function spawnDrop(it) {
+  if (drops.length >= MAX_DROPS) return;
+  drops.push({x:dropperX(it.lane), y:BELT_TOP + 3, z:BELT_Z + (Math.random() - 0.5) * 2.4, vy:0,
+    value:it.value, color:new THREE.Color(it.color), ups:new Set(), spin:Math.random() * 6});
+}
+
+function stepSim(dt) {
+  const im = intervalMult();
+  for (const d of droppers) {
+    const iv = (d.item.interval || DEFAULT_INTERVAL) * im;
+    d.t += dt;
+    while (d.t >= iv) { d.t -= iv; spawnDrop(d.item); d.squish = 1; }
+  }
+  const rest = BELT_TOP + 0.6, sell = furnaceMult() * rebirthMult();
+  for (let i = drops.length - 1; i >= 0; i--) {
+    const d = drops[i];
+    if (d.y > rest) { d.vy -= GRAVITY * 0.5 * dt; d.y = Math.max(rest, d.y + d.vy * dt); continue; }
+    d.x += BELT_SPEED * dt;
+    for (const u of upgraders) {
+      if (d.x >= u.x && !d.ups.has(u.item.id)) {
+        d.ups.add(u.item.id); d.value *= u.item.mult;
+        d.color.lerp(new THREE.Color(u.item.color), 0.6);
+      }
+    }
+    if (d.x >= BELT_X1 - 0.2) {
+      state.bank += d.value * sell;
+      drops.splice(i, 1);
+      intakeGlow = 1;
+    }
+  }
+}
+
+// --------------------------------------------------------------- player --
+function makeAvatar() {
+  const g = new THREE.Group();
+  const part = (w, h, d, color, y, x = 0, parent = g) => box(parent, w, h, d, x, y, 0, color, {rough:0.7});
+  const limb = (x, y, color) => { const pivot = new THREE.Group(); pivot.position.set(x, y, 0); g.add(pivot); box(pivot, 1, 2, 1, 0, -1, 0, color); return pivot; };
+  part(2, 2, 1, 0x1e6fd9, 3);                      // torso
+  const head = part(1.25, 1.25, 1.25, 0xf5cd30, 4.65); // head
+  box(g, 0.22, 0.32, 0.05, -0.28, 4.8, 0.64, 0x111111);
+  box(g, 0.22, 0.32, 0.05, 0.28, 4.8, 0.64, 0x111111);
+  box(g, 0.6, 0.12, 0.05, 0, 4.35, 0.64, 0x111111);
+  const arms = [limb(-1.5, 4, 0xf5cd30), limb(1.5, 4, 0xf5cd30)];
+  const legs = [limb(-0.5, 2, 0x4caf50), limb(0.5, 2, 0x4caf50)];
+  return {g, arms, legs, head};
+}
+const avatar = makeAvatar();
+scene.add(avatar.g);
+const player = {x:SPAWN.x, y:0, z:SPAWN.z, vy:0, yaw:Math.PI, grounded:true, walk:0, onBelt:false};
+const cam = {yaw:0, pitch:0.55, dist:28};
+const keys = new Set();
+const stick = {id:null, x:0, y:0, ox:0, oy:0};
+let jumpQueued = false;
+
+function resolveWalls(p) {
+  for (const b of colliders) {
+    if (p.y >= b.top - 0.05) continue;
+    const cx = Math.max(b.x0, Math.min(p.x, b.x1)), cz = Math.max(b.z0, Math.min(p.z, b.z1));
+    const dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
+    if (d2 >= PLAYER_RADIUS * PLAYER_RADIUS) continue;
+    if (d2 > 1e-9) {
+      const d = Math.sqrt(d2);
+      p.x = cx + dx / d * PLAYER_RADIUS; p.z = cz + dz / d * PLAYER_RADIUS;
+    } else { // centre is inside the box: leave by the nearest face
+      const pushes = [[b.x0 - PLAYER_RADIUS - p.x, 0], [b.x1 + PLAYER_RADIUS - p.x, 0], [0, b.z0 - PLAYER_RADIUS - p.z], [0, b.z1 + PLAYER_RADIUS - p.z]];
+      pushes.sort((a, c) => Math.abs(a[0] + a[1]) - Math.abs(c[0] + c[1]));
+      p.x += pushes[0][0]; p.z += pushes[0][1];
+    }
+  }
+}
+function groundUnder(p) {
+  let h = 0, belt = false;
+  const r = PLAYER_RADIUS * 0.5;
+  for (const b of colliders) {
+    if (p.x + r < b.x0 || p.x - r > b.x1 || p.z + r < b.z0 || p.z - r > b.z1) continue;
+    if (p.y >= b.top - 0.6 && b.top > h) { h = b.top; belt = b.belt; }
+  }
+  return {h, belt};
+}
+
+function stepPlayer(dt) {
+  let ix = stick.x, iy = -stick.y;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) iy += 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown')) iy -= 1;
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) ix -= 1;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) ix += 1;
+  const len = Math.hypot(ix, iy);
+  if (len > 1) { ix /= len; iy /= len; }
+  const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
+  const mx = fx * iy + rx * ix, mz = fz * iy + rz * ix, moving = Math.hypot(mx, mz) > 0.05;
+  player.x += mx * WALK_SPEED * dt; player.z += mz * WALK_SPEED * dt;
+  if (player.onBelt) player.x += BELT_SPEED * dt;
+  if (moving) {
+    const target = Math.atan2(mx, mz);
+    let diff = target - player.yaw; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    player.yaw += diff * Math.min(1, dt * 14);
+  }
+  player.x = Math.max(-200, Math.min(200, player.x)); player.z = Math.max(-200, Math.min(200, player.z));
+  resolveWalls(player);
+
+  if ((jumpQueued || keys.has('Space')) && player.grounded) { player.vy = JUMP_SPEED; player.grounded = false; }
+  jumpQueued = false;
+  player.vy -= GRAVITY * dt;
+  player.y += player.vy * dt;
+  const g = groundUnder(player);
+  if (player.y <= g.h) { player.y = g.h; player.vy = 0; player.grounded = true; player.onBelt = g.belt; }
+  else { player.grounded = false; player.onBelt = false; }
+
+  player.walk = moving && player.grounded ? player.walk + dt * 10 : player.walk * 0.8;
+  const swing = Math.sin(player.walk) * (moving ? 0.9 : 0);
+  avatar.arms[0].rotation.x = swing; avatar.arms[1].rotation.x = -swing;
+  avatar.legs[0].rotation.x = -swing; avatar.legs[1].rotation.x = swing;
+  if (!player.grounded) { avatar.arms[0].rotation.x = avatar.arms[1].rotation.x = -2.6; }
+  avatar.g.position.set(player.x, player.y, player.z);
+  avatar.g.rotation.y = player.yaw;
+}
+
+// Pads under the player's feet: buttons buy, the green pad collects.
+let standingOn = null, onPad = false, lastErrorAt = 0;
+function stepPads() {
+  const feet = player.y < 0.8;
+  let here = null;
+  if (feet) for (const [id, b] of buttons) if (Math.hypot(player.x - b.x, player.z - b.z) < 3) here = id;
+  if (here) {
+    const b = buttons.get(here);
+    if (state.cash >= b.cost) purchase(here);
+    else if (here !== standingOn && performance.now() - lastErrorAt > 800) { lastErrorAt = performance.now(); purchase(here); }
+  }
+  standingOn = here;
+
+  const nowOnPad = feet && Math.hypot(player.x - PAD.x, player.z - PAD.z) < PAD.r;
+  if (nowOnPad && state.bank >= 1) {
+    const amount = Math.floor(state.bank);
+    state.bank -= amount; state.cash += amount;
+    if (!onPad) { toast('+' + money(amount), 'success'); sfx.coin(); }
+    recolorButtons(); updateHud(true);
+  }
+  onPad = nowOnPad;
+}
+
+// ------------------------------------------------------------------ HUD --
+const $ = id => document.getElementById(id);
+let lastCashShown = -1;
+function updateHud(pop = false) {
+  if (state.cash !== lastCashShown) { $('cash').textContent = money(state.cash); lastCashShown = state.cash; }
+  $('rate').textContent = `+${money(incomePerSecond())}/s`;
+  $('rebirths').textContent = state.rebirths ? `Rebirths ${state.rebirths} · income ×${rebirthMult()}` : '';
+  padLabel.el.innerHTML = `<div class="name" style="color:#c8ffc8">STEP TO COLLECT</div><div class="cost" style="color:var(--green)">${money(state.bank)}</div>`;
+  if (pop) { $('money').classList.add('pop'); setTimeout(() => $('money').classList.remove('pop'), 120); }
+}
+function toast(text, kind = '') {
+  const box = $('toasts'), el = document.createElement('div');
+  el.className = 'toast ' + kind; el.textContent = text;
+  box.appendChild(el);
+  while (box.children.length > 4) box.firstChild.remove();
+  setTimeout(() => { el.style.opacity = 0; setTimeout(() => el.remove(), 400); }, 2400);
+}
+
+const v3 = new THREE.Vector3();
+function placeLabels() {
+  const w = innerWidth, h = innerHeight;
+  for (const l of labels) {
+    const dist = camera.position.distanceTo(l.pos);
+    v3.copy(l.pos).project(camera);
+    if (v3.z > 1 || dist > l.maxDist || Math.abs(v3.x) > 1.2 || Math.abs(v3.y) > 1.2) { l.el.style.display = 'none'; continue; }
+    const s = Math.max(0.45, Math.min(1.25, 32 / dist));
+    l.el.style.display = '';
+    l.el.style.transform = `translate(${(v3.x + 1) / 2 * w}px,${(1 - v3.y) / 2 * h}px) translate(-50%,-100%) scale(${s})`;
+    l.el.style.zIndex = String(1000 - Math.round(dist));
+  }
+}
+
+// --------------------------------------------------------------- render --
+const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpP = new THREE.Vector3(), ONE = new THREE.Vector3(1, 1, 1);
+let clock = 0;
+function updateVisuals(dt) {
+  clock += dt;
+  beltTex.offset.x -= BELT_SPEED * dt / 2; // one stripe tile is 2 studs long
+  for (const d of droppers) {
+    d.squish = Math.max(0, d.squish - dt * 5);
+    d.body.scale.set(4 + d.squish * 0.5, 4 - d.squish * 0.8, 4 + d.squish * 0.5);
+  }
+  for (let i = pops.length - 1; i >= 0; i--) {
+    const p = pops[i]; p.t += dt;
+    const k = Math.min(1, Math.max(0, p.t / 0.35)), c = 1.7, e = 1 + (c + 1) * (k - 1) ** 3 + c * (k - 1) ** 2;
+    p.obj.scale.copy(p.obj.userData.full).multiplyScalar(Math.max(0.001, e));
+    if (k >= 1) { p.obj.scale.copy(p.obj.userData.full); pops.splice(i, 1); }
+  }
+  for (const g of itemGroups.values()) for (const m of g.children) if (m.userData.spin) m.rotation.y += m.userData.spin * dt;
+  intakeGlow = Math.max(0, intakeGlow - dt * 4);
+  intake.material.emissiveIntensity = 0.6 + intakeGlow * 0.9;
+  pad.material.emissiveIntensity = state.bank >= 1 ? 0.5 + Math.sin(clock * 5) * 0.3 : 0.25;
+  beacon.material.opacity = 0.15 + Math.sin(clock * 3) * 0.07;
+  for (const b of buttons.values()) b.mesh.material.emissiveIntensity = 0.45 + Math.sin(clock * 4) * 0.15;
+
+  dropMesh.count = drops.length;
+  for (let i = 0; i < drops.length; i++) {
+    const d = drops[i];
+    d.spin += dt * (d.y > BELT_TOP + 0.6 ? 6 : 0);
+    tmpQ.setFromEuler(tmpE.set(d.spin * 0.7, d.spin, 0));
+    tmpM.compose(tmpP.set(d.x, d.y, d.z), tmpQ, ONE);
+    dropMesh.setMatrixAt(i, tmpM); dropMesh.setColorAt(i, d.color);
+  }
+  dropMesh.instanceMatrix.needsUpdate = true;
+  if (dropMesh.instanceColor) dropMesh.instanceColor.needsUpdate = true;
+
+  const cp = Math.cos(cam.pitch);
+  const tx = player.x, ty = player.y + 4, tz = player.z;
+  camera.position.set(tx + Math.sin(cam.yaw) * cp * cam.dist, ty + Math.sin(cam.pitch) * cam.dist, tz + Math.cos(cam.yaw) * cp * cam.dist);
+  camera.lookAt(tx, ty, tz);
+  sun.position.set(player.x + 60, 110, player.z + 50); sun.target.position.set(player.x, 0, player.z); sun.target.updateMatrixWorld();
+}
+
+function render() { renderer.render(scene, camera); placeLabels(); }
+
+let hudTimer = 0, saveTimer = 0;
+function update(dt) {
+  stepSim(dt);
+  stepPlayer(dt);
+  stepPads();
+  updateVisuals(dt);
+  hudTimer += dt; saveTimer += dt;
+  if (hudTimer > 0.1) { hudTimer = 0; updateHud(); }
+  if (saveTimer > 5) { saveTimer = 0; save(); }
+}
+
+function resize() {
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+
+// ---------------------------------------------------------------- input --
+const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+if (isTouch) {
+  $('jump').style.display = 'block';
+  $('help').textContent = 'Left side: move · right side: look · step on buttons to buy';
+}
+addEventListener('keydown', e => {
+  unlockAudio();
+  if (e.code === 'KeyM') { toggleSound(); return; }
+  keys.add(e.code);
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  hideHelpSoon();
+});
+addEventListener('keyup', e => keys.delete(e.code));
+addEventListener('blur', () => keys.clear());
+
+const looks = new Map();
+canvas.addEventListener('pointerdown', e => {
+  unlockAudio(); canvas.focus();
+  if (e.pointerType === 'touch' && e.clientX < innerWidth / 2 && stick.id === null) {
+    stick.id = e.pointerId; stick.ox = e.clientX; stick.oy = e.clientY;
+    const s = $('stick'); s.style.display = 'block'; s.style.left = (e.clientX - 60) + 'px'; s.style.top = (e.clientY - 60) + 'px';
+  } else {
+    looks.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  }
+  canvas.setPointerCapture(e.pointerId);
+  hideHelpSoon();
+});
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerId === stick.id) {
+    let dx = e.clientX - stick.ox, dy = e.clientY - stick.oy;
+    const d = Math.hypot(dx, dy), max = 50;
+    if (d > max) { dx *= max / d; dy *= max / d; }
+    stick.x = dx / max; stick.y = dy / max;
+    $('knob').style.transform = `translate(${dx}px,${dy}px)`;
+    return;
+  }
+  const l = looks.get(e.pointerId);
+  if (!l) return;
+  cam.yaw -= (e.clientX - l.x) * 0.006;
+  cam.pitch = Math.max(0.08, Math.min(1.35, cam.pitch + (e.clientY - l.y) * 0.004));
+  l.x = e.clientX; l.y = e.clientY;
+});
+function endPointer(e) {
+  if (e.pointerId === stick.id) {
+    stick.id = null; stick.x = stick.y = 0;
+    $('stick').style.display = 'none'; $('knob').style.transform = '';
+  }
+  looks.delete(e.pointerId);
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.dist = Math.max(10, Math.min(70, cam.dist + e.deltaY * 0.03)); }, {passive:false});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+$('jump').addEventListener('pointerdown', e => { e.preventDefault(); unlockAudio(); jumpQueued = true; });
+
+function toggleSound() {
+  muted = !muted;
+  $('sound').textContent = muted ? '🔇' : '🔊';
+  try { localStorage.setItem(SAVE_KEY + '.muted', muted ? '1' : '0'); } catch {}
+}
+$('sound').textContent = muted ? '🔇' : '🔊';
+$('sound').addEventListener('click', () => { unlockAudio(); toggleSound(); });
+$('reset').addEventListener('click', () => {
+  if (!confirm('Delete your factory and start over? This cannot be undone.')) return;
+  resetting = true;
+  try { localStorage.removeItem(SAVE_KEY); } catch {}
+  location.reload();
+});
+let helpHidden = false;
+function hideHelpSoon() {
+  if (helpHidden) return;
+  helpHidden = true;
+  setTimeout(() => { $('help').style.opacity = 0; }, 6000);
+}
+
+// Earnings while the tab was closed or hidden land in the bank, to be
+// collected from the pad like any other cash.
+function creditAway(seconds) {
+  if (seconds < 20) return;
+  const earned = incomePerSecond() * Math.min(seconds, OFFLINE_CAP);
+  if (earned < 1) return;
+  state.bank += earned;
+  toast(`While you were away: +${money(earned)} — collect it on the green pad`, 'gold');
+}
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenAt = Date.now(); save(); }
+  else if (hiddenAt) { creditAway((Date.now() - hiddenAt) / 1000); hiddenAt = 0; last = performance.now(); }
+});
+addEventListener('beforeunload', save);
+
+// ----------------------------------------------------------------- boot --
+const away = load();
+for (const it of ITEMS) if (state.owned.has(it.id)) buildItem(it, false);
+refreshButtons();
+creditAway(away);
+updateHud();
+updateVisuals(0);
+$('loading').remove();
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000);
+  last = now;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+if (TEST) render(); else requestAnimationFrame(frame);
+
+// Hooks for tests/tycoon.test.cjs.
+window.tycoon = {state, player, cam, drops, buttons, ITEMS, short, incomePerSecond, update, render, save, load, purchase,
+  teleport(x, z) { player.x = x; player.z = z; player.y = 0; player.vy = 0; },
+  buttonPos, PAD, skipSaveOnUnload() { resetting = true; }};
+</script>
+</body>
+</html>
