@@ -84,3 +84,49 @@ python3 tools/package_game.py
 Creates `release/megavac-crazygames.zip` with `index.html`, `music.m4a`, and `music.mp3`
 at its root. It excludes backups, development previews, and tests. See `RELEASE_NOTES.md`
 for scope, verification, and remaining launch work.
+
+---
+
+# SPIDER CITY
+
+A separate low-poly open-world web-slinger game in `spider-city/`: swing between
+skyscrapers, crawl up walls, jack cars from traffic and fly a plane from the airfield.
+Three.js (loaded from unpkg via an import map), no build step, no image assets —
+every model, texture and sound is generated in code.
+
+```sh
+python3 -m http.server 8788 --directory spider-city
+```
+
+Open http://localhost:8788/ and click **PLAY** (keyboard and mouse; the mouse is
+captured for camera look, Esc releases it and pauses).
+
+- **On foot** — WASD, Shift sprint, Space jump. Run into any building to climb it;
+  climbing over the top vaults you onto the roof.
+- **Web** — in the air hold Space or the left mouse button to swing, release to fling
+  (fast releases flip). E / right mouse zips to whatever the crosshair points at.
+- **Cars** — F next to any car (parked or in traffic) to take it. W/S gas and brake,
+  A/D steer, Space handbrake drift. Traffic follows lanes and turns at junctions;
+  pedestrians walk the sidewalks and dive out of the way.
+- **Plane** — at the airfield east of the city. Shift / X throttle (W also throttles
+  up on the runway), S pulls up, W dives, A/D roll, Q/E rudder. F bails out mid-air.
+  Crash it and it respawns on the runway.
+- **Goal** — collect the 30 golden tokens on rooftops (beams of light mark them).
+- T skips time of day (night brings lit windows, street lamps and headlights),
+  G toggles graphics quality (it also drops automatically on slow machines), M mutes,
+  R returns you to the nearest street.
+
+Rendering: instanced buildings with a procedural window shader (glass reflects a
+sky-generated environment map, windows light up at night), soft shadows following the
+player, ACES tone mapping, MSAA and bloom. The hero is a primitive-built rig animated
+procedurally (run, sprint, swing, wall crawl, flips, superhero landing).
+
+Code: `js/world.js` (city generation, collision, sky, day/night), `js/hero.js`
+(rig, animation, traversal physics), `js/vehicles.js` (cars, traffic AI, plane,
+pedestrians), `js/fx.js` (particles, WebAudio), `js/main.js` (loop, camera, input, HUD).
+
+Smoke test (headless Chromium via Playwright, needs network for three.js):
+
+```sh
+node tests/spider-city.smoke.mjs
+```

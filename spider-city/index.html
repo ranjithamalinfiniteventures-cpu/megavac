@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spider City</title>
+<style>
+  :root { --red: #e0182d; --blue: #1d3c9c; --ink: #0b0d14; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d14; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hidden { display: none !important; }
+
+  #overlay { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at center, rgba(10,12,22,0.35), rgba(5,6,12,0.85)); z-index: 10; padding: 16px; }
+  .card { max-width: 760px; width: 100%; text-align: center; }
+  h1 { margin: 0; font-size: clamp(44px, 10vw, 96px); font-weight: 900; letter-spacing: -2px; line-height: 0.9; font-style: italic;
+       background: linear-gradient(180deg, #ff4b5c 0%, var(--red) 55%, #8f0c1c 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+       filter: drop-shadow(0 4px 0 #0a1a55) drop-shadow(0 10px 22px rgba(0,0,0,0.6)); }
+  h1 span { background: linear-gradient(180deg, #6f8dff, var(--blue)); -webkit-background-clip: text; background-clip: text; }
+  .tag { margin: 12px 0 26px; opacity: 0.85; font-size: 15px; letter-spacing: 3px; text-transform: uppercase; }
+  #play { font: 900 22px system-ui; letter-spacing: 3px; padding: 16px 54px; border: 0; border-radius: 999px; color: #fff; cursor: pointer;
+          background: linear-gradient(180deg, #ff3346, #b30f22); box-shadow: 0 6px 0 #5e0612, 0 14px 30px rgba(224,24,45,0.45); transition: transform .1s; }
+  #play:hover { transform: translateY(-2px); }
+  #play:active { transform: translateY(3px); box-shadow: 0 2px 0 #5e0612; }
+  #play:disabled { opacity: 0.5; cursor: wait; }
+  #loading { margin-top: 12px; font-size: 13px; opacity: 0.7; }
+  .controls { margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; text-align: left; }
+  .controls div { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.75; backdrop-filter: blur(6px); }
+  .controls h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: 2px; color: #ff6b78; }
+  kbd { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: 5px; background: #fff; color: var(--ink); font: 700 11px system-ui; text-align: center; box-shadow: 0 2px 0 #9aa; margin-right: 2px; }
+
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #map { position: absolute; top: 16px; right: 16px; width: 170px; height: 170px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); }
+  #topleft { position: absolute; top: 16px; left: 16px; }
+  #mode { font: 900 italic 20px system-ui; letter-spacing: 1px; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
+  #stats { margin-top: 6px; display: flex; gap: 8px; }
+  .pill { background: rgba(10,12,20,0.55); border: 1px solid rgba(255,255,255,0.15); border-radius: 999px; padding: 4px 12px; font: 700 13px system-ui; backdrop-filter: blur(4px); }
+  .pill.gold { color: #ffc23d; }
+  #speedo { position: absolute; right: 24px; bottom: 22px; text-align: right; text-shadow: 0 3px 0 rgba(0,0,0,0.45); }
+  #speed { font: 900 italic 54px system-ui; line-height: 1; }
+  #speedo small { font: 700 12px system-ui; letter-spacing: 2px; opacity: 0.8; }
+  #hint { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); max-width: calc(100% - 220px); text-align: center; font-size: 13px;
+          background: rgba(10,12,20,0.55); border-radius: 10px; padding: 7px 14px; backdrop-filter: blur(4px); }
+  #hint:empty { display: none; }
+  #hint b { color: #ff6b78; }
+  #cross { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); }
+  #cross::before, #cross::after { content: ""; position: absolute; background: rgba(255,255,255,0.85); box-shadow: 0 0 3px #000; }
+  #cross::before { left: 10px; top: 3px; width: 2px; height: 16px; }
+  #cross::after { top: 10px; left: 3px; width: 16px; height: 2px; }
+  #toast { position: absolute; top: 22%; left: 50%; transform: translate(-50%, -10px); font: 900 italic 24px system-ui; text-align: center;
+           text-shadow: 0 3px 0 #0a1a55, 0 0 20px rgba(0,0,0,0.6); opacity: 0; transition: opacity .25s, transform .25s; padding: 0 16px; width: 100%; }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (max-width: 640px) {
+    #map { width: 120px; height: 120px; }
+    #speed { font-size: 38px; }
+    #hint { max-width: calc(100% - 32px); bottom: 90px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <canvas id="map" width="170" height="170"></canvas>
+  <div id="topleft">
+    <div id="mode">ON FOOT</div>
+    <div id="stats"><span class="pill gold">◆ <span id="tokens">0 / 30</span></span><span class="pill" id="clock">00:00</span></div>
+  </div>
+  <div id="cross"></div>
+  <div id="toast"></div>
+  <div id="hint"></div>
+  <div id="speedo"><div id="speed">0</div><small>KM/H</small></div>
+</div>
+
+<div id="overlay">
+  <div class="card">
+    <h1>SPIDER <span>CITY</span></h1>
+    <div class="tag">Swing · Drive · Fly</div>
+    <button id="play" disabled>PLAY</button>
+    <div id="loading">Building the city…</div>
+    <div class="controls">
+      <div><h3>ON FOOT</h3>
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Mouse</kbd> look<br>
+        <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump<br>
+        Run into a wall to <b>climb</b> it</div>
+      <div><h3>WEB</h3>
+        In the air hold <kbd>Space</kbd> or <kbd>LMB</kbd> to <b>swing</b><br>
+        Release to fling · <kbd>E</kbd>/<kbd>RMB</kbd> zip to crosshair<br>
+        <kbd>F</kbd> jack a car or board the plane</div>
+      <div><h3>CAR &amp; PLANE</h3>
+        Car: <kbd>W</kbd><kbd>S</kbd> gas/brake · <kbd>Space</kbd> drift<br>
+        Plane: <kbd>Shift</kbd>/<kbd>X</kbd> throttle · <kbd>S</kbd> climb<br>
+        <kbd>A</kbd><kbd>D</kbd> roll · <kbd>Q</kbd><kbd>E</kbd> rudder · <kbd>F</kbd> bail out</div>
+      <div><h3>MORE</h3>
+        <kbd>T</kbd> skip time (try night!) · <kbd>G</kbd> graphics<br>
+        <kbd>M</kbd> mute · <kbd>R</kbd> back to street<br>
+        <kbd>Esc</kbd> pause</div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="js/main.js"></script>
+<script>
+  window.addEventListener('error', e => { const l = document.getElementById('loading'); if (l) l.textContent = 'Error: ' + e.message; });
+</script>
+</body>
+</html>
