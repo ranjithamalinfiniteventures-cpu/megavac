@@ -218,49 +218,101 @@ for (let i = 0; i < 340; i++) {
   makeTree(x, z);
 }
 
-// ---------- Harvester ----------
+// ---------- Harvester (forestry harvester: articulated 8-wheeler with crane + felling head) ----------
 const harv = new THREE.Group();
 const paint = new THREE.MeshStandardMaterial({ color: 0xf2a516, roughness: 0.35, metalness: 0.3 });
+const paint2 = new THREE.MeshStandardMaterial({ color: 0x2f4d2a, roughness: 0.45, metalness: 0.3 });
 const dark = new THREE.MeshStandardMaterial({ color: 0x23262b, roughness: 0.6, metalness: 0.4 });
-const glass = new THREE.MeshStandardMaterial({ color: 0x9fd8ff, roughness: 0.05, metalness: 0.9, emissive: 0x0a2030 });
+const rubber = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.95, flatShading: true });
+const glass = new THREE.MeshPhysicalMaterial({ color: 0x223844, roughness: 0.05, metalness: 0.2, transmission: 0, transparent: true, opacity: 0.55, clearcoat: 1 });
 const steel = new THREE.MeshStandardMaterial({ color: 0xd5dbe2, roughness: 0.25, metalness: 1 });
+const lamp = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff2c0, emissiveIntensity: 4 });
 const addBox = (w, h, d, mat, x, y, z, parent = harv) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
-addBox(2.4, 0.7, 4.6, paint, 0, 1.0, 0);
-addBox(2.0, 1.5, 1.6, paint, 0, 2.0, 0.9);
-addBox(1.9, 0.9, 1.0, glass, 0, 2.15, 1.25);
-addBox(2.5, 0.12, 2.2, dark, 0, 1.4, -1.2);
-addBox(0.12, 0.7, 2.2, dark, 1.2, 1.8, -1.2); addBox(0.12, 0.7, 2.2, dark, -1.2, 1.8, -1.2); addBox(2.5, 0.7, 0.12, dark, 0, 1.8, -2.3);
-const lightL = addBox(0.35, 0.2, 0.1, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff2c0, emissiveIntensity: 3 }), 0.7, 1.15, 2.33);
+const addCyl = (rt, rb, h, mat, x, y, z, parent = harv, seg = 12) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+// chunky lugged tyres
+const tyreGeo = (() => {
+  const sh = new THREE.Shape(), lugs = 16, R = 0.66, r = 0.58;
+  for (let i = 0; i < lugs * 4; i++) { const a = i / (lugs * 4) * Math.PI * 2, rr = (i % 4 < 2) ? R : r; i ? sh.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : sh.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+  const hole = new THREE.Path(); hole.absarc(0, 0, 0.34, 0, Math.PI * 2, true); sh.holes.push(hole);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: 0.55, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03, bevelSegments: 1 }); g.center(); g.rotateY(Math.PI / 2); return g;
+})();
 const wheels = [];
-const wg = new THREE.CylinderGeometry(0.62, 0.62, 0.5, 18); wg.rotateZ(Math.PI / 2);
-for (const [x, z] of [[1.3, 1.5], [-1.3, 1.5], [1.3, -1.5], [-1.3, -1.5]]) {
-  const w = new THREE.Mesh(wg, dark); w.position.set(x, 0.62, z); w.castShadow = true; harv.add(w); wheels.push(w);
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.52, 8).rotateZ(Math.PI / 2), steel); w.add(hub);
+for (const z of [2.75, 1.6, -1.55, -2.7]) for (const x of [1.3, -1.3]) {
+  const w = new THREE.Mesh(tyreGeo, rubber); w.position.set(x, 0.66, z); w.castShadow = true; harv.add(w); wheels.push(w);
+  const rim = addCyl(0.36, 0.36, 0.5, paint, 0, 0, 0, w, 14); rim.rotation.z = Math.PI / 2;
+  const nut = addCyl(0.12, 0.12, 0.56, dark, 0, 0, 0, w, 8); nut.rotation.z = Math.PI / 2;
 }
-// saw arm + blade
-const arm = addBox(0.3, 0.3, 1.6, dark, 0, 1.2, 3.0);
-const saw = new THREE.Group(); saw.position.set(0, 0.9, 3.9); harv.add(saw);
-{
-  const bladeShape = new THREE.Shape(); const teeth = 24, R = 1.0;
-  for (let i = 0; i <= teeth * 2; i++) { const a = i / (teeth * 2) * Math.PI * 2, r = i % 2 ? R : R * 0.86; i ? bladeShape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : bladeShape.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
-  const bg = new THREE.ExtrudeGeometry(bladeShape, { depth: 0.05, bevelEnabled: false }); bg.center(); bg.rotateY(Math.PI / 2);
-  const blade = new THREE.Mesh(bg, steel); blade.castShadow = true; saw.add(blade); saw.userData.blade = blade;
-  const hubS = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.2, 10).rotateZ(Math.PI / 2), paint); saw.add(hubS);
-}
-// detail: roof, exhaust stack, beacons, fenders, grille
-addBox(2.2, 0.12, 1.9, dark, 0, 2.8, 0.9);
-const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 1.4, 10), steel); stack.position.set(0.85, 3.0, 0.1); stack.castShadow = true; harv.add(stack);
+// bogie beams
+for (const x of [1.3, -1.3]) { addBox(0.2, 0.3, 1.6, dark, x * 0.84, 0.66, 2.18); addBox(0.2, 0.3, 1.6, dark, x * 0.84, 0.66, -2.12); }
+// front frame + cab
+addBox(1.7, 0.6, 3.4, paint, 0, 1.15, 1.95);
+addBox(1.72, 0.12, 3.42, dark, 0, 0.88, 1.95);
+addCyl(0.38, 0.38, 0.7, dark, 0, 1.1, 0.15, harv, 16); // articulation joint
+const cab = new THREE.Group(); cab.position.set(0, 1.45, 1.15); harv.add(cab);
+addBox(1.75, 0.35, 1.7, paint, 0, 0.17, 0, cab);
+addBox(1.6, 1.25, 1.55, glass, 0, 0.98, 0, cab);
+for (const [x, z] of [[0.8, 0.78], [-0.8, 0.78], [0.8, -0.78], [-0.8, -0.78]]) addBox(0.09, 1.3, 0.09, dark, x, 0.98, z, cab);
+addBox(1.6, 0.06, 0.06, dark, 0, 0.62, 0.79, cab);
+addBox(1.95, 0.16, 1.95, paint, 0, 1.68, 0, cab);
+addBox(1.2, 0.12, 0.25, dark, 0, 1.82, 0.7, cab);
+for (const x of [-0.45, -0.15, 0.15, 0.45]) addBox(0.2, 0.12, 0.06, lamp, x, 1.82, 0.84, cab);
+const seat = addBox(0.5, 0.5, 0.5, dark, 0, 0.6, -0.2, cab);
+// rear frame: engine hood, grille, exhaust, log bunk
+addBox(1.9, 0.7, 3.6, paint, 0, 1.2, -2.15);
+addBox(1.92, 0.12, 3.62, dark, 0, 0.9, -2.15);
+const hood = addBox(1.75, 0.85, 1.3, paint, 0, 1.95, -0.85);
+addBox(1.6, 0.08, 1.15, paint2, 0, 2.42, -0.85);
+for (let k = 0; k < 5; k++) addBox(0.04, 0.5, 1.0, dark, 0.89, 1.95, -0.85 - 0 + (k - 2) * 0.0).position.z = -0.85 + (k - 2) * 0.22;
+const stack = addCyl(0.09, 0.11, 1.2, steel, 0.6, 2.8, -0.55, harv, 10);
+addCyl(0.13, 0.13, 0.1, dark, 0.6, 3.4, -0.55, harv, 10);
+for (const z of [-1.75, -3.65]) { addBox(1.9, 0.14, 0.18, dark, 0, 1.62, z); for (const x of [0.9, -0.9]) addBox(0.12, 1.5, 0.12, steel, x, 2.3, z); }
+addBox(1.9, 0.9, 0.08, dark, 0, 2.0, -1.55); // headboard
+for (let k = 0; k < 6; k++) addBox(1.6, 0.05, 0.03, steel, 0, 1.65 + k * 0.13, -1.5);
+addBox(1.2, 0.18, 0.06, lamp, 0, 1.25, -3.97).material = new THREE.MeshStandardMaterial({ color: 0xff3030, emissive: 0xff1010, emissiveIntensity: 2 });
 const beaconM = new THREE.MeshStandardMaterial({ color: 0xff8a00, emissive: 0xff7a00, emissiveIntensity: 3 });
-const beacons = [-0.8, 0.8].map(x => { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.2, 10), beaconM); b.position.set(x, 2.95, 0.3); harv.add(b); return b; });
-for (const [x, z] of [[1.3, 1.5], [-1.3, 1.5], [1.3, -1.5], [-1.3, -1.5]]) addBox(0.6, 0.1, 1.5, paint, x, 1.32, z);
-addBox(1.6, 0.4, 0.06, dark, 0, 1.05, 2.32);
-addBox(0.08, 0.5, 2.0, new THREE.MeshStandardMaterial({ color: 0x1b1b1b }), 1.21, 0.9, 0);
-const stripeM = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4 });
-addBox(2.42, 0.12, 4.62, stripeM, 0, 0.72, 0);
-const headL = new THREE.PointLight(0xfff0c8, 6, 14, 2); headL.position.set(0, 1.3, 3.2); harv.add(headL);
+const beacons = [-0.7, 0.7].map(x => addCyl(0.1, 0.12, 0.18, beaconM, x, 1.85, -0.75, cab, 10));
+const headL = new THREE.PointLight(0xfff0c8, 4, 12, 2); headL.position.set(0, 1.6, 5.5); harv.add(headL);
+// crane: turret -> boom1 -> boom2 -> felling head (hangs vertical)
+const CR = { root: new THREE.Vector3(0, 1.85, 3.05), L1: 2.7, L2: 2.9 };
+const turret = new THREE.Group(); turret.position.copy(CR.root); harv.add(turret);
+addCyl(0.45, 0.55, 0.4, dark, 0, -0.2, 0, turret, 18);
+addCyl(0.3, 0.3, 0.5, paint, 0, 0.1, 0, turret, 14);
+const boom1 = new THREE.Group(); boom1.position.y = 0.3; turret.add(boom1);
+addBox(0.3, 0.36, CR.L1, paint, 0, 0, CR.L1 / 2, boom1);
+const hyd1 = addCyl(0.07, 0.07, CR.L1 * 0.7, steel, 0, -0.28, CR.L1 * 0.4, boom1, 8); hyd1.rotation.x = Math.PI / 2;
+addCyl(0.1, 0.1, CR.L1 * 0.35, dark, 0, -0.28, CR.L1 * 0.15, boom1, 8).rotation.x = Math.PI / 2;
+const boom2 = new THREE.Group(); boom2.position.z = CR.L1; boom1.add(boom2);
+addCyl(0.2, 0.2, 0.42, dark, 0, 0, 0, boom2, 12).rotation.z = Math.PI / 2;
+addBox(0.24, 0.28, CR.L2, paint, 0, 0, CR.L2 / 2, boom2);
+addBox(0.16, 0.2, CR.L2 * 0.6, paint2, 0, 0, CR.L2 * 0.75, boom2);
+addCyl(0.06, 0.06, CR.L2 * 0.6, steel, 0, 0.22, CR.L2 * 0.4, boom2, 8).rotation.x = Math.PI / 2;
+const head = new THREE.Group(); head.position.z = CR.L2; boom2.add(head);
+const headYaw = new THREE.Group(); head.add(headYaw);
+addCyl(0.12, 0.12, 0.35, dark, 0, -0.18, 0, headYaw, 10);
+addBox(0.6, 0.95, 0.42, paint, 0, -0.85, 0, headYaw);
+addBox(0.62, 0.1, 0.44, dark, 0, -0.4, 0, headYaw);
+const rollers = [];
+for (const x of [-0.32, 0.32]) { const r = addCyl(0.16, 0.16, 0.5, dark, x, -0.85, 0.3, headYaw, 7); rollers.push(r); }
+const grabs = [];
+for (const sgn of [-1, 1]) { const g = new THREE.Group(); g.position.set(sgn * 0.3, -0.55, 0.2); headYaw.add(g); addBox(0.08, 0.14, 0.6, dark, sgn * 0.12, 0, 0.3, g); addBox(0.08, 0.14, 0.32, dark, -sgn * 0.02, 0, 0.62, g).rotation.y = -sgn * 0.9; grabs.push(g); }
+const barG = new THREE.Group(); barG.position.set(-0.22, -1.32, 0); headYaw.add(barG);
+addBox(0.12, 0.06, 1.15, steel, 0, 0, 0.55, barG);
+addBox(0.14, 0.03, 1.2, new THREE.MeshStandardMaterial({ color: 0x555a60, metalness: 1, roughness: 0.3 }), 0, 0.04, 0.55, barG);
+addCyl(0.13, 0.13, 0.1, paint, 0, 0, 0, barG, 12);
+const craneCur = new THREE.Vector3(0, 0.4, 2.0), craneRest = new THREE.Vector3(0, 1.0, 3.4);
+function solveCrane(tgt) {
+  turret.rotation.y = Math.atan2(tgt.x, tgt.z);
+  const d = Math.max(0.2, Math.hypot(tgt.x, tgt.z)), h = tgt.y - 0.3, L1 = CR.L1, L2 = CR.L2;
+  const r = clamp(Math.hypot(d, h), 0.8, L1 + L2 - 0.02);
+  const a1 = Math.atan2(h, d) + Math.acos(clamp((L1 * L1 + r * r - L2 * L2) / (2 * L1 * r), -1, 1));
+  const el = Math.PI - Math.acos(clamp((L1 * L1 + L2 * L2 - r * r) / (2 * L1 * L2), -1, 1));
+  boom1.rotation.x = -a1; boom2.rotation.x = el; head.rotation.x = -(boom1.rotation.x + boom2.rotation.x);
+}
+solveCrane(craneCur);
 const cargoLogs = new THREE.Group(); harv.add(cargoLogs);
 scene.add(harv);
 const car = { x: 0, z: 10, yaw: Math.PI, v: 0, cargo: 0 };
+harv.position.set(car.x, heightAt(car.x, car.z), car.z); harv.rotation.y = car.yaw;
 const logGeo = new THREE.CylinderGeometry(0.22, 0.22, 2.0, 10); logGeo.rotateZ(Math.PI / 2);
 function makeLog() {
   const m = new THREE.Mesh(logGeo, [logMat, logEndMat, logEndMat]); m.castShadow = true; return m;
@@ -269,8 +321,8 @@ function refreshCargoVisual() {
   while (cargoLogs.children.length > car.cargo) cargoLogs.remove(cargoLogs.children[cargoLogs.children.length - 1]);
   while (cargoLogs.children.length < car.cargo) {
     const i = cargoLogs.children.length, l = makeLog();
-    const row = i % 5, layer = (i / 5) | 0;
-    l.position.set(0, 1.7 + layer * 0.42, -0.4 - row * 0.42 + (layer % 2) * 0.2); l.scale.x = 1.05;
+    const row = i % 4, layer = (i / 4) | 0;
+    l.rotation.y = Math.PI / 2; l.position.set(-0.66 + row * 0.44 + (layer % 2) * 0.1, 1.82 + layer * 0.4, -2.7);
     cargoLogs.add(l);
   }
 }
@@ -299,6 +351,11 @@ const depotG = new THREE.Group(); depotG.position.set(DEPOT.x, heightAt(DEPOT.x,
   roof.position.set(0, 5, -3); roof.castShadow = true; depotG.add(roof);
   for (const x of [-3.8, 3.8]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, 5, 0.3), dark); p.position.set(x, 2.5, -1.2); depotG.add(p); }
 }
+const depotArrow = (() => { const g = new THREE.Group(), m = new THREE.MeshStandardMaterial({ color: 0x7dff9a, emissive: 0x2fff6a, emissiveIntensity: 1.5 });
+  const sh = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.3, 16), m); sh.rotation.x = Math.PI / 2; sh.position.z = 1.0; g.add(sh);
+  const b = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 1.2), m); g.add(b); g.visible = false; scene.add(g); return g; })();
+{ const beam = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 60, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0x7dff9a, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+  beam.position.y = 30; depotG.add(beam); }
 const pileG = new THREE.Group(); pileG.position.set(DEPOT.x + 7, depotG.position.y, DEPOT.z - 2); scene.add(pileG);
 function refreshPile() {
   const n = Math.min(S.stock, 60);
@@ -519,17 +576,24 @@ function setLoop(node, v, t = 0.08) { if (A.ctx) node.gain.setTargetAtTime(A.mut
 const keys = {};
 addEventListener('keydown', e => { keys[e.code] = true; if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault(); });
 addEventListener('keyup', e => keys[e.code] = false);
-const joy = { x: 0, y: 0, id: null };
-const isTouch = matchMedia('(pointer:coarse)').matches;
-if (isTouch) $('joy').style.display = 'block';
-$('joy').addEventListener('pointerdown', e => { joy.id = e.pointerId; $('joy').setPointerCapture(e.pointerId); moveJoy(e); });
-$('joy').addEventListener('pointermove', e => { if (e.pointerId === joy.id) moveJoy(e); });
-$('joy').addEventListener('pointerup', () => { joy.id = null; joy.x = joy.y = 0; $('knob').style.transform = ''; });
+// floating joystick: press/drag anywhere on the 3D view (mouse or touch)
+const joy = { x: 0, y: 0, id: null, ox: 0, oy: 0 };
+const cv = renderer.domElement; cv.style.touchAction = 'none'; cv.tabIndex = 0;
+cv.addEventListener('pointerdown', e => {
+  if (game.phase !== 'harvest' || joy.id !== null) return;
+  joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; cv.setPointerCapture(e.pointerId); cv.focus();
+  const j = $('joy'); j.style.display = 'block'; j.style.left = (e.clientX - 65) + 'px'; j.style.top = (e.clientY - 65) + 'px'; moveJoy(e);
+});
+cv.addEventListener('pointermove', e => { if (e.pointerId === joy.id) moveJoy(e); });
+const endJoy = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; $('knob').style.transform = ''; $('joy').style.display = 'none'; };
+cv.addEventListener('pointerup', endJoy); cv.addEventListener('pointercancel', endJoy);
 function moveJoy(e) {
-  const r = $('joy').getBoundingClientRect(); let dx = e.clientX - r.left - 65, dy = e.clientY - r.top - 65;
+  let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy;
   const l = Math.hypot(dx, dy); if (l > 45) { dx *= 45 / l; dy *= 45 / l; }
   joy.x = dx / 45; joy.y = dy / 45; $('knob').style.transform = `translate(${dx}px,${dy}px)`;
 }
+let camZoom = 1;
+addEventListener('wheel', e => { camZoom = clamp(camZoom + Math.sign(e.deltaY) * 0.1, 0.6, 1.6); }, { passive: true });
 
 // ---------- Game state ----------
 const game = { phase: 'menu', t: 0, shake: 0 };
@@ -553,62 +617,96 @@ document.querySelectorAll('[data-up]').forEach(b => b.addEventListener('click', 
   S.coins -= c; S.up[k]++; save(); sfx.buy(); hint(`${UP[k].name} upgraded to Lv${S.up[k] + 1}!`); updateHUD();
 }));
 $('muteBtn').addEventListener('click', () => { A.muted = !A.muted; $('muteBtn').textContent = 'Sound: ' + (A.muted ? 'Off' : 'On'); if (A.ctx) A.master.gain.setTargetAtTime(A.muted ? 0 : 0.8, now(), 0.05); });
-$('startBtn').addEventListener('click', () => { initAudio(); A.ctx.resume(); $('start').style.display = 'none'; game.phase = 'harvest'; updateHUD(); hint('Drive into trees to cut them down!', 4); });
+$('startBtn').addEventListener('click', () => { initAudio(); A.ctx.resume(); $('start').style.display = 'none'; game.phase = 'harvest'; updateHUD(); hint('Drag anywhere or use WASD to drive. Pull up next to a tree and the crane cuts it.', 6); renderer.domElement.focus(); });
 $('launchBtn').addEventListener('click', () => { if (game.phase === 'harvest' && S.stock >= 10) startBuild(); });
 $('againBtn').addEventListener('click', backToForest);
 
 // ---------- Harvest update ----------
+let target = null;
+const CAM_OFF = new THREE.Vector3(7, 10.5, 13); // 3/4 chase view, fixed orientation
+const CAM_UP = new THREE.Vector2(-CAM_OFF.x, -CAM_OFF.z).normalize();
 function updateHarvest(dt) {
-  let thr = 0, steer = 0;
-  if (keys.KeyW || keys.ArrowUp) thr += 1; if (keys.KeyS || keys.ArrowDown) thr -= 1;
-  if (keys.KeyA || keys.ArrowLeft) steer += 1; if (keys.KeyD || keys.ArrowRight) steer -= 1;
-  if (joy.id !== null) {
-    // joystick: direction relative to camera
-    const mag = Math.min(1, Math.hypot(joy.x, joy.y));
-    if (mag > 0.15) {
-      const camYaw = Math.atan2(camera.position.x - car.x, camera.position.z - car.z);
-      const target = camYaw + Math.atan2(joy.x, joy.y) + Math.PI;
-      let diff = Math.atan2(Math.sin(target - car.yaw), Math.cos(target - car.yaw));
-      steer = clamp(diff * 2, -1, 1); thr = mag * (Math.abs(diff) < 2 ? 1 : -0.5);
-    }
-  }
+  // screen-relative input: up = away from camera (north), right = east
+  let ix = 0, iy = 0;
+  if (keys.KeyW || keys.ArrowUp) iy += 1; if (keys.KeyS || keys.ArrowDown) iy -= 1;
+  if (keys.KeyD || keys.ArrowRight) ix += 1; if (keys.KeyA || keys.ArrowLeft) ix -= 1;
+  if (joy.id !== null) { ix += joy.x; iy -= joy.y; }
+  let mag = Math.min(1, Math.hypot(ix, iy));
   const ms = maxSpeed();
-  car.v += thr * 18 * dt; car.v *= Math.pow(thr ? 0.6 : 0.15, dt);
-  car.v = clamp(car.v, -ms * 0.4, ms);
-  car.yaw += steer * dt * 2.2 * clamp(Math.abs(car.v) / 4, 0.3, 1) * Math.sign(car.v || 1);
+  let want = 0;
+  if (mag > 0.12) {
+    const wx = -CAM_UP.y * ix + CAM_UP.x * iy, wz = CAM_UP.x * ix + CAM_UP.y * iy; // screen -> world
+    const ty = Math.atan2(wx, wz);
+    const diff = Math.atan2(Math.sin(ty - car.yaw), Math.cos(ty - car.yaw));
+    car.yaw += Math.sign(diff) * Math.min(Math.abs(diff), dt * 3.8);
+    want = ms * mag * clamp(Math.cos(diff) * 0.8 + 0.3, 0, 1);
+  }
+  car.v = lerp(car.v, want, 1 - Math.pow(want > car.v ? 0.2 : 0.02, dt));
   let nx = car.x + Math.sin(car.yaw) * car.v * dt, nz = car.z + Math.cos(car.yaw) * car.v * dt;
-  // collisions with uncut trees (except the one being sawed)
-  const sawX = car.x + Math.sin(car.yaw) * 3.9, sawZ = car.z + Math.cos(car.yaw) * 3.9;
-  let sawing = null;
+  // soft collisions: trees push the machine aside so it slides instead of sticking
+  const fx = Math.sin(car.yaw), fz = Math.cos(car.yaw);
   for (const t of trees) {
-    if (t.state !== 'alive') continue;
-    const d = Math.hypot(t.x - nx, t.z - nz);
-    if (d < 2.2) { nx = car.x; nz = car.z; car.v *= 0.3; }
-    if (Math.hypot(t.x - sawX, t.z - sawZ) < 1.4 && !sawing) sawing = t;
+    if (t.state !== 'alive' && t.state !== 'growing') continue;
+    if (Math.abs(t.x - nx) > 6 || Math.abs(t.z - nz) > 6) continue;
+    for (const o of [-2.6, 0, 2.2]) {
+      const px = nx + fx * o, pz = nz + fz * o, dx = px - t.x, dz = pz - t.z, d = Math.hypot(dx, dz), R = 1.55;
+      if (d < R && d > 0.001) { nx += dx / d * (R - d); nz += dz / d * (R - d); car.v *= 0.97; }
+    }
   }
   const padD = Math.hypot(nx - PAD.x, nz - PAD.z);
-  if (padD < 11) { const a = Math.atan2(nz - PAD.z, nx - PAD.x); nx = PAD.x + Math.cos(a) * 11; nz = PAD.z + Math.sin(a) * 11; car.v *= 0.5; }
+  if (padD < 12) { const a = Math.atan2(nz - PAD.z, nx - PAD.x); nx = PAD.x + Math.cos(a) * 12; nz = PAD.z + Math.sin(a) * 12; }
   car.x = clamp(nx, -WORLD, WORLD); car.z = clamp(nz, -WORLD, WORLD);
 
-  if (sawing) {
-    if (car.cargo >= capacity()) { if (hintTimer <= 0) hint('Cargo full! Unload at the green depot by the launch pad.'); sawing = null; }
-    else {
-      if (sawing.cut === 0) sawing.cut = 1e-4;
-      sawing.cut += dt / cutTime();
-      sawing.pivot.rotation.z = Math.sin(game.t * 60) * 0.02;
-      for (let i = 0; i < 3; i++) emit({ x: sawX, y: heightAt(sawX, sawZ) + 0.9, z: sawZ, vx: rand(-4, 4), vy: rand(2, 6), vz: rand(-4, 4), g: 12, life: 0.6, max: 0.6, size: 0.18, c0: [0.95, 0.8, 0.5], c1: [0.7, 0.5, 0.3] });
-      if (sawing.cut >= 1) {
-        sawing.state = 'falling'; sawing.pivot.rotation.z = 0;
-        sawing.fallDir = car.yaw - sawing.g.rotation.y; sfx.crack();
-      }
+  // place harvester (before crane so world->local is current)
+  const h = heightAt(car.x, car.z);
+  harv.position.set(car.x, h, car.z); harv.rotation.y = car.yaw;
+  const hf = heightAt(car.x + fx * 2.5, car.z + fz * 2.5), hb = heightAt(car.x - fx * 2.5, car.z - fz * 2.5);
+  harv.rotation.x = -Math.atan2(hf - hb, 5);
+  harv.updateMatrixWorld(true);
+
+  // crane auto-targets the nearest reachable tree in front
+  const full = car.cargo + flyingLogs.length >= capacity();
+  if (target && (target.state !== 'alive' || full)) target = null;
+  const toLocal = (x, y, z) => harv.worldToLocal(new THREE.Vector3(x, y, z)).sub(CR.root);
+  if (target) { const l = toLocal(target.x, 0, target.z); if (Math.hypot(l.x, l.z) > 5.9) target = null; }
+  if (!target && !full) {
+    let best = 5.2;
+    for (const t of trees) {
+      if (t.state !== 'alive' || Math.abs(t.x - car.x) > 10 || Math.abs(t.z - car.z) > 10) continue;
+      const l = toLocal(t.x, 0, t.z), d = Math.hypot(l.x, l.z);
+      if (l.z > -0.5 && d < best && d > 1.0) { best = d; target = t; }
     }
   }
+  if (full && hintTimer <= 0) hint('Cargo full! Follow the arrow to the green depot.', 2);
+  let gripped = false;
+  if (target) {
+    const l = toLocal(target.x, heightAt(target.x, target.z) + 1.9, target.z);
+    const hd = Math.hypot(l.x, l.z); l.x *= (hd - 0.5) / hd; l.z *= (hd - 0.5) / hd; // stop at the bark
+    craneCur.lerp(l, 1 - Math.pow(0.002, dt));
+    gripped = craneCur.distanceTo(l) < 0.35;
+  } else craneCur.lerp(craneRest, 1 - Math.pow(0.05, dt));
+  solveCrane(craneCur);
+  headYaw.rotation.y = lerp(headYaw.rotation.y, 0, dt * 5);
+  grabs.forEach((g, k) => g.rotation.y = lerp(g.rotation.y, gripped ? (k ? -0.55 : 0.55) : 0, dt * 8));
+  let sawing = null;
+  if (gripped) {
+    sawing = target;
+    sawing.cut = Math.max(sawing.cut, 1e-4) + dt / cutTime();
+    barG.rotation.y = -Math.min(sawing.cut, 1) * 1.5;
+    sawing.pivot.rotation.z = Math.sin(game.t * 60) * 0.015;
+    const bp = new THREE.Vector3(0, 0, 0.5); barG.localToWorld(bp);
+    for (let i = 0; i < 4; i++) emit({ x: bp.x, y: bp.y, z: bp.z, vx: rand(-4, 4), vy: rand(1, 5), vz: rand(-4, 4), g: 12, life: 0.6, max: 0.6, size: 0.16, c0: [0.95, 0.8, 0.5], c1: [0.7, 0.5, 0.3] });
+    rollers.forEach(r => r.rotation.x += dt * 20);
+    if (sawing.cut >= 1) {
+      sawing.state = 'falling'; sawing.pivot.rotation.set(0, 0, 0);
+      sawing.fallDir = Math.atan2(sawing.x - car.x, sawing.z - car.z) - sawing.g.rotation.y; sfx.crack(); target = null;
+    }
+  } else barG.rotation.y = lerp(barG.rotation.y, 0, dt * 6);
   // audio loops
   setLoop(A.eng.g, 0.05 + Math.abs(car.v) / ms * 0.08);
   if (A.ctx) { A.eng.o1.frequency.setTargetAtTime(42 + Math.abs(car.v) * 4, now(), 0.1); A.eng.o2.frequency.setTargetAtTime(21 + Math.abs(car.v) * 2, now(), 0.1); A.eng.fl.frequency.setTargetAtTime(250 + Math.abs(car.v) * 40, now(), 0.1); }
   setLoop(A.saw.g, sawing ? 0.09 : 0.025); setLoop(A.sawN.g, sawing ? 0.12 : 0);
   if (A.ctx) A.saw.o.frequency.setTargetAtTime(sawing ? 140 : 210, now(), 0.05);
-  saw.userData.blade.rotation.x -= dt * (sawing ? 30 : 18);
 
   // depot unload
   const dd = Math.hypot(car.x - DEPOT.x, car.z - DEPOT.z);
@@ -621,20 +719,17 @@ function updateHarvest(dt) {
   }
   depotG.userData.mark.material.opacity = 0.5 + Math.sin(game.t * 4) * 0.3;
 
-  // place harvester
-  const h = heightAt(car.x, car.z);
-  harv.position.set(car.x, h, car.z); harv.rotation.y = car.yaw;
-  const hf = heightAt(car.x + Math.sin(car.yaw) * 2, car.z + Math.cos(car.yaw) * 2), hb = heightAt(car.x - Math.sin(car.yaw) * 2, car.z - Math.cos(car.yaw) * 2);
-  harv.rotation.x = -Math.atan2(hf - hb, 4);
-  wheels.forEach(w => w.rotation.x += car.v * dt / 0.62);
+  wheels.forEach(w => w.rotation.x += car.v * dt / 0.66);
+  depotArrow.visible = full || car.cargo >= capacity(); if (depotArrow.visible) { depotArrow.position.set(car.x, h + 5.5 + Math.sin(game.t * 4) * 0.3, car.z); depotArrow.rotation.y = Math.atan2(DEPOT.x - car.x, DEPOT.z - car.z); }
   beacons.forEach((b, i) => b.rotation.y += dt * 8); beaconM.emissiveIntensity = 1.5 + Math.max(0, Math.sin(game.t * 8)) * 4;
   if (Math.abs(car.v) > 3 && Math.random() < 0.4) emit({ x: car.x - Math.sin(car.yaw) * 2, y: h + 0.3, z: car.z - Math.cos(car.yaw) * 2, vx: rand(-1, 1), vy: rand(0.5, 1.5), vz: rand(-1, 1), life: 1.2, max: 1.2, size: 0.6, grow: 1.2, c0: [0.6, 0.5, 0.38], c1: [0.7, 0.65, 0.55], a: 0.35 });
   // exhaust
-  if (Math.random() < 0.5) emit({ x: car.x + Math.sin(car.yaw) * 0.5 + Math.cos(car.yaw) * 0.9, y: h + 3.2, z: car.z + Math.cos(car.yaw) * 0.5 - Math.sin(car.yaw) * 0.9, vx: 0, vy: 2, vz: 0, life: 1, max: 1, size: 0.3, grow: 0.8, c0: [0.3, 0.3, 0.3], c1: [0.6, 0.6, 0.6], a: 0.4 });
+  if (Math.random() < 0.3 + Math.abs(car.v) / ms * 0.5) emit({ x: car.x - fx * 0.55 + fz * 0.6, y: h + 3.5, z: car.z - fz * 0.55 - fx * 0.6, vx: 0, vy: 2, vz: 0, life: 1, max: 1, size: 0.3, grow: 0.8, c0: [0.3, 0.3, 0.3], c1: [0.6, 0.6, 0.6], a: 0.4 });
 
   // camera
-  const back = new THREE.Vector3(car.x - Math.sin(car.yaw) * 16, h + 10, car.z - Math.cos(car.yaw) * 16);
-  camPos.lerp(back, 1 - Math.pow(0.03, dt)); camLook.lerp(new THREE.Vector3(car.x, h + 1.5, car.z), 1 - Math.pow(0.001, dt));
+  const lead = 2.5 * car.v / ms;
+  const back = new THREE.Vector3(car.x + fx * lead, h, car.z + fz * lead).addScaledVector(CAM_OFF, camZoom);
+  camPos.lerp(back, 1 - Math.pow(0.02, dt)); camLook.lerp(new THREE.Vector3(car.x + fx * lead, h + 1.6, car.z + fz * lead), 1 - Math.pow(0.01, dt));
   camera.position.copy(camPos); camera.lookAt(camLook);
   sun.position.set(car.x + SUN_OFF.x, SUN_OFF.y, car.z + SUN_OFF.z); sun.target.position.set(car.x, 0, car.z);
 }

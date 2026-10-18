@@ -36,7 +36,7 @@ canvas{display:block}
 .card p{font-size:18px;opacity:.85;margin:12px 0 22px;line-height:1.4}
 .card .big{font:900 46px Orbitron;color:var(--acc2)}
 .cta{font:900 18px Orbitron;padding:14px 34px;border-radius:40px;border:none;cursor:pointer;background:linear-gradient(135deg,#ff7a2d,#ffb547);color:#1a0d00;box-shadow:0 0 30px rgba(255,140,40,.5)}
-#joy{position:absolute;left:30px;bottom:30px;width:130px;height:130px;border-radius:50%;border:2px solid var(--line);background:rgba(0,0,0,.2);pointer-events:auto;display:none;touch-action:none}
+#joy{position:fixed;left:0;top:0;pointer-events:none;width:130px;height:130px;border-radius:50%;border:2px solid var(--line);background:rgba(0,0,0,.2);pointer-events:auto;display:none;touch-action:none}
 #knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.35)}
 #loader{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(ellipse at 50% 30%,#1d3350,#05070c 70%);transition:opacity .8s}
 #loader .lt{font:900 clamp(28px,6vw,54px) Orbitron;letter-spacing:4px;background:linear-gradient(180deg,#fff,#ffb547);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -78,7 +78,7 @@ setTimeout(function(){if(!window.__ready)__fail('WebGL may be disabled in this b
   <div id="vig"></div><div id="flash"></div>
   <div id="start" class="modal" style="display:flex"><div class="card panel">
     <h1>TIMBER ROCKET</h1>
-    <p>Drive the harvester into trees to cut them. Haul the logs to the depot by the launch pad.<br>Build a rocket from your stockpile, launch it, and see how high it goes. Then do it again, higher.<br><b>WASD / Arrows</b> to drive · touch joystick on mobile</p>
+    <p>Drive the harvester up to trees and its crane grabs and saws them. Haul the logs to the depot by the launch pad.<br>Build a rocket from your stockpile, launch it, and see how high it goes. Then do it again, higher.<br><b>WASD / Arrows</b> or <b>drag anywhere</b> to drive in that direction · mouse wheel to zoom</p>
     <button class="cta" id="startBtn">START</button></div></div>
   <div id="result" class="modal"><div class="card panel">
     <h1 id="resTitle">APEX REACHED</h1>
