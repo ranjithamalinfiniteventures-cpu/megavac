@@ -63,6 +63,33 @@ try {
     const alt = pl.pos.y; __game.press('KeyF'); S(1);
     return alt > 30 && __game.mode === 'foot' && h.state === 'air' || `alt ${alt} mode ${__game.mode} state ${h.state}`;
   });
+  await test('calls a car and corners without spinning out', () => {
+    __game.press('Digit1'); S(2); if (__game.mode !== 'car') return 'mode ' + __game.mode;
+    const c = __game.traffic.cars.find(k => k.called);
+    __game.keys.KeyW = true; S(200); __game.keys.KeyD = true;
+    let drift = 0; for (let i = 0; i < 60; i++) { S(1); drift = Math.max(drift, c.drift); }
+    __game.keys.KeyD = false; __game.keys.KeyW = false; __game.press('KeyF'); S(2);
+    return drift < 5 || `drift ${drift}`;
+  });
+  await test('blaster takes down a gang member', () => {
+    const g = __game, k = g.combat.goons.find(q => q.home.y < 1 && q.down <= 0), h = g.hero;
+    h.pos.set(k.pos.x + 12, 0.25, k.pos.z); h.vel.set(0, 0, 0); h.state = 'ground';
+    if (!h.gun) g.press('KeyQ'); S(2); g.cam.yaw = Math.PI / 2; g.cam.pitch = 0.05; S(20);
+    g.setMouse(true, false); S(150); g.setMouse(false, false);
+    return k.down > 0 || `goon hp ${k.hp}`;
+  });
+  await test('calls a tank and fires a shell', () => {
+    __game.press('Digit3'); S(2); if (__game.mode !== 'tank') return 'mode ' + __game.mode;
+    __game.keys.Space = true; S(2); __game.keys.Space = false;
+    const n = __game.combat.projectiles.length; S(330); __game.press('KeyF'); S(2);
+    return n === 1 && __game.combat.projectiles.length === 0 || `shells ${n}`;
+  });
+  await test('calls a plane mid-air and fires rockets', () => {
+    __game.press('Digit2'); S(2); if (__game.mode !== 'plane') return 'mode ' + __game.mode;
+    __game.keys.Space = true; S(40); __game.keys.Space = false;
+    const n = __game.combat.projectiles.length; S(60);
+    return n >= 2 && __game.plane.pos.y > 150 || `rockets ${n} alt ${__game.plane.pos.y}`;
+  });
   await page.evaluate(() => __game.render());
   assert.deepEqual(errors, []);
   console.log('PASS no page errors');

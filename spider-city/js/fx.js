@@ -39,6 +39,10 @@ export class FX {
       this.spawn(false, V(pos.x, -0.6, pos.z), V(rnd(4), 5 + Math.random() * 7, rnd(4)), 1, 0.2 + Math.random() * 0.2, 0xdff4ff, 25, 0.5);
     else if (type === 'pickup') for (let i = 0; i < 30; i++)
       this.spawn(true, pos, V(rnd(7), rnd(7), rnd(7)), 0.6 + Math.random() * 0.4, 0.15, new THREE.Color(4, 2.6, 0.6), 0, 3);
+    else if (type === 'trail') {
+      this.spawn(false, pos, V(rnd(0.3), rnd(0.3), rnd(0.3)), 0.5, 0.16, 0xbdbdbd, -0.3, 2, 1.6);
+      this.spawn(true, pos, V(0, 0, 0), 0.06, 0.18, new THREE.Color(5, 2, 0.5));
+    }
     else if (type === 'smoke') this.spawn(false, pos, V(rnd(0.6), 1.5 + Math.random(), rnd(0.6)), 1.2, 0.25, 0xd0d0d0, -0.5, 1.5, 2.2);
   }
   update(dt) {
@@ -113,6 +117,10 @@ export class Sound {
   splash() { this._burst(0.7, 'highpass', 2000, 600, 0.4); }
   explosion() { this._burst(1.8, 'lowpass', 1200, 40, 1.0); this._tone(1.2, 'sine', 90, 30, 0.6); }
   pickup() { this._tone(0.12, 'sine', 880, 1320, 0.2); setTimeout(() => this._tone(0.25, 'sine', 1320, 1760, 0.18), 90); }
+  shot(v = 0.5) { this._burst(0.09, 'highpass', 2600, 900, v); this._tone(0.06, 'square', 300, 90, v * 0.25); }
+  rocket() { this._burst(0.6, 'bandpass', 900, 2600, 0.35, 1.5); }
+  cannon() { this._burst(0.9, 'lowpass', 900, 50, 0.9); this._tone(0.5, 'sine', 70, 30, 0.5); }
+  hurt() { this._tone(0.15, 'sawtooth', 220, 110, 0.12); }
   door() { this._burst(0.12, 'lowpass', 700, 150, 0.35); }
   setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.6; }
   // kind: null | 'car' | 'plane'; x: 0..1 load

@@ -26,10 +26,10 @@ function box(w, h, d, x = 0, y = 0, z = 0, taperTop = 1, taperZ = 1) {
 
 const CAR_TYPES = {
   sedan: { w: 1.9, l: 4.3, h: 0.62, ch: 0.56, cl: 2.2, cz: -0.15, top: 26, acc: 15 },
-  sports: { w: 2.0, l: 4.4, h: 0.5, ch: 0.42, cl: 1.8, cz: -0.35, top: 52, acc: 26 },
+  sports: { w: 2.0, l: 4.4, h: 0.5, ch: 0.42, cl: 1.8, cz: -0.35, top: 44, acc: 24 },
   van: { w: 2.05, l: 4.9, h: 1.0, ch: 0.8, cl: 3.3, cz: -0.5, top: 30, acc: 12 },
   taxi: { w: 1.9, l: 4.4, h: 0.62, ch: 0.56, cl: 2.2, cz: -0.15, top: 34, acc: 17 },
-  muscle: { w: 2.0, l: 4.7, h: 0.6, ch: 0.48, cl: 2.0, cz: -0.4, top: 46, acc: 22 },
+  muscle: { w: 2.0, l: 4.7, h: 0.6, ch: 0.48, cl: 2.0, cz: -0.4, top: 40, acc: 21 },
 };
 
 function carMesh(type, color) {
@@ -57,7 +57,7 @@ function carMesh(type, color) {
     const w = new THREE.Mesh(wheelG, tireMat); w.add(new THREE.Mesh(rimG, rimMat)); pivot.add(w);
     wheels.push(w); if (sz > 0) steer.push(pivot);
   }
-  return { group: g, body, wheels, steer, tail, T };
+  return { group: g, body, wheels, steer, tail, T, paint };
 }
 
 export class Car {
@@ -68,6 +68,7 @@ export class Car {
     this.pos = new THREE.Vector3(x, world.col.groundAt(x, z, 1), z);
     this.yaw = yaw; this.vx = 0; this.vz = 0; this.vy = 0; this.steer = 0; this.spin = 0;
     this.ai = null; this.driven = false; this.idle = 0;
+    this.hp = 100; this.dead = 0; this.color = new THREE.Color(color);
     this.tilt = new THREE.Vector2(); this.braking = false; this.radius = this.T.l / 2;
     this.sync(0);
   }
@@ -76,28 +77,48 @@ export class Car {
   get speed() { return this.vx * this.fx + this.vz * this.fz; }
   get moving() { return Math.abs(this.vx) + Math.abs(this.vz) > 0.05 || this.vy !== 0; }
 
-  // Arcade handling: forward speed is driven, sideways speed bleeds off by grip (less on handbrake = drift).
+  // Arcade handling with assists: steering lock shrinks with speed, cornering force is capped
+  // so the car never snaps sideways, and sideways slide only builds up on the handbrake.
   drive(dt, inp) {
     const T = this.T, fx = this.fx, fz = this.fz, rx = -fz, rz = fx;
     let vf = this.vx * fx + this.vz * fz, vr = this.vx * rx + this.vz * rz;
     const thr = inp.raw.f;
     this.braking = false;
-    if (thr > 0) vf += (vf < T.top ? T.acc * (1 - Math.max(0, vf) / (T.top * 1.15)) + 4 : 0) * dt;
-    else if (thr < 0) { if (vf > 0.5) { vf -= 38 * dt; this.braking = true; } else vf = Math.max(-12, vf - 10 * dt); }
-    vf -= vf * 0.12 * dt + Math.sign(vf) * Math.min(Math.abs(vf), 1.5 * dt);
-    if (inp.handbrake) { vf -= Math.sign(vf) * Math.min(Math.abs(vf), 12 * dt); this.braking = true; }
-    const grip = inp.handbrake ? 1.6 : 9;
+    if (thr > 0) {
+      if (vf < -0.5) { vf += 30 * dt; this.braking = true; }
+      else vf += (vf < T.top ? T.acc * (1 - Math.max(0, vf) / (T.top * 1.1)) + 3 : 0) * thr * dt;
+    } else if (thr < 0) { if (vf > 0.5) { vf -= 32 * dt; this.braking = true; } else vf = Math.max(-10, vf + 9 * thr * dt); }
+    vf -= vf * 0.1 * dt + Math.sign(vf) * Math.min(Math.abs(vf), (thr === 0 ? 3 : 1) * dt);
+    if (inp.handbrake) { vf -= Math.sign(vf) * Math.min(Math.abs(vf), 10 * dt); this.braking = true; }
+    const grip = inp.handbrake ? 1.8 : 14;
     vr -= vr * Math.min(1, grip * dt);
-    this.steer += (-inp.raw.r - this.steer) * damp(8, dt);
-    const sf = Math.min(1, Math.abs(vf) / 6) * Math.sign(vf);
-    const yawRate = this.steer * 2.3 * sf / (1 + Math.abs(vf) / 32) * (inp.handbrake ? 1.5 : 1);
+    const lock = 1 / (1 + Math.abs(vf) / 20);
+    this.steer += (-inp.raw.r * lock - this.steer) * damp(inp.raw.r ? 7 : 10, dt);
+    const sf = Math.min(1, Math.abs(vf) / 5) * Math.sign(vf);
+    let yawRate = this.steer * 2.6 * sf;
+    const cap = inp.handbrake ? 3 : Math.min(2.4, 15 / Math.max(4, Math.abs(vf)));
+    yawRate = Math.max(-cap, Math.min(cap, yawRate)) * (inp.handbrake ? 1.4 : 1);
     this.yaw += yawRate * dt;
     const nfx = Math.sin(this.yaw), nfz = Math.cos(this.yaw);
     this.vx = nfx * vf + -nfz * vr; this.vz = nfz * vf + nfx * vr;
     this.drift = Math.abs(vr);
-    this.tilt.x += ((thr > 0 ? -0.025 : this.braking ? 0.05 : 0) - this.tilt.x) * damp(6, dt);
-    this.tilt.y += (-yawRate * vf * 0.004 - this.tilt.y) * damp(6, dt);
+    this.tilt.x += ((thr > 0 ? -0.02 : this.braking ? 0.04 : 0) - this.tilt.x) * damp(6, dt);
+    this.tilt.y += (-yawRate * vf * 0.0035 - this.tilt.y) * damp(6, dt);
     return this.integrate(dt);
+  }
+
+  // returns true when this hit destroyed the car
+  damage(amount) {
+    if (this.dead) return false;
+    this.hp -= amount;
+    if (this.hp > 0) return false;
+    this.dead = 1; this.ai = null; this.idle = 0;
+    this.m.paint.color.set(0x1d1b1a);
+    this.vy = 7; this.spin = (Math.random() - 0.5) * 4;
+    return true;
+  }
+  repair() {
+    this.hp = 100; this.dead = 0; this.m.paint.color.copy(this.color);
   }
 
   coast(dt) {
@@ -118,7 +139,7 @@ export class Car {
       if (col.pushCircle(v1, 1.05, p.y, 1.6, 0.6, nTmp)) {
         p.x += v1.x - bx; p.z += v1.z - bz;
         const vn = this.vx * nTmp.x + this.vz * nTmp.z;
-        if (vn < 0) { this.vx -= 1.35 * vn * nTmp.x; this.vz -= 1.35 * vn * nTmp.z; impact = Math.max(impact, -vn); }
+        if (vn < 0) { this.vx -= 1.15 * vn * nTmp.x; this.vz -= 1.15 * vn * nTmp.z; this.vx *= 0.85; this.vz *= 0.85; impact = Math.max(impact, -vn); }
       }
     }
     const g = col.groundAt(p.x, p.z, p.y);
@@ -221,7 +242,8 @@ export class Traffic {
   }
 
   update(dt, ctx) {
-    const { playerCar, heroPos, fx, sound, peds } = ctx;
+    const { playerCar, heroPos, fx, sound } = ctx;
+    const playerPos = ctx.playerPos || heroPos;
     for (const car of this.cars) {
       if (car.ai) {
         const ai = car.ai;
@@ -277,9 +299,11 @@ export class Traffic {
     }
     // loose cars far from the player drift back into traffic
     for (const car of this.cars) {
-      if (car.ai || car === playerCar || car.parked) continue;
+      if (car.ai || car === playerCar || car.parked || car.called) continue;
       car.idle += dt;
-      if (car.idle > 30 && (!heroPos || car.pos.distanceTo(heroPos) > 120)) {
+      if (car.dead && car.idle < 12 && Math.random() < dt * 6) fx.burst('smoke', v1.set(car.pos.x, car.pos.y + 1.4, car.pos.z));
+      if (car.idle > 30 && (!playerPos || car.pos.distanceTo(playerPos) > 120)) {
+        car.repair();
         const k = Math.floor(this.R() * (N + 1)), l = Math.floor(this.R() * (N + 1)), nb = neighbors(k, l);
         car.idle = 0; car.tilt.set(0, 0); car.spin = 0; car.vy = 0;
         this._startAI(car, [k, l], nb[Math.floor(this.R() * nb.length)], this.R());
@@ -289,7 +313,7 @@ export class Traffic {
 
   nearest(p, maxD) {
     let best = null, bd = maxD;
-    for (const c of this.cars) { const d = c.pos.distanceTo(p); if (d < bd) { bd = d; best = c; } }
+    for (const c of this.cars) { if (c.dead) continue; const d = c.pos.distanceTo(p); if (d < bd) { bd = d; best = c; } }
     return best;
   }
 }
@@ -446,6 +470,20 @@ export class Peds {
     const dx = (b[0] - a[0]) * p.dir, dz = (b[1] - a[1]) * p.dir;
     p.yaw = Math.atan2(dx, dz);
   }
+  knock(p, vx, vy, vz) { p.vel.set(vx, vy, vz); p.down = 8; p.spin = 0; }
+  // nearest standing pedestrian hit by a ray (for bullets)
+  ray(o, d, maxD) {
+    let best = null, bd = maxD;
+    for (const p of this.list) {
+      if (p.down > 0) continue;
+      const cx = p.pos.x - o.x, cy = p.pos.y + 1 - o.y, cz = p.pos.z - o.z;
+      const t = cx * d.x + cy * d.y + cz * d.z;
+      if (t < 0 || t > bd) continue;
+      const qx = cx - d.x * t, qy = cy - d.y * t, qz = cz - d.z * t;
+      if (qx * qx + qy * qy * 0.25 + qz * qz < 0.45 * 0.45) { bd = t; best = p; }
+    }
+    return best ? { obj: best, dist: bd } : null;
+  }
   update(dt, threats, fx, sound) {
     const per = (2 * (BLOCK - 3.6));
     this.list.forEach((p, i) => {
@@ -464,8 +502,8 @@ export class Peds {
           const dx = p.pos.x - t.pos.x, dz = p.pos.z - t.pos.z, d2 = dx * dx + dz * dz;
           if (d2 < 2.4 * 2.4 && t.speed > 6) { // hit
             const d = Math.sqrt(d2) || 1;
-            p.vel.set(dx / d * t.speed * 0.6 + t.vx * 0.4, 4 + t.speed * 0.25, dz / d * t.speed * 0.6 + t.vz * 0.4);
-            p.down = 8; fx.burst('dust', p.pos, 6); sound.thud();
+            this.knock(p, dx / d * t.speed * 0.6 + t.vx * 0.4, 4 + t.speed * 0.25, dz / d * t.speed * 0.6 + t.vz * 0.4);
+            fx.burst('dust', p.pos, 6); sound.thud();
             break;
           }
           if (d2 < 14 * 14 && t.speed > 4) { fleeing = true; p.flee = 1.5; }
@@ -491,5 +529,88 @@ export class Peds {
       set('armL', 0.27, 0.56, 0, -sw * 0.8); set('armR', -0.27, 0.56, 0, sw * 0.8);
     });
     for (const k in this.meshes) this.meshes[k].instanceMatrix.needsUpdate = true;
+  }
+}
+
+// ---------------- tank ----------------
+function tankMesh() {
+  const g = new THREE.Group();
+  const olive = new THREE.MeshStandardMaterial({ color: 0x5b6b3a, roughness: 0.75, flatShading: true });
+  const olive2 = new THREE.MeshStandardMaterial({ color: 0x4a5830, roughness: 0.8, flatShading: true });
+  const add = (parent, geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+  add(g, box(3.0, 0.9, 6.2, 0, 1.15, 0, 0.92, 0.9), olive);
+  add(g, box(3.2, 0.25, 5.6, 0, 1.55, -0.1, 0.95, 0.95), olive2);
+  const wheels = [];
+  for (const s of [-1, 1]) {
+    add(g, box(0.7, 0.95, 6.6, s * 1.6, 0.55, 0), tireMat);
+    for (let k = 0; k < 6; k++) {
+      const w = add(g, new THREE.CylinderGeometry(0.42, 0.42, 0.74, 8).rotateZ(Math.PI / 2), rimMat, s * 1.62, 0.5, -2.6 + k * 1.04);
+      wheels.push(w);
+    }
+  }
+  const turret = new THREE.Group(); turret.position.set(0, 1.7, -0.2); g.add(turret);
+  add(turret, box(2.3, 0.85, 2.8, 0, 0.42, 0, 0.82, 0.85), olive);
+  add(turret, new THREE.CylinderGeometry(0.42, 0.42, 0.3, 8), olive2, 0.5, 0.95, -0.5);
+  const pivot = new THREE.Group(); pivot.position.set(0, 0.45, 1.3); turret.add(pivot);
+  const barrel = new THREE.Group(); pivot.add(barrel);
+  add(barrel, new THREE.CylinderGeometry(0.16, 0.2, 3.6, 8).rotateX(Math.PI / 2), olive2, 0, 0, 1.8);
+  add(barrel, new THREE.CylinderGeometry(0.24, 0.24, 0.5, 8).rotateX(Math.PI / 2), darkMat, 0, 0, 3.6);
+  const lamp = new THREE.Mesh(box(0.3, 0.18, 0.08), headMat); lamp.position.set(1.0, 1.35, 3.12); g.add(lamp);
+  const lamp2 = lamp.clone(); lamp2.position.x = -1.0; g.add(lamp2);
+  return { group: g, turret, pivot, barrel, wheels };
+}
+
+export class Tank {
+  constructor(scene, world) {
+    this.world = world;
+    this.m = tankMesh(); scene.add(this.m.group);
+    this.pos = new THREE.Vector3(); this.yaw = 0; this.speed = 0; this.vy = 0;
+    this.turretYaw = 0; this.pitch = 0.05; this.cooldown = 0; this.recoil = 0;
+    this.active = false; this.m.group.visible = false;
+  }
+  place(x, z, yaw) {
+    this.pos.set(x, this.world.col.groundAt(x, z, 2), z); this.yaw = yaw; this.turretYaw = yaw; this.speed = 0;
+    this.active = true; this.m.group.visible = true; this.sync(0);
+  }
+  get fx() { return Math.sin(this.yaw); }
+  get fz() { return Math.cos(this.yaw); }
+  // tank steering: A/D turns the hull on the spot, the turret follows the camera aim
+  drive(dt, inp, aimYaw, aimPitch) {
+    const target = inp.raw.f * (inp.raw.f > 0 ? 15 : 7);
+    this.speed += Math.max(-9 * dt, Math.min(9 * dt, target - this.speed));
+    this.yaw -= inp.raw.r * (1.3 - Math.min(0.5, Math.abs(this.speed) / 30)) * dt;
+    const col = this.world.col, p = this.pos;
+    p.x += this.fx * this.speed * dt; p.z += this.fz * this.speed * dt;
+    let impact = 0;
+    for (const off of [1.8, 0, -1.8]) {
+      v1.set(p.x + this.fx * off, 0, p.z + this.fz * off);
+      const bx = v1.x, bz = v1.z;
+      if (col.pushCircle(v1, 1.75, p.y, 2.5, 0.7, nTmp)) {
+        p.x += v1.x - bx; p.z += v1.z - bz;
+        impact = Math.max(impact, Math.abs(this.speed)); this.speed *= 0.6;
+      }
+    }
+    const g = col.groundAt(p.x, p.z, p.y, 0.7);
+    if (p.y > g + 0.05) { this.vy -= 30 * dt; p.y = Math.max(g, p.y + this.vy * dt); if (p.y === g) this.vy = 0; }
+    else { p.y += (g - p.y) * Math.min(1, dt * 15); this.vy = 0; }
+    this.turretYaw += Math.max(-2.2 * dt, Math.min(2.2 * dt, wrapA(aimYaw - this.turretYaw)));
+    this.pitch += (Math.max(-0.12, Math.min(0.55, aimPitch)) - this.pitch) * damp(6, dt);
+    this.cooldown = Math.max(0, this.cooldown - dt);
+    this.recoil = Math.max(0, this.recoil - dt * 2.5);
+    this.sync(dt);
+    return impact;
+  }
+  muzzle(outPos, outDir) {
+    this.m.barrel.updateWorldMatrix(true, false);
+    outPos.set(0, 0, 3.9).applyMatrix4(this.m.barrel.matrixWorld);
+    outDir.set(0, 0, 1).transformDirection(this.m.barrel.matrixWorld);
+  }
+  sync(dt) {
+    const g = this.m.group;
+    g.position.copy(this.pos); g.rotation.y = this.yaw;
+    this.m.turret.rotation.y = wrapA(this.turretYaw - this.yaw);
+    this.m.pivot.rotation.x = -this.pitch;
+    this.m.barrel.position.z = -this.recoil * 0.6;
+    for (const w of this.m.wheels) w.rotation.x += this.speed * dt / 0.42;
   }
 }

@@ -67,6 +67,7 @@ export class Hero {
     this.web.visible = false; this.web.frustumCulled = false; scene.add(this.web);
     this.handPos = new THREE.Vector3();
     this.shake = 0;
+    this.gun = false; this.aimT = 0; this.aimYaw = 0; this.aimPitch = 0;
   }
 
   _build() {
@@ -115,6 +116,13 @@ export class Hero {
       add(j['el' + n], limb(0.05, 0.17), red);
       j['hd' + n] = joint(j['el' + n], 0, -0.27, 0);
       add(j['hd' + n], new THREE.BoxGeometry(0.08, 0.1, 0.065), red, 0, -0.04, 0);
+      if (n === 'R') { // blaster, hidden until the gun is selected
+        const gun = new THREE.Group(); j.hdR.add(gun); this.gunMesh = gun;
+        add(gun, new THREE.BoxGeometry(0.07, 0.3, 0.1), black, 0, -0.16, 0.03);
+        add(gun, new THREE.BoxGeometry(0.06, 0.08, 0.16), black, 0, -0.06, -0.04);
+        add(gun, new THREE.BoxGeometry(0.075, 0.05, 0.11), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 1.6, 3) }), 0, -0.29, 0.03);
+        gun.visible = false;
+      }
       j['hp' + n] = joint(j.body, s * 0.095, -0.06, 0);
       add(j['hp' + n], limb(0.078, 0.27), blue);
       j['kn' + n] = joint(j['hp' + n], 0, -0.42, 0);
@@ -361,6 +369,10 @@ export class Hero {
     let bodyY = 0.98, k = 16;
     const targetQ = qTmp;
     if (hs > 0.6 && (s === 'ground' || s === 'air')) this.facing = Math.atan2(this.vel.x, this.vel.z);
+    this.aimT = Math.max(0, this.aimT - dt);
+    const aiming = this.gun && this.aimT > 0 && (s === 'ground' || s === 'air');
+    if (aiming) this.facing = this.aimYaw;
+    this.gunMesh.visible = this.gun;
 
     if (s === 'ground') {
       if (this.landT > 0) {
@@ -446,6 +458,11 @@ export class Hero {
       k = 14;
     }
 
+    if (aiming) { // point the blaster down the crosshair
+      P.shR = [-1.5 - this.aimPitch, 0, -0.05]; P.elR = [-0.05, 0, 0];
+      P.neck = [-this.aimPitch * 0.6, 0, 0];
+      if (s === 'ground' && hs < 0.5) { P.shL = [-1.0 - this.aimPitch, 0, -0.45]; P.elL = [-0.7, 0, 0]; }
+    }
     // smooth joint blending
     const f = damp(k, dt);
     for (const name in j) {
