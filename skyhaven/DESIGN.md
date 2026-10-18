@@ -14,7 +14,7 @@ island and the sounds are generated in code.
 | -------------------------------- | ------------------------------------------------------------ |
 | Square grid on a flat field      | **Hex** tiles on a floating island with a waterfall          |
 | Daytime, flat green background   | **Sunset sky**: stars, sun glow, drifting clouds, birds      |
-| Same material all the way up     | Story chain: twigs → workbench → tent → hut → … → castle     |
+| Same material all the way up     | Story chain: twigs → workbench → tent → hut → … → castle → airship → citadel     |
 | Single "upgrade" button          | Upgrade **sheet** with five upgrades that change how you play |
 | Progress bar only                | **Village panorama**: discoveries appear on distant islands  |
 | Instant spawn                    | Items **drop from the sky** with squash and stretch          |
@@ -22,7 +22,7 @@ island and the sounds are generated in code.
 
 ## Core loop
 
-1. **Summon**: uses one charge, drops a tier-1 item (sometimes tier 2) on a free tile.
+1. **Summon**: uses one charge, drops a starter item (sometimes one tier higher) on a free tile.
    Charges refill over time.
 2. **Merge**: drag an item onto one of the same tier to make the next tier.
    Dropping onto a different item swaps them. Dropping onto an empty tile moves it.
@@ -34,7 +34,7 @@ island and the sounds are generated in code.
    reward and a permanent +5% village income bonus, and the building appears in
    the sky panorama.
 
-## The build chain (12 tiers)
+## The build chain (18 tiers)
 
 | # | Item        | Income/s |
 |---|-------------|---------:|
@@ -50,8 +50,18 @@ island and the sounds are generated in code.
 | 10| Manor       | 1.5K     |
 | 11| Clocktower  | 3.3K     |
 | 12| Sky Castle  | 7.5K     |
+| 13| Lighthouse  | 17K      |
+| 14| Airship     | 38K      |
+| 15| Observatory | 85K      |
+| 16| Royal Palace| 192K     |
+| 17| Crystal Spire | 431K   |
+| 18| Celestial Citadel | 970K |
 
-The village rank follows your best tier: Clearing → Campsite → Hamlet → Village → Town → Borough → Sky City.
+The village rank follows your best tier: Clearing → Campsite → Hamlet → Village → Town → Borough → Sky City → Cloud Port → Royal Isles → Celestial Realm.
+
+Summons get better as you progress: once you discover the Townhouse (tier 8) they bring Logs, and once you discover the Lighthouse (tier 13) they bring Plank Stacks. This keeps the longer chain from turning into a grind.
+
+Live touches on the new tiers: the lighthouse beam sweeps, and the crystal spire and the citadel glow.
 
 ## Upgrades
 
@@ -65,7 +75,7 @@ The village rank follows your best tier: Clearing → Campsite → Hamlet → Vi
 
 - **Recycle bin** appears while dragging, and sells the item for a few coins.
 - **Idle hint**: after a few seconds without input, a mergeable pair pulses.
-- **Blueprint book**: all 12 tiers, with undiscovered ones shown as silhouettes.
+- **Blueprint book**: all 18 tiers, with undiscovered ones shown as silhouettes.
 - **Offline earnings**: 50% of income for up to 4 hours away.
 - Autosaves to `localStorage` (`skyhaven.v1`). Sound toggle. Haptics on merge.
 
