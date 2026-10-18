@@ -623,7 +623,7 @@ $('againBtn').addEventListener('click', backToForest);
 
 // ---------- Harvest update ----------
 let target = null;
-const CAM_OFF = new THREE.Vector3(7, 10.5, 13); // 3/4 chase view, fixed orientation
+const CAM_OFF = new THREE.Vector3(0, 30, 10); // top-down view, slightly tilted, fixed orientation
 const CAM_UP = new THREE.Vector2(-CAM_OFF.x, -CAM_OFF.z).normalize();
 function updateHarvest(dt) {
   // screen-relative input: up = away from camera (north), right = east
@@ -729,7 +729,7 @@ function updateHarvest(dt) {
   // camera
   const lead = 2.5 * car.v / ms;
   const back = new THREE.Vector3(car.x + fx * lead, h, car.z + fz * lead).addScaledVector(CAM_OFF, camZoom);
-  camPos.lerp(back, 1 - Math.pow(0.02, dt)); camLook.lerp(new THREE.Vector3(car.x + fx * lead, h + 1.6, car.z + fz * lead), 1 - Math.pow(0.01, dt));
+  camPos.lerp(back, 1 - Math.pow(0.02, dt)); camLook.lerp(new THREE.Vector3(car.x + fx * lead, h + 1.6, car.z + fz * lead - 1), 1 - Math.pow(0.01, dt));
   camera.position.copy(camPos); camera.lookAt(camLook);
   sun.position.set(car.x + SUN_OFF.x, SUN_OFF.y, car.z + SUN_OFF.z); sun.target.position.set(car.x, 0, car.z);
 }
@@ -822,20 +822,24 @@ function startLaunch() {
   const eng = 1 + S.up.engine * 0.45;
   L.alt = 0; L.vel = 0; L.burn = 3 + L.logs * 0.22; L.burnLeft = L.burn;
   L.thrust = (22 + Math.sqrt(L.logs) * 3) * eng; L.apexDone = false; L.max = 0; L.ms = 0;
+  // simulate the real ballistic flight up front, then replay it in a fixed ~10 s
+  { let a = 0, v = 0, b = L.burn; const st = 0.05;
+    while (b > 0) { b -= st; v += (L.thrust * (1 + (1 - b / L.burn) * 1.5) - 9.8) * st; a += v * st; }
+    while (v > 0) { v -= 9.8 * st * (a > 100000 ? 0.25 : 1); a += v * st; }
+    L.apex = a; }
+  L.T = 10; L.ft = 0;
   L.marks = [[1000, 'ABOVE THE CLOUDS'], [10000, 'STRATOSPHERE'], [100000, 'KÁRMÁN LINE — SPACE!'], [400000, 'ORBITAL HEIGHT'], [1000000, 'DEEP SPACE'], [10000000, 'BEYOND THE MOON?']];
   $('alt').style.display = 'block'; $('altMsg').textContent = '';
   $('flash').style.transition = 'none'; $('flash').style.opacity = 0.6; requestAnimationFrame(() => { $('flash').style.transition = 'opacity 1s'; $('flash').style.opacity = 0; });
 }
 function updateLaunch(dt) {
-  const g = 9.8;
-  if (L.burnLeft > 0) { L.burnLeft -= dt; L.vel += (L.thrust * (1 + (1 - L.burnLeft / L.burn) * 1.5) - g) * dt; }
-  else L.vel -= g * dt * (L.alt > 100000 ? 0.25 : 1);
-  // time warp for big altitudes so the flight stays watchable
-  const warp = L.alt > 5000 ? clamp(L.alt / 5000, 1, 60) : 1;
-  L.alt += L.vel * dt * warp;
-  if (L.burnLeft <= 0) L.vel -= g * dt * (warp - 1) * (L.alt > 100000 ? 0.25 : 1);
+  L.ft = Math.min(L.T, L.ft + dt);
+  const u = L.ft / L.T, prev = L.alt;
+  // slow lift-off, fast climb, gentle coast to apex
+  L.alt = L.apex * (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+  L.vel = L.ft >= L.T ? 0 : Math.min(400, (L.alt - prev) / Math.max(dt, 1e-3));
   L.max = Math.max(L.max, L.alt);
-  const burning = L.burnLeft > 0;
+  const burning = u < 0.6;
 
   // visuals: rocket y follows altitude up to a cap, then environment scrolls instead
   const VIS = Math.min(L.alt, 1500);
@@ -880,7 +884,7 @@ function updateLaunch(dt) {
   $('altV').textContent = L.alt >= 1000 ? (L.alt / 1000).toFixed(L.alt >= 100000 ? 0 : 1) : Math.round(L.alt);
   $('altU').textContent = L.alt >= 1000 ? 'KILOMETERS' : 'METERS';
   while (L.ms < L.marks.length && L.alt >= L.marks[L.ms][0]) { $('altMsg').textContent = L.marks[L.ms][1]; sfx.milestone(); L.ms++; }
-  if (!burning && L.vel <= 0 && !L.apexDone) {
+  if (L.ft >= L.T && !L.apexDone) {
     L.apexDone = true; sfx.apex(); $('altMsg').textContent = 'APEX!';
     setTimeout(showResult, 1800);
   }
