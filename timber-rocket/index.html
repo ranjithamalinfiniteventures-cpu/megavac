@@ -38,11 +38,24 @@ canvas{display:block}
 .cta{font:900 18px Orbitron;padding:14px 34px;border-radius:40px;border:none;cursor:pointer;background:linear-gradient(135deg,#ff7a2d,#ffb547);color:#1a0d00;box-shadow:0 0 30px rgba(255,140,40,.5)}
 #joy{position:absolute;left:30px;bottom:30px;width:130px;height:130px;border-radius:50%;border:2px solid var(--line);background:rgba(0,0,0,.2);pointer-events:auto;display:none;touch-action:none}
 #knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.35)}
+#loader{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(ellipse at 50% 30%,#1d3350,#05070c 70%);transition:opacity .8s}
+#loader .lt{font:900 clamp(28px,6vw,54px) Orbitron;letter-spacing:4px;background:linear-gradient(180deg,#fff,#ffb547);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lbar{width:220px;height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}.lbar i{display:block;height:100%;width:40%;background:#ffb547;animation:lb 1.1s ease-in-out infinite}
+@keyframes lb{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+#lmsg{font-size:15px;letter-spacing:2px;opacity:.8;max-width:80vw;text-align:center}
+#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.45))}
 #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
 @media (max-width:640px){#stats{gap:12px;padding:8px 10px}.stat b{font-size:17px}#right{width:160px}.btn{font-size:13px;padding:7px 9px}#alt{right:14px}#alt b{font-size:34px}}
 </style>
 </head>
 <body>
+<div id="loader"><div class="lt">TIMBER ROCKET</div><div class="lbar"><i></i></div><div id="lmsg">Loading engine…</div></div>
+<script>
+window.__fail=function(m){var e=document.getElementById('lmsg');if(e){e.textContent='Could not start: '+m;e.style.color='#ff8a7a'}};
+addEventListener('error',function(e){__fail(e.message||'load error')},true);
+addEventListener('unhandledrejection',function(e){__fail(String(e.reason))});
+setTimeout(function(){if(!window.__ready)__fail('3D engine did not load (network blocked or WebGL unavailable). Try Chrome/Edge, or open the file directly.')},15000);
+</script>
 <div class="hud">
   <div id="stats" class="panel">
     <div class="stat"><span>Cargo</span><b id="cargo">0/8</b><div id="cargoBar"><div id="cargoFill"></div></div></div>
@@ -62,7 +75,7 @@ canvas{display:block}
   <div id="alt"><span>ALTITUDE</span><b id="altV">0</b><span id="altU">METERS</span><div id="altMsg"></div></div>
   <div id="count"></div>
   <div id="joy"><div id="knob"></div></div>
-  <div id="flash"></div>
+  <div id="vig"></div><div id="flash"></div>
   <div id="start" class="modal" style="display:flex"><div class="card panel">
     <h1>TIMBER ROCKET</h1>
     <p>Drive the harvester into trees to cut them. Haul the logs to the depot by the launch pad.<br>Build a rocket from your stockpile, launch it, and see how high it goes. Then do it again, higher.<br><b>WASD / Arrows</b> to drive · touch joystick on mobile</p>
@@ -83,6 +96,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 const $ = id => document.getElementById(id);
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -111,28 +125,50 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.15;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 const SKY_DAY = new THREE.Color(0x8fc6ff), SKY_SPACE = new THREE.Color(0x02030a);
 scene.background = SKY_DAY.clone();
-scene.fog = new THREE.Fog(0xb9dcff, 60, 260);
+scene.fog = new THREE.FogExp2(0xcfe0ee, 0.004);
+const FOG_D = 0.004;
+// gradient sky dome with sun glow; `space` fades it to black
+const skyU = { top: { value: new THREE.Color(0x2a66c8) }, hor: { value: new THREE.Color(0xe9dcc8) }, sunDir: { value: new THREE.Vector3(0.55, 0.32, 0.4).normalize() }, space: { value: 0 } };
+const sky = new THREE.Mesh(new THREE.SphereGeometry(30000, 48, 24), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyU,
+  vertexShader: `varying vec3 vD;void main(){vD=normalize(position);vec4 p=projectionMatrix*modelViewMatrix*vec4(position,1.);gl_Position=p.xyww;}`,
+  fragmentShader: `uniform vec3 top,hor,sunDir;uniform float space;varying vec3 vD;
+    void main(){float h=clamp(vD.y,0.,1.);vec3 c=mix(hor,top,pow(h,.45));c=mix(c,hor*.9,smoothstep(.0,-.2,vD.y));
+    float s=max(dot(vD,sunDir),0.);c+=vec3(1.,.8,.5)*pow(s,8.)*.45+vec3(1.,.95,.8)*pow(s,900.)*8.;
+    vec3 sp=vec3(.005,.008,.02)+vec3(1.,.95,.85)*pow(s,1500.)*10.;c=mix(c,sp,space);gl_FragColor=vec4(c,1.);}`
+}));
+sky.frustumCulled = false; sky.renderOrder = -1; scene.add(sky);
+scene.background = null;
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.5, 40000);
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.35, 0.6, 0.88);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.55, 0.9);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
+// final grade: warm lift, saturation, subtle film grain
+const grade = new ShaderPass({ uniforms: { tDiffuse: { value: null }, t: { value: 0 } },
+  vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader: `uniform sampler2D tDiffuse;uniform float t;varying vec2 vUv;
+    void main(){vec4 c=texture2D(tDiffuse,vUv);float l=dot(c.rgb,vec3(.299,.587,.114));c.rgb=mix(vec3(l),c.rgb,1.15);
+    c.rgb=c.rgb*vec3(1.03,1.,.96)+vec3(.012,.008,.0);float n=fract(sin(dot(vUv*vec2(t*.37+1.,t*.71+1.),vec2(12.9898,78.233)))*43758.5453);
+    c.rgb+=(n-.5)*.025;gl_FragColor=c;}` });
+composer.addPass(grade);
 
 // ---------- Lights ----------
-const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x3d5a2a, 0.9);
+const hemi = new THREE.HemisphereLight(0xbfdcff, 0x4a5a2a, 0.75);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff1d6, 2.6);
-sun.position.set(60, 90, 40);
+const sun = new THREE.DirectionalLight(0xffe2b8, 3.2);
+const SUN_OFF = new THREE.Vector3(70, 42, 50);
+sun.position.copy(SUN_OFF);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.normalBias = 0.04;
 const sc = sun.shadow.camera; sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70; sc.far = 300;
 sun.shadow.bias = -0.0004;
 scene.add(sun, sun.target);
@@ -154,8 +190,14 @@ const DEPOT = { x: 16, z: -46 };
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), z = p.getZ(i), h = heightAt(x, z);
     p.setY(i, h);
-    const c = c1.clone().lerp(c2, clamp(0.5 + h * 0.2 + Math.sin(x * 0.3) * Math.cos(z * 0.27) * 0.25, 0, 1));
-    if (Math.hypot(x - PAD.x, z - PAD.z) < 22) c.lerp(c3, 0.6);
+    const n = Math.sin(x * 0.3) * Math.cos(z * 0.27) * 0.25 + Math.sin(x * 0.07 + z * 0.05) * 0.3 + Math.random() * 0.12;
+    const c = c1.clone().lerp(c2, clamp(0.5 + h * 0.2 + n, 0, 1));
+    if (n > 0.38) c.lerp(new THREE.Color(0xa7b04a), 0.5);
+    const pd = Math.hypot(x - PAD.x, z - PAD.z);
+    if (pd < 22) c.lerp(c3, 0.6 * clamp((26 - pd) / 6, 0, 1) + 0.0);
+    // dirt track from spawn to depot
+    const tx = x - lerp(0, DEPOT.x, clamp((10 - z) / 56, 0, 1));
+    if (z < 14 && z > DEPOT.z && Math.abs(tx) < 2.6) c.lerp(c3, 0.55 * (1 - Math.abs(tx) / 2.6));
     cols.push(c.r, c.g, c.b);
   }
   g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
@@ -165,12 +207,14 @@ const DEPOT = { x: 16, z: -46 };
   scene.add(ground);
   // distant mountains ring
   const mg = new THREE.ConeGeometry(1, 1, 6);
-  const mm = new THREE.MeshStandardMaterial({ color: 0x5d7690, roughness: 1, flatShading: true });
+  const mm = new THREE.MeshStandardMaterial({ color: 0x6f8aa8, roughness: 1, flatShading: true });
+  const snowM = new THREE.MeshStandardMaterial({ color: 0xf4f8ff, roughness: 0.8, flatShading: true });
   for (let i = 0; i < 40; i++) {
     const a = i / 40 * Math.PI * 2 + rand(-.05, .05), r = rand(270, 320);
     const m = new THREE.Mesh(mg, mm); const s = rand(40, 90);
-    m.scale.set(s, s * rand(0.6, 1.1), s); m.position.set(Math.cos(a) * r, s * 0.4, Math.sin(a) * r);
+    m.scale.set(s, s * rand(0.6, 1.1), s); m.position.set(Math.cos(a) * r, s * 0.4, Math.sin(a) * r); m.rotation.y = rand(0, 6);
     scene.add(m);
+    const cap = new THREE.Mesh(mg, snowM); cap.scale.set(s * 0.345, m.scale.y * 0.33, s * 0.345); cap.position.set(m.position.x, m.position.y + m.scale.y * 0.34, m.position.z); cap.rotation.y = m.rotation.y; scene.add(cap);
   }
 }
 
@@ -189,9 +233,50 @@ const DEPOT = { x: 16, z: -46 };
   scene.add(inst);
 }
 
+// rocks, flowers, bushes
+{
+  const d = new THREE.Object3D();
+  const rockG = new THREE.DodecahedronGeometry(1, 0), rockM = new THREE.MeshStandardMaterial({ color: 0x8b8f94, roughness: 0.9, flatShading: true });
+  const rocks = new THREE.InstancedMesh(rockG, rockM, 140);
+  for (let i = 0; i < 140; i++) {
+    let x = rand(-WORLD, WORLD), z = rand(-WORLD, WORLD); if (Math.hypot(x - PAD.x, z - PAD.z) < 28) x += 60;
+    const s = rand(0.3, 1.3); d.position.set(x, heightAt(x, z) + s * 0.2, z); d.scale.set(s * rand(0.8, 1.6), s * rand(0.5, 0.9), s); d.rotation.set(rand(0, 3), rand(0, 3), rand(0, 3)); d.updateMatrix();
+    rocks.setMatrixAt(i, d.matrix); rocks.setColorAt(i, new THREE.Color().setHSL(0.1, 0.05, rand(0.4, 0.6)));
+  }
+  rocks.castShadow = rocks.receiveShadow = true; scene.add(rocks);
+  const fG = new THREE.IcosahedronGeometry(0.13, 0), fM = new THREE.MeshStandardMaterial({ roughness: 0.6, emissive: 0x111111 });
+  const fl = new THREE.InstancedMesh(fG, fM, 1800), pal = [0xffffff, 0xffd84a, 0xff6f91, 0xb48cff, 0xff9a3c];
+  for (let i = 0; i < 1800; i++) {
+    const cx = rand(-WORLD, WORLD), cz = rand(-WORLD, WORLD), x = cx + rand(-3, 3), z = cz + rand(-3, 3);
+    d.position.set(x, heightAt(x, z) + 0.35, z); d.scale.setScalar(Math.hypot(x - PAD.x, z - PAD.z) < 26 ? 0 : rand(0.7, 1.3)); d.rotation.set(0, 0, 0); d.updateMatrix();
+    fl.setMatrixAt(i, d.matrix); fl.setColorAt(i, new THREE.Color(pal[(Math.abs(Math.sin(cx * 12.9 + cz)) * 5) | 0]));
+  }
+  scene.add(fl);
+  const bG = new THREE.IcosahedronGeometry(1, 1), bM = new THREE.MeshStandardMaterial({ color: 0x3f7a2e, roughness: 0.85, flatShading: true });
+  const bush = new THREE.InstancedMesh(bG, bM, 260);
+  for (let i = 0; i < 260; i++) {
+    const x = rand(-WORLD, WORLD), z = rand(-WORLD, WORLD), s = rand(0.5, 1.2);
+    d.position.set(x, heightAt(x, z) + s * 0.3, z); d.scale.set(s * 1.3, s * 0.8, s * 1.1); d.updateMatrix();
+    if (Math.hypot(x - PAD.x, z - PAD.z) < 26) { d.scale.setScalar(0); d.updateMatrix(); }
+    bush.setMatrixAt(i, d.matrix); bush.setColorAt(i, new THREE.Color().setHSL(rand(0.24, 0.32), 0.5, rand(0.25, 0.4)));
+  }
+  bush.castShadow = true; scene.add(bush);
+  // pond
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(14, 48), new THREE.MeshPhysicalMaterial({ color: 0x2a6f8f, roughness: 0.05, metalness: 0.1, clearcoat: 1, transparent: true, opacity: 0.88 }));
+  pond.rotation.x = -Math.PI / 2; pond.position.set(-55, heightAt(-55, 40) + 0.25, 40); scene.add(pond); window.__pond = pond;
+}
+// floating pollen / fireflies
+const pollen = (() => {
+  const N = 500, g = new THREE.BufferGeometry(), p = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) { p[i * 3] = rand(-60, 60); p[i * 3 + 1] = rand(0.5, 12); p[i * 3 + 2] = rand(-60, 60); }
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const m = new THREE.PointsMaterial({ color: 0xfff1b0, size: 0.12, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending });
+  const pts = new THREE.Points(g, m); scene.add(pts); return pts;
+})();
+
 // ---------- Trees ----------
 const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4527, roughness: 0.9 });
-const leafMats = [0x2f6b2a, 0x3c7d2f, 0x285e2c, 0x4a8a33].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, flatShading: true }));
+const leafMats = [0x2f6b2a, 0x3c7d2f, 0x285e2c, 0x4a8a33, 0x5b8f2e, 0x6e9a35].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, flatShading: true }));
 const logMat = new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: 0.85 });
 const logEndMat = new THREE.MeshStandardMaterial({ color: 0xe0b77a, roughness: 0.8 });
 const trunkGeo = new THREE.CylinderGeometry(0.28, 0.42, 3, 8); trunkGeo.translate(0, 1.5, 0);
@@ -215,10 +300,10 @@ function makeTree(x, z) {
   const s = rand(0.85, 1.3); t.scale.setScalar(s);
   t.position.set(x, heightAt(x, z) - 0.05, z); t.rotation.y = rand(0, 6.28);
   scene.add(t);
-  const tree = { g: t, pivot, x, z, state: 'alive', cut: 0, fall: 0, fallDir: 0, regrow: 0, logs: 2 + Math.round(s * 1.5), s };
+  const tree = { g: t, pivot, x, z, ph: rand(0, 6.28), state: 'alive', cut: 0, fall: 0, fallDir: 0, regrow: 0, logs: 2 + Math.round(s * 1.5), s };
   trees.push(tree); return tree;
 }
-for (let i = 0; i < 260; i++) {
+for (let i = 0; i < 340; i++) {
   let x, z, tries = 0;
   do { x = rand(-WORLD * 0.9, WORLD * 0.9); z = rand(-WORLD * 0.9, WORLD * 0.9); tries++; }
   while ((Math.hypot(x - PAD.x, z - PAD.z) < 30 || Math.hypot(x, z - 10) < 10 || trees.some(t => Math.hypot(t.x - x, t.z - z) < 4.5)) && tries < 40);
@@ -254,6 +339,17 @@ const saw = new THREE.Group(); saw.position.set(0, 0.9, 3.9); harv.add(saw);
   const blade = new THREE.Mesh(bg, steel); blade.castShadow = true; saw.add(blade); saw.userData.blade = blade;
   const hubS = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.2, 10).rotateZ(Math.PI / 2), paint); saw.add(hubS);
 }
+// detail: roof, exhaust stack, beacons, fenders, grille
+addBox(2.2, 0.12, 1.9, dark, 0, 2.8, 0.9);
+const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 1.4, 10), steel); stack.position.set(0.85, 3.0, 0.1); stack.castShadow = true; harv.add(stack);
+const beaconM = new THREE.MeshStandardMaterial({ color: 0xff8a00, emissive: 0xff7a00, emissiveIntensity: 3 });
+const beacons = [-0.8, 0.8].map(x => { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.2, 10), beaconM); b.position.set(x, 2.95, 0.3); harv.add(b); return b; });
+for (const [x, z] of [[1.3, 1.5], [-1.3, 1.5], [1.3, -1.5], [-1.3, -1.5]]) addBox(0.6, 0.1, 1.5, paint, x, 1.32, z);
+addBox(1.6, 0.4, 0.06, dark, 0, 1.05, 2.32);
+addBox(0.08, 0.5, 2.0, new THREE.MeshStandardMaterial({ color: 0x1b1b1b }), 1.21, 0.9, 0);
+const stripeM = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4 });
+addBox(2.42, 0.12, 4.62, stripeM, 0, 0.72, 0);
+const headL = new THREE.PointLight(0xfff0c8, 6, 14, 2); headL.position.set(0, 1.3, 3.2); harv.add(headL);
 const cargoLogs = new THREE.Group(); harv.add(cargoLogs);
 scene.add(harv);
 const car = { x: 0, z: 10, yaw: Math.PI, v: 0, cargo: 0 };
@@ -338,8 +434,16 @@ function buildRocket(logs) {
     const f = new THREE.Mesh(fg, rocketMats.fin); f.castShadow = true;
     const holder = new THREE.Group(); holder.rotation.y = k * Math.PI / 2; holder.add(f); f.position.set(rad - 0.1, 1.2, -0.06); r.add(holder); parts.unshift(holder);
   }
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.6, rad * 6, 20, 1, true), new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: { t: { value: 0 } },
+    vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+    fragmentShader: `uniform float t;varying vec2 vUv;void main(){float y=vUv.y;float n=sin(y*30.-t*40.)*.5+.5;
+      vec3 c=mix(vec3(1.,.35,.05),vec3(1.,.95,.75),pow(y,2.));float a=pow(y,1.5)*(.7+.3*n);gl_FragColor=vec4(c*a*1.6,a);}`
+  }));
+  flame.rotation.x = Math.PI; flame.position.y = -rad * 3 + 0.1; flame.visible = false; r.add(flame);
+  const flameL = new THREE.PointLight(0xff8a30, 0, 60, 1.6); flameL.position.y = -2; r.add(flameL);
   const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.5, rad * 0.75, 0.9, 16, 1, true), dark); nozzle.position.y = 0.2; r.add(nozzle);
-  r.userData = { parts, height: top + rad * 2.6, rad };
+  r.userData = { parts, height: top + rad * 2.6, rad, flame, flameL };
   return r;
 }
 
@@ -359,9 +463,13 @@ const pMat = new THREE.ShaderMaterial({
   fragmentShader: `varying vec3 vC;varying float vA;void main(){vec2 c=gl_PointCoord-.5;float d=length(c);if(d>.5)discard;gl_FragColor=vec4(vC,vA*smoothstep(.5,.0,d));}`
 });
 const pts = new THREE.Points(pGeo, pMat); pts.frustumCulled = false; scene.add(pts);
-const parts = [];
-function emit(o) { if (parts.length >= PMAX) parts.shift(); parts.push(Object.assign({ life: 1, max: 1, size: 1, grow: 0, drag: 0.98, g: 0, c0: [1, 1, 1], c1: [1, 1, 1], a: 1 }, o)); }
-function updateParticles(dt) {
+const fGeo = pGeo.clone(); const fMat = pMat.clone(); fMat.blending = THREE.AdditiveBlending; fMat.uniforms = pMat.uniforms;
+const fpts = new THREE.Points(fGeo, fMat); fpts.frustumCulled = false; fpts.renderOrder = 2; scene.add(fpts);
+const parts = [], fire = [];
+function emit(o) { const arr = o.add ? fire : parts; if (arr.length >= PMAX) arr.shift(); arr.push(Object.assign({ life: 1, max: 1, size: 1, grow: 0, drag: 0.98, g: 0, c0: [1, 1, 1], c1: [1, 1, 1], a: 1 }, o)); }
+function updateParticles(dt) { stepPS(parts, pGeo, dt); stepPS(fire, fGeo, dt); }
+function stepPS(parts, pGeo, dt) {
+  const pPos = pGeo.attributes.position.array, pCol = pGeo.attributes.color.array, pSize = pGeo.attributes.size.array, pAlpha = pGeo.attributes.alpha.array;
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i]; p.life -= dt;
     if (p.life <= 0) { parts.splice(i, 1); continue; }
@@ -577,6 +685,7 @@ function updateHarvest(dt) {
   if (sawing) {
     if (car.cargo >= capacity()) { if (hintTimer <= 0) hint('Cargo full! Unload at the green depot by the launch pad.'); sawing = null; }
     else {
+      if (sawing.cut === 0) sawing.cut = 1e-4;
       sawing.cut += dt / cutTime();
       sawing.pivot.rotation.z = Math.sin(game.t * 60) * 0.02;
       for (let i = 0; i < 3; i++) emit({ x: sawX, y: heightAt(sawX, sawZ) + 0.9, z: sawZ, vx: rand(-4, 4), vy: rand(2, 6), vz: rand(-4, 4), g: 12, life: 0.6, max: 0.6, size: 0.18, c0: [0.95, 0.8, 0.5], c1: [0.7, 0.5, 0.3] });
@@ -610,6 +719,7 @@ function updateHarvest(dt) {
   const hf = heightAt(car.x + Math.sin(car.yaw) * 2, car.z + Math.cos(car.yaw) * 2), hb = heightAt(car.x - Math.sin(car.yaw) * 2, car.z - Math.cos(car.yaw) * 2);
   harv.rotation.x = -Math.atan2(hf - hb, 4);
   wheels.forEach(w => w.rotation.x += car.v * dt / 0.62);
+  beacons.forEach((b, i) => b.rotation.y += dt * 8); beaconM.emissiveIntensity = 1.5 + Math.max(0, Math.sin(game.t * 8)) * 4;
   if (Math.abs(car.v) > 3 && Math.random() < 0.4) emit({ x: car.x - Math.sin(car.yaw) * 2, y: h + 0.3, z: car.z - Math.cos(car.yaw) * 2, vx: rand(-1, 1), vy: rand(0.5, 1.5), vz: rand(-1, 1), life: 1.2, max: 1.2, size: 0.6, grow: 1.2, c0: [0.6, 0.5, 0.38], c1: [0.7, 0.65, 0.55], a: 0.35 });
   // exhaust
   if (Math.random() < 0.5) emit({ x: car.x + Math.sin(car.yaw) * 0.5 + Math.cos(car.yaw) * 0.9, y: h + 3.2, z: car.z + Math.cos(car.yaw) * 0.5 - Math.sin(car.yaw) * 0.9, vx: 0, vy: 2, vz: 0, life: 1, max: 1, size: 0.3, grow: 0.8, c0: [0.3, 0.3, 0.3], c1: [0.6, 0.6, 0.6], a: 0.4 });
@@ -618,11 +728,12 @@ function updateHarvest(dt) {
   const back = new THREE.Vector3(car.x - Math.sin(car.yaw) * 16, h + 10, car.z - Math.cos(car.yaw) * 16);
   camPos.lerp(back, 1 - Math.pow(0.03, dt)); camLook.lerp(new THREE.Vector3(car.x, h + 1.5, car.z), 1 - Math.pow(0.001, dt));
   camera.position.copy(camPos); camera.lookAt(camLook);
-  sun.position.set(car.x + 60, 90, car.z + 40); sun.target.position.set(car.x, 0, car.z);
+  sun.position.set(car.x + SUN_OFF.x, SUN_OFF.y, car.z + SUN_OFF.z); sun.target.position.set(car.x, 0, car.z);
 }
 
 function updateTrees(dt) {
   for (const t of trees) {
+    if (t.state === 'alive' && t.cut === 0) { const w = Math.sin(game.t * 1.3 + t.ph + t.x * 0.05) * 0.018; t.pivot.rotation.x = w; t.pivot.rotation.z = w * 0.6; }
     if (t.state === 'falling') {
       t.fall += dt * (0.4 + t.fall * 3);
       const ang = Math.min(t.fall, 1) * Math.PI / 2;
@@ -678,14 +789,14 @@ function updateBuild(dt) {
   const per = Math.max(0.12, 2.4 / L.parts.length);
   while (L.bi < L.parts.length && L.bt > L.bi * per) {
     const p = L.parts[L.bi]; p.visible = true; p.userData.drop = 0; L.bi++; sfx.clank();
-    for (let i = 0; i < 10; i++) emit({ x: PAD.x + rand(-1, 1), y: 0.8 + p.userData.y0, z: PAD.z + rand(-1, 1), vx: rand(-4, 4), vy: rand(0, 2), vz: rand(-4, 4), g: 10, life: 0.4, max: 0.4, size: 0.12, c0: [1, 0.9, 0.5], c1: [1, 0.5, 0.1] });
+    for (let i = 0; i < 10; i++) emit({ x: PAD.x + rand(-1, 1), y: 0.8 + p.userData.y0, z: PAD.z + rand(-1, 1), vx: rand(-4, 4), vy: rand(0, 2), vz: rand(-4, 4), g: 10, life: 0.4, max: 0.4, size: 0.12, c0: [1, 0.9, 0.5], c1: [1, 0.5, 0.1], add: true });
   }
   L.parts.forEach(p => { if (p.visible && p.userData.drop < 1) { p.userData.drop = Math.min(1, p.userData.drop + dt * 4); const e = 1 - Math.pow(1 - p.userData.drop, 3); p.position.y = p.userData.y0 + (1 - e) * 8; } });
   const H = rocket.userData.height;
   const a = game.t * 0.35;
   const target = new THREE.Vector3(PAD.x + Math.cos(a) * (H + 18), H * 0.6 + 4, PAD.z + Math.sin(a) * (H + 18));
   camera.position.lerp(target, 1 - Math.pow(0.05, dt)); camera.lookAt(PAD.x, H * 0.45, PAD.z);
-  sun.position.set(PAD.x + 60, 90, PAD.z + 40); sun.target.position.set(PAD.x, 0, PAD.z);
+  sun.position.set(PAD.x + SUN_OFF.x, SUN_OFF.y, PAD.z + SUN_OFF.z); sun.target.position.set(PAD.x, 0, PAD.z);
   if (L.bi >= L.parts.length && L.bt > L.parts.length * per + 1) startCountdown();
 }
 function startCountdown() {
@@ -711,7 +822,6 @@ function startLaunch() {
   L.marks = [[1000, 'ABOVE THE CLOUDS'], [10000, 'STRATOSPHERE'], [100000, 'KÁRMÁN LINE — SPACE!'], [400000, 'ORBITAL HEIGHT'], [1000000, 'DEEP SPACE'], [10000000, 'BEYOND THE MOON?']];
   $('alt').style.display = 'block'; $('altMsg').textContent = '';
   $('flash').style.transition = 'none'; $('flash').style.opacity = 0.6; requestAnimationFrame(() => { $('flash').style.transition = 'opacity 1s'; $('flash').style.opacity = 0; });
-  scene.fog.far = 2000;
 }
 function updateLaunch(dt) {
   const g = 9.8;
@@ -729,8 +839,8 @@ function updateLaunch(dt) {
   rocket.position.y = 0.8 + VIS;
   rocket.rotation.z = Math.sin(game.t * 13) * 0.004 * (burning ? 1 : 0);
   const space = clamp((L.alt - 3000) / 60000, 0, 1);
-  scene.background.copy(SKY_DAY).lerp(SKY_SPACE, space);
-  scene.fog.color.copy(scene.background);
+  skyU.space.value = space; scene.fog.density = FOG_D * (1 - clamp(L.alt / 400, 0, 0.97));
+  scene.fog.color.set(0xcfe0ee).lerp(SKY_SPACE, space);
   stars.material.opacity = clamp((L.alt - 8000) / 40000, 0, 1);
   hemi.intensity = lerp(0.9, 0.25, space);
   clouds.position.y = -Math.max(0, L.alt - 1500) * 1;
@@ -741,9 +851,11 @@ function updateLaunch(dt) {
     planet.material.opacity = 1;
   }
   moon.visible = L.alt > 200000;
+  const fl = rocket.userData.flame; fl.visible = burning; fl.material.uniforms.t.value = game.t; fl.scale.set(1 + Math.random() * 0.08, 1 + Math.random() * 0.25, 1 + Math.random() * 0.08);
+  rocket.userData.flameL.intensity = burning ? 60 + Math.random() * 30 : 0;
   if (burning) {
     const by = rocket.position.y, rr = rocket.userData.rad;
-    for (let i = 0; i < 14; i++) emit({ x: PAD.x + rand(-.3, .3) * rr, y: by - 0.2, z: PAD.z + rand(-.3, .3) * rr, vx: rand(-2, 2), vy: -rand(20, 40) - L.vel * 0.05, vz: rand(-2, 2), drag: 0.9, life: 0.5, max: 0.5, size: rr * 1.4, grow: -1, c0: [1, 0.95, 0.7], c1: [1, 0.3, 0.05] });
+    for (let i = 0; i < 14; i++) emit({ x: PAD.x + rand(-.3, .3) * rr, y: by - 0.2, z: PAD.z + rand(-.3, .3) * rr, vx: rand(-2, 2), vy: -rand(20, 40) - L.vel * 0.05, vz: rand(-2, 2), drag: 0.9, life: 0.5, max: 0.5, size: rr * 1.6, grow: -1, c0: [1, 0.85, 0.5], c1: [0.9, 0.2, 0.02], a: 0.5, add: true });
     if (L.alt < 3000) for (let i = 0; i < 6; i++) emit({ x: PAD.x + rand(-1, 1), y: by - 2, z: PAD.z + rand(-1, 1), vx: rand(-3, 3), vy: -rand(4, 10), vz: rand(-3, 3), drag: 0.97, life: 3, max: 3, size: 2.5, grow: 5, c0: [0.9, 0.85, 0.8], c1: [0.55, 0.55, 0.58], a: 0.5 });
     if (L.alt < 20) for (let i = 0; i < 10; i++) { const a = rand(0, 6.28); emit({ x: PAD.x, y: 1.2, z: PAD.z, vx: Math.cos(a) * rand(15, 30), vy: rand(0, 2), vz: Math.sin(a) * rand(15, 30), drag: 0.95, life: 2.5, max: 2.5, size: 2.5, grow: 5, c0: [0.95, 0.9, 0.85], c1: [0.6, 0.6, 0.6], a: 0.5 }); }
   }
@@ -760,7 +872,7 @@ function updateLaunch(dt) {
   camera.position.lerp(cp, 1 - Math.pow(0.02, dt));
   camera.lookAt(PAD.x, ry + H * 0.5, PAD.z);
   game.shake = burning ? clamp(0.4 - L.alt / 4000, 0.03, 0.4) : 0;
-  sun.position.set(PAD.x + 60, ry + 90, PAD.z + 40); sun.target.position.set(PAD.x, ry, PAD.z);
+  sun.position.set(PAD.x + SUN_OFF.x, ry + SUN_OFF.y, PAD.z + SUN_OFF.z); sun.target.position.set(PAD.x, ry, PAD.z);
 
   $('altV').textContent = L.alt >= 1000 ? (L.alt / 1000).toFixed(L.alt >= 100000 ? 0 : 1) : Math.round(L.alt);
   $('altU').textContent = L.alt >= 1000 ? 'KILOMETERS' : 'METERS';
@@ -784,7 +896,7 @@ function showResult() {
 function backToForest() {
   $('result').style.display = 'none'; $('alt').style.display = 'none'; $('right').style.display = 'flex';
   scene.remove(rocket); rocket = null;
-  scene.background.copy(SKY_DAY); scene.fog.color.set(0xb9dcff); scene.fog.far = 260;
+  skyU.space.value = 0; scene.fog.color.set(0xcfe0ee); scene.fog.density = FOG_D;
   stars.material.opacity = 0; planet.visible = false; moon.visible = false; clouds.position.y = 0; hemi.intensity = 0.9;
   setLoop(A.wind.g, 0.05);
   game.phase = 'harvest'; updateHUD(); hint('Collect more logs — bigger rocket, higher flight!', 4);
@@ -803,6 +915,11 @@ function frame() {
   else if (game.phase === 'count') updateCount(dt);
   else if (game.phase === 'launch' || game.phase === 'result') { if (rocket) updateLaunch(dt); }
   updateTrees(dt); updateParticles(dt);
+  grade.uniforms.t.value = game.t % 100;
+  { const p = pollen.geometry.attributes.position.array, c = camera.position;
+    for (let i = 0; i < p.length; i += 3) { p[i] += Math.sin(game.t + i) * dt * 0.4; p[i + 1] += Math.cos(game.t * 0.7 + i) * dt * 0.2;
+      if (p[i] - c.x > 60) p[i] -= 120; else if (p[i] - c.x < -60) p[i] += 120; if (p[i + 2] - c.z > 60) p[i + 2] -= 120; else if (p[i + 2] - c.z < -60) p[i + 2] += 120; }
+    pollen.geometry.attributes.position.needsUpdate = true; pollen.visible = game.phase !== 'launch' || L.alt < 50; }
   padG.userData.beacon.material.emissiveIntensity = (Math.sin(game.t * 5) > 0) ? 5 : 0.3;
   if (game.shake > 0) { camera.position.x += rand(-1, 1) * game.shake; camera.position.y += rand(-1, 1) * game.shake; if (game.phase === 'harvest') game.shake = Math.max(0, game.shake - dt); }
   if (hintTimer > 0) { hintTimer -= dt; if (hintTimer <= 0) $('hint').style.opacity = 0; }
@@ -810,6 +927,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
+window.__ready = true; $('loader').style.opacity = 0; setTimeout(() => $('loader').remove(), 900);
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); pMat.uniforms.scale.value = innerHeight;
