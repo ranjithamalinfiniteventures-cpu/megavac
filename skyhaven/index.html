@@ -204,7 +204,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 <div class="modal" id="away">
   <div class="kick">Welcome back</div>
   <h3 id="awayAmt">0</h3>
-  <p>Your village kept working while you were away.</p>
+  <p>Your village kept working at a quarter of its usual pace while you were away (up to 2 hours).</p>
   <button class="big" data-close>Collect</button>
 </div>
 
@@ -1117,7 +1117,8 @@ addEventListener('resize',resize);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save();});
 addEventListener('pagehide',save);
 resize();updSnd();
-if(S.grid.length){const away=Math.min(4*3600,(Date.now()-S.last)/1000);if(away>60){awayAmt=Math.round(rate()*away*.5);if(awayAmt>0){$('awayAmt').textContent='+'+fmt(awayAmt)+' coins';open('away');}}}
+const OFFLINE_RATE=.25,OFFLINE_CAP=2*3600;
+if(S.grid.length){const away=Math.min(OFFLINE_CAP,(Date.now()-S.last)/1000);if(away>60){awayAmt=Math.round(rate()*away*OFFLINE_RATE);if(awayAmt>0){$('awayAmt').textContent='+'+fmt(awayAmt)+' coins';open('away');}}}
 document.fonts&&document.fonts.ready.then(()=>{lastBest=-1;});
 requestAnimationFrame(frame);
 </script>

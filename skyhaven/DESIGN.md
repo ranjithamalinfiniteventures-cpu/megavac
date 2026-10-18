@@ -76,7 +76,7 @@ Live touches on the new tiers: the lighthouse beam sweeps, and the crystal spire
 - **Recycle bin** appears while dragging, and sells the item for a few coins.
 - **Idle hint**: after a few seconds without input, a mergeable pair pulses.
 - **Blueprint book**: all 18 tiers, with undiscovered ones shown as silhouettes.
-- **Offline earnings**: 50% of income for up to 4 hours away.
+- **Offline earnings**: 25% of income for up to 2 hours away.
 - Autosaves to `localStorage` (`skyhaven.v1`). Sound toggle. Haptics on merge.
 
 ## Play locally
