@@ -105,4 +105,5 @@ python3 -m http.server 8788 --directory demolition   # then open http://localhos
   10, Space to detonate), Missile 7, Wrecking Ball 9, Napalm 11, Laser 13 (overheats),
   Cluster 16, Airstrike 19, Railgun 22, Earthquake 25, Meteors 29, Tornado 33,
   Black Hole 38, Nuke 44. Bigger weapons have longer cooldowns.
+- The camera zooms to fit each target; scroll, pinch or use +/− to zoom, Z to refit.
 - Controls: click/tap to fire, 1–9/0/Q–Y to switch weapons, Space detonate, R restart, M mute, Esc menu.

@@ -70,6 +70,9 @@ h1{font-size:clamp(36px,8vw,76px);font-weight:900;letter-spacing:2px;line-height
   <div class="pill" id="lvlName"><small>Level 1</small>Garden Shed</div>
   <div class="pill" id="prog"><div id="bar"><div id="barFill"></div><i class="mark" style="left:75%"></i><i class="mark" style="left:90%"></i><i class="mark" style="left:98%"></i></div><div id="pct"><span id="pctTxt">0% destroyed</span><span id="stars">☆☆☆</span></div></div>
   <div class="sp"></div>
+  <button class="pill iconBtn" id="bZin" title="Zoom in (+)">＋</button>
+  <button class="pill iconBtn" id="bZout" title="Zoom out (-)">－</button>
+  <button class="pill iconBtn" id="bZfit" title="Fit target (Z)">⤢</button>
   <button class="pill iconBtn" id="bReset" title="Restart level (R)">↻</button>
   <button class="pill iconBtn" id="bMute" title="Sound (M)">🔊</button>
   <button class="pill iconBtn" id="bMenu" title="Menu (Esc)">☰</button>
@@ -86,7 +89,7 @@ h1{font-size:clamp(36px,8vw,76px);font-weight:900;letter-spacing:2px;line-height
   <p class="sub">50 targets. 16 weapons. Zero mercy. Flatten everything from a garden shed to the wonders of the world.</p>
   <button class="big" id="bPlay">▶ PLAY</button>
   <div id="grid"></div>
-  <p class="sub" style="margin-top:18px;font-size:13px">Click / tap to fire · 1–9, 0, Q–Y switch weapon · Space detonates C4 · R restart · M mute</p>
+  <p class="sub" style="margin-top:18px;font-size:13px">Click / tap to fire · 1–9, 0, Q–Y switch weapon · Space detonates C4 · scroll / pinch / +− to zoom, Z fits the target · R restart · M mute</p>
 </div></div>
 
 <div class="ov" id="done"><div class="card" style="max-width:520px">
@@ -390,7 +393,7 @@ function loadLevel(i){
   // drop any accidental floating cells silently
   loose=loose.filter(b=>{b.alive=false;return false});bricks=bricks.filter(b=>b.st);
   staticDirty=true;completed=false;bestPct=0;heat=0;overheat=false;cdUntil={};
-  sky=makeSky(lv.sky);clouds=[];if(lv.sky!=='night')for(let i=0;i<7;i++)clouds.push({x:R(-200,W),y:R(40,330),s:R(.6,1.5),v:R(6,18),a:lv.sky==='day'?R(.7,.95):R(.35,.6)});
+  camFit();cam.z=cam.zt;cam.cx=cam.cxt;sky=makeSky(lv.sky);clouds=[];if(lv.sky!=='night')for(let i=0;i<7;i++)clouds.push({x:R(-200,W),y:R(40,330),s:R(.6,1.5),v:R(6,18),a:lv.sky==='day'?R(.7,.95):R(.35,.6)});
   document.getElementById('lvlName').innerHTML=`<small>Level ${level+1} / ${LEVELS.length}</small>${lv.n}`;
   showBanner(lv.n,`LEVEL ${level+1}`);buildWeaponBar();
 }
@@ -671,10 +674,13 @@ addEventListener('resize',resize);resize();
 function render(){
   const c=ctx;c.setTransform(1,0,0,1,0,0);c.fillStyle='#000';c.fillRect(0,0,cv.width,cv.height);
   const sx=(Math.random()-.5)*shake,sy=(Math.random()-.5)*shake;
-  c.setTransform(view.s,0,0,view.s,view.ox+sx*view.s,view.oy+sy*view.s);
-  // stretch sky to fill letterbox
-  const exL=view.ox/view.s+40,exT=view.oy/view.s+40;c.drawImage(sky,0,0,W,GY,-exL,-exT,W+exL*2,GY+exT);c.drawImage(sky,0,GY,W,H-GY,-exL,GY,W+exL*2,H-GY+exT);
+  camT();
+  // sky in screen space (slight parallax with the camera), world drawn through the camera
+  const pz=1+(cam.z-1)*.25,px=(cam.x0+W/(2*cam.z)-W/2)*.15;c.setTransform(view.s*pz,0,0,view.s*pz,view.ox+(W/2*(1-pz)-px)*view.s,view.oy+(GY*(1-pz))*view.s);
+  const exL=view.ox/view.s+60,exT=view.oy/view.s+40;c.drawImage(sky,0,0,W,GY,-exL,-exT,W+exL*2,GY+exT+2);
   for(const cl of clouds){cl.x+=cl.v*(1/60);if(cl.x>W+220)cl.x=-260;c.globalAlpha=cl.a;c.drawImage(SPR.cloud,cl.x,cl.y,220*cl.s,90*cl.s)}c.globalAlpha=1;
+  c.setTransform(K,0,0,K,TX+sx*K,TY+sy*K);
+  c.drawImage(sky,0,GY,W,H-GY,-W,GY,W*3,H-GY+400);
   // decals
   for(const d of decals){c.globalAlpha=d.a;c.drawImage(SPR.scorch,d.x-d.w,GY-8,d.w*2,22)}c.globalAlpha=1;
   // shadow of structure
@@ -682,7 +688,7 @@ function render(){
   // burning glow on static
   c.globalCompositeOperation='lighter';for(const b of bricks)if(b.st&&b.burn>0){c.globalAlpha=.5;c.drawImage(SPR.fireO,b.x-12,b.y-14,24,24)}c.globalAlpha=1;c.globalCompositeOperation='source-over';
   // loose bricks
-  for(const b of loose){if(!b.alive)continue;c.fillStyle=b.col;if(b.a===0||b.sleep&&Math.abs(b.a%(Math.PI/2))<.01){c.fillRect(b.x-S/2,b.y-S/2,S,S);c.fillStyle='rgba(0,0,0,.28)';c.fillRect(b.x-S/2,b.y+S/2-1.5,S,1.5);c.fillStyle='rgba(255,255,255,.18)';c.fillRect(b.x-S/2,b.y-S/2,S,1.5)}else{const co=Math.cos(b.a),si=Math.sin(b.a);c.setTransform(co*view.s,si*view.s,-si*view.s,co*view.s,view.ox+(b.x+sx)*view.s,view.oy+(b.y+sy)*view.s);c.fillRect(-S/2,-S/2,S,S);c.fillStyle='rgba(255,255,255,.22)';c.fillRect(-S/2,-S/2,S,1.5);c.fillStyle='rgba(0,0,0,.3)';c.fillRect(-S/2,S/2-1.5,S,1.5);c.setTransform(view.s,0,0,view.s,view.ox+sx*view.s,view.oy+sy*view.s)}
+  for(const b of loose){if(!b.alive)continue;c.fillStyle=b.col;if(b.a===0||b.sleep&&Math.abs(b.a%(Math.PI/2))<.01){c.fillRect(b.x-S/2,b.y-S/2,S,S);c.fillStyle='rgba(0,0,0,.28)';c.fillRect(b.x-S/2,b.y+S/2-1.5,S,1.5);c.fillStyle='rgba(255,255,255,.18)';c.fillRect(b.x-S/2,b.y-S/2,S,1.5)}else{const co=Math.cos(b.a),si=Math.sin(b.a);c.setTransform(co*K,si*K,-si*K,co*K,TX+(b.x+sx)*K,TY+(b.y+sy)*K);c.fillRect(-S/2,-S/2,S,S);c.fillStyle='rgba(255,255,255,.22)';c.fillRect(-S/2,-S/2,S,1.5);c.fillStyle='rgba(0,0,0,.3)';c.fillRect(-S/2,S/2-1.5,S,1.5);c.setTransform(K,0,0,K,TX+sx*K,TY+sy*K)}
     if(b.burn>0){c.globalCompositeOperation='lighter';c.globalAlpha=.6;c.drawImage(SPR.fireO,b.x-10,b.y-12,20,20);c.globalAlpha=1;c.globalCompositeOperation='source-over'}}
   // ground fires
   // projectiles
@@ -753,17 +759,30 @@ function buildMenu(){const g=$('grid');g.innerHTML='';LEVELS.forEach((l,i)=>{con
   d.onclick=()=>{if(lock)return;SFX.init();SFX.click();$('menu').classList.remove('show');loadLevel(i)};g.appendChild(d)})}
 $('bPlay').onclick=()=>{SFX.init();SFX.click();$('menu').classList.remove('show');loadLevel(Math.min(save.max-1,LEVELS.length-1))};
 $('bMenu').onclick=()=>{buildMenu();$('menu').classList.add('show')};
+$('bZin').onclick=()=>zoomAt(1.25,cam.cxt);$('bZout').onclick=()=>zoomAt(.8,cam.cxt);$('bZfit').onclick=()=>{cam.zt=cam.fitZ;cam.cxt=cam.fitX};
 $('bReset').onclick=()=>{SFX.click();loadLevel(level)};
 $('bMute').onclick=()=>{SFX.muted=!SFX.muted;$('bMute').textContent=SFX.muted?'🔇':'🔊';if(SFX.muted)SFX.laserOn(false)};
 $('bNext').onclick=()=>{$('done').classList.remove('show');SFX.click();if(level<LEVELS.length-1)loadLevel(level+1);else{buildMenu();$('menu').classList.add('show')}};
 $('bKeep').onclick=()=>{$('done').classList.remove('show')};
 $('det').onclick=e=>{e.stopPropagation();detonate()};
-function toWorld(e){const r=cv.getBoundingClientRect();const dpr=view.dpr;return{x:((e.clientX-r.left)*dpr-view.ox)/view.s,y:((e.clientY-r.top)*dpr-view.oy)/view.s}}
-cv.addEventListener('pointerdown',e=>{SFX.init();const p=toWorld(e);mouse.x=p.x;mouse.y=p.y;mouse.down=true;mouse.in=true;cv.setPointerCapture(e.pointerId);const w=WEAPONS[wSel];if(!unlocked(w))return;if(!fire(w,p.x,clamp(p.y,0,GY-2))&&w.id!=='laser'&&w.id!=='c4'){SFX.osc&&SFX.ctx&&!SFX.muted&&SFX.osc(.08,'square',180,140,.05,0)}});
+function toWorld(e){const r=cv.getBoundingClientRect();const dpr=view.dpr;camT();return{x:((e.clientX-r.left)*dpr-TX)/K,y:((e.clientY-r.top)*dpr-TY)/K}}
+// ---- camera ----
+const cam={z:1,zt:1,cx:W/2,cxt:W/2,x0:0,y0:0,fitZ:1,fitX:W/2};let K=1,TX=0,TY=0;
+function camT(){const vw=W/cam.z;cam.x0=clamp(cam.cx-vw/2,0,W-vw);cam.y0=GY+(H-GY)/cam.z-H/cam.z;K=view.s*cam.z;TX=view.ox-cam.x0*K;TY=view.oy-cam.y0*K}
+function camFit(){let a=W,b=0,t=GY;for(const br of bricks){if(!br.st)continue;if(br.x<a)a=br.x;if(br.x>b)b=br.x;if(br.y<t)t=br.y}if(b<a){a=0;b=W}
+  const z=clamp(Math.min(W/(b-a+320),(H-(H-GY))/(GY-t+150)),1,2.6);cam.fitZ=z;cam.fitX=(a+b)/2;cam.zt=z;cam.cxt=cam.fitX}
+function camStep(dt){cam.z+=(cam.zt-cam.z)*Math.min(1,dt*5);cam.cx+=(cam.cxt-cam.cx)*Math.min(1,dt*5)}
+function zoomAt(f,wx){const nz=clamp(cam.zt*f,1,3.5);if(wx!=null)cam.cxt=wx+(cam.cxt-wx)*cam.zt/nz;cam.zt=nz;if(nz<=1.001)cam.cxt=W/2}
+cv.addEventListener('wheel',e=>{e.preventDefault();const p=toWorld(e);zoomAt(e.deltaY<0?1.15:1/1.15,p.x)},{passive:false});
+const touches=new Map();let pinch0=0;
+cv.addEventListener('pointerdown',e=>{touches.set(e.pointerId,e);if(touches.size===2){const[a,b]=[...touches.values()];pinch0=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);mouse.down=false}},true);
+cv.addEventListener('pointermove',e=>{if(!touches.has(e.pointerId))return;touches.set(e.pointerId,e);if(touches.size===2&&pinch0){const[a,b]=[...touches.values()];const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);const m=toWorld({clientX:(a.clientX+b.clientX)/2,clientY:(a.clientY+b.clientY)/2});zoomAt(d/pinch0,m.x);pinch0=d}});
+const tEnd=e=>{touches.delete(e.pointerId);if(touches.size<2)pinch0=0};cv.addEventListener('pointerup',tEnd);cv.addEventListener('pointercancel',tEnd);
+cv.addEventListener('pointerdown',e=>{SFX.init();const p=toWorld(e);mouse.x=p.x;mouse.y=p.y;mouse.down=true;mouse.in=true;cv.setPointerCapture(e.pointerId);const w=WEAPONS[wSel];if(!unlocked(w)||touches.size>1)return;if(!fire(w,p.x,clamp(p.y,0,GY-2))&&w.id!=='laser'&&w.id!=='c4'){SFX.osc&&SFX.ctx&&!SFX.muted&&SFX.osc(.08,'square',180,140,.05,0)}});
 cv.addEventListener('pointermove',e=>{const p=toWorld(e);mouse.x=p.x;mouse.y=p.y;mouse.in=true});
 cv.addEventListener('pointerup',()=>{mouse.down=false});cv.addEventListener('pointercancel',()=>{mouse.down=false});cv.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')mouse.in=false});
 addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k===' '){e.preventDefault();detonate();return}if(k==='escape'){if($('menu').classList.contains('show')&&level!=null){$('menu').classList.remove('show')}else{buildMenu();$('menu').classList.add('show')}return}
-  if(k==='m'){$('bMute').click();return}if(k==='r'&&!e.ctrlKey&&!e.metaKey){loadLevel(level);return}const i=KEYS.indexOf(k);if(i>=0)select(i)});
+  if(k==='m'){$('bMute').click();return}if(k==='='||k==='+'){zoomAt(1.25,cam.cxt);return}if(k==='-'||k==='_'){zoomAt(.8,cam.cxt);return}if(k==='z'){$('bZfit').click();return}if(k==='r'&&!e.ctrlKey&&!e.metaKey){loadLevel(level);return}const i=KEYS.indexOf(k);if(i>=0)select(i)});
 
 // ================= LOOP =================
 let last=performance.now(),acc=0;const DT=1/120;
@@ -776,7 +795,7 @@ function frame(now){let real=Math.min(.05,(now-last)/1000);last=now;avgDt+=(real
   if(comboT>0){comboT-=real;if(comboT<=0)combo=0}
   if(toastT>0){toastT-=real;if(toastT<=0)$('toast').style.display='none'}
   if(bannerT>0){bannerT-=real;if(bannerT<=0)$('banner').style.opacity=0}
-  render();updateUI();requestAnimationFrame(frame)}
+  camStep(real);render();updateUI();requestAnimationFrame(frame)}
 function step(dt){time+=dt;for(const c of chimneys){const below=grid[(c.r+1)*COLS+c.gx];if(below&&below.st&&Math.random()<dt*5)addP('smoke',c.x+R(-3,3),c.y,R(5,20),R(-40,-25),R(2.5,4),R(6,10))}stepProjs(dt);stepEffects(dt);stepLaser(dt);stepLoose(dt);stepFire(dt);stepParts(dt);
   if(supportDirty){supportDirty=false;support(false)}if(Math.random()<.1||!completed)checkProgress();
   if(bricks.length>bonded*3+500&&Math.random()<.01)bricks=bricks.filter(b=>b.alive&&b.st)}
