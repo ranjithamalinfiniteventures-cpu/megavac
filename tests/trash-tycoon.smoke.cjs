@@ -101,6 +101,13 @@ function check(cond, msg) {
     check(call.label === 'CALL TRUCK' && call.visible === 'flex', 'button offers CALL TRUCK when far away');
     check(call.d < 4 && !call.driving, `truck came to the player (${call.d.toFixed(1)} away) and player got back out`);
 
+    // 6c. The footpath to the SELL dock speeds up walking.
+    const walk = await page.evaluate(() => {
+      const run = z => { TT.place(32, z); TT.forceInput = { x: 1, z: 0 }; TT.step(1 / 30, 30); TT.forceInput = null; return TT.player.x - 32; };
+      return { path: run(0), grass: run(8) };
+    });
+    check(walk.path > walk.grass * 1.3, `walking on the footpath is faster (${walk.path.toFixed(1)} vs ${walk.grass.toFixed(1)})`);
+
     // 7. Buy a machine and an upgrade.
     await page.evaluate(() => { TT.S.cash = 1000; TT.place(12, TT.machines[1].z); TT.step(1 / 30, 120); });
     check(await page.evaluate(() => TT.S.mach[1] === 0), 'built the Bottle Factory');

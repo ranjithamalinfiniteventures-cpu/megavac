@@ -23,7 +23,8 @@ Then open http://localhost:8790/.
 2. **Recycle.** Drive into a machine's yellow **TRASH IN** zone. The trash pours into the hopper.
 3. **Produce.** The machine turns trash into goods. They stack on its **PICK UP** tray.
 4. **Carry.** Press **E** (or tap **GET OUT**) to leave the truck. Walk to the tray to grab goods.
-5. **Sell.** Drop the goods on the port's **SELL** dock. A cargo lorry drives in, loads
+5. **Sell.** Follow the brick footpath from the machines to the port (you walk 40% faster on it).
+   Drop the goods on the port's **SELL** dock. A cargo lorry drives in, loads
    them and leaves. Your money appears on the **CASH** pad.
 6. **Grow.** Stand on a pad to pay into it. Pads buy new machines and upgrades.
 

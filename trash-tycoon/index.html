@@ -683,7 +683,7 @@ applyPark();
 
 // ---------- foliage ----------
 (function foliage() {
-  const blocked = (x, z) => (x > -7 && x < 41 && z > -43 && z < 43) || (x > 45 && x < 88 && z > -60 && z < 60) || x > 86 ||
+  const blocked = (x, z) => (x > -7 && x < 41 && z > -43 && z < 43) || (x > 24 && x < 57 && Math.abs(z) < 2.6) || (x > 45 && x < 88 && z > -60 && z < 60) || x > 86 ||
     (x > -12 && x < 56 && z > -56 && z < -43) || (x > 4 && x < 40 && z < -60) ||
     circles.some(c => (c.x - x) ** 2 + (c.z - z) ** 2 < (c.r + 0.6) ** 2);
   const tuftGeo = new THREE.ConeGeometry(0.13, 0.6, 4).translate(0, 0.3, 0);
@@ -834,6 +834,65 @@ B(scene, 34, 10, 10, 0xe8dcc6, 22, 5, -66); B(scene, 35, 0.8, 11, 0x2f9e57, 22, 
 for (let k = 0; k < 5; k++) B(scene, 3, 3, 0.2, 0x7fb7e6, 10 + k * 6, 6, -60.9);
 makeLabel(12, 'TRASH TYCOON HQ', '', '#2f9e57').position.set(22, 13.5, -64);
 for (const x of [-10, 54]) makeTree(x, -62, 1.2, false);
+
+// ---------- footpath: machines -> SELL dock ----------
+// A spine runs past every PICK UP zone, then a straight path leads east to the dock.
+// Walking on it is faster, so it is the quickest way to the selling place.
+const PATH_W = 3.2, SPINE_X = 24.9 + PATH_W / 2, PATH_END = DOCK.x - 2.7;
+const PATHS = [
+  { x0: 24.9, x1: 24.9 + PATH_W, z0: -28.6, z1: 28.6 },
+  { x0: 24.9 + PATH_W, x1: PATH_END, z0: -PATH_W / 2, z1: PATH_W / 2 },
+];
+const onPath = e => PATHS.some(b => e.x > b.x0 && e.x < b.x1 && e.z > b.z0 && e.z < b.z1);
+TEX.pavers = patternTex(128, (g, s) => {
+  g.fillStyle = '#b48a62'; g.fillRect(0, 0, s, s);
+  for (let row = 0; row < 8; row++) for (let col = -1; col < 4; col++) {
+    const x = col * 32 + (row % 2 ? 16 : 0) + 1.5, y = row * 16 + 1.5;
+    g.fillStyle = pick(['#dcb48a', '#d4a77b', '#e3bf97', '#cfa275']); g.fillRect(x, y, 29, 13);
+  }
+  speckle(g, s, 260, ['#c39670', '#e9caa6'], 0.3, 0.6, 1, 2);
+});
+const chevronTex = (() => {
+  const { g, tex } = canvasTex(128, 128);
+  g.strokeStyle = '#ffffff'; g.lineWidth = 16; g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const y of [34, 76]) { g.beginPath(); g.moveTo(30, y + 26); g.lineTo(64, y); g.lineTo(98, y + 26); g.stroke(); }
+  return tex;
+})();
+const chevronMat = new THREE.MeshBasicMaterial({ map: chevronTex, transparent: true, opacity: 0.8, depthWrite: false });
+for (const b of PATHS) flat(b.x1 - b.x0, b.z1 - b.z0, 0, (b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, 0.045, TEX.pavers, 2);
+// arrows: chevron points along -z in the texture, so rotation.y turns it toward the target
+function arrow(x, z, dirX, dirZ) {
+  const m = new THREE.Mesh(GEO.plane, chevronMat);
+  m.rotation.order = 'YXZ'; m.rotation.set(-Math.PI / 2, Math.atan2(-dirX, -dirZ), 0);
+  m.scale.setScalar(2.2); m.position.set(x, 0.06, z); scene.add(m);
+}
+for (let x = 31; x <= PATH_END - 2.5; x += 5) arrow(x, 0, 1, 0);
+for (const z of [-22.5, -18, -4.5, 4.5, 18, 22.5]) arrow(SPINE_X, z, 0, -Math.sign(z));
+// curbs, with gaps where PICK UP zones and the dock path join
+const curb = (x0, x1, z0, z1) => RB(scene, Math.max(0.2, x1 - x0), 0.16, Math.max(0.2, z1 - z0), 0xe8e4dc, (x0 + x1) / 2, 0.08, (z0 + z1) / 2, 0.06);
+const W = 24.9, E = 24.9 + PATH_W;
+for (const [a, b] of [[-25.4 + 0.7, -11.3], [-6.7, 6.7], [11.3, 25.4 - 0.7]]) curb(W - 0.1, W + 0.1, a, b);
+curb(E - 0.1, E + 0.1, -28.6, -PATH_W / 2); curb(E - 0.1, E + 0.1, PATH_W / 2, 28.6);
+curb(W - 0.1, E + 0.1, -28.7, -28.5); curb(W - 0.1, E + 0.1, 28.5, 28.7);
+curb(E, PATH_END, -PATH_W / 2 - 0.1, -PATH_W / 2 + 0.1); curb(E, PATH_END, PATH_W / 2 - 0.1, PATH_W / 2 + 0.1);
+// signpost where the paths meet
+(function signpost() {
+  const x = E + 1.2, z = -PATH_W / 2 - 0.9;
+  mesh('cyl', 0x7a5232, x, 1.6, z, 0.22, 3.2, 0.22);
+  const { g, tex } = canvasTex(256, 96);
+  const draw = () => {
+    g.clearRect(0, 0, 256, 96); g.fillStyle = '#2f9e57'; roundRect(g, 4, 4, 248, 88, 18); g.fill();
+    g.fillStyle = '#fff'; g.font = '700 46px Fredoka,system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SELL →', 128, 50);
+    tex.needsUpdate = true;
+  };
+  draw(); redraws.push(draw);
+  const board = RB(scene, 2.6, 1.0, 0.16, 0x2f9e57, x, 3.0, z, 0.08);
+  const face = new THREE.Mesh(GEO.plane, new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.6 }));
+  face.scale.set(2.5, 0.94, 1); face.position.set(x, 3.0, z + 0.09); scene.add(face);
+  circles.push({ x, z, r: 0.3 });
+  void board;
+})();
+for (const z of [-3.4, 3.4]) bush(43, z, 0.9);
 
 // ---------- player, truck, helpers ----------
 const truckV = makeTruck(0x3fae5a);
@@ -1096,7 +1155,7 @@ function updateTruck(dt) {
 }
 function updatePlayer(dt) {
   const p = player;
-  const sp = stat.walk();
+  const sp = stat.walk() * (onPath(p) ? 1.4 : 1);
   p.moving = inputVec.len > 0.1;
   if (p.moving) {
     p.x += inputVec.x * sp * dt; p.z += inputVec.z * sp * dt;
@@ -1314,7 +1373,7 @@ const TUT = [
   { text: () => 'Drive into the TRASH IN zone of the Brick Press', target: () => ({ x: IN_X, z: machines[0].z }), done: () => (S.unloaded || 0) >= 6 && truck.load === 0 },
   { text: () => 'Tap GET OUT (or press E) to step out of the truck', target: () => null, done: () => !driving },
   { text: () => machines[0].out.n ? 'Pick up bricks at the machine\'s PICK UP zone' : 'The machine is making bricks…', target: () => ({ x: OUT_X, z: machines[0].z }), done: () => carry.n >= 3 || (carry.n > 0 && machines[0].out.n === 0) },
-  { text: () => 'Carry the goods to the SELL dock at the port', target: () => DOCK, done: () => dock.n > 0 || buyer.state !== 'wait' },
+  { text: () => 'Follow the footpath to the SELL dock at the port', target: () => DOCK, done: () => dock.n > 0 || buyer.state !== 'wait' },
   { text: () => cash.amount > 0 ? 'Collect your CASH!' : 'A cargo truck is buying your goods…', target: () => CASHPAD, done: () => S.cashCollected },
   { text: () => 'Stand on pads to buy upgrades and new machines!', target: () => ({ x: 22, z: -50 }), done: () => S.tutT > 7 },
 ];
