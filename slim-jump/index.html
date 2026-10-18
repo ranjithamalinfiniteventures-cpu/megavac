@@ -135,11 +135,9 @@
   </div>
 </div>
 
-<script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
-</script>
-<script type="module">
-import * as THREE from 'three';
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script>
+(() => {
 
 // ---------------------------------------------------------------- utilities
 const $ = id => document.getElementById(id);
@@ -472,7 +470,9 @@ let trampTop = null;
 function label(text, { bg = '#ffffff', fg = '#2b1d3a', w = 256, h = 96, size = 52 } = {}) {
   const tex = canvasTexture(w, h, (g) => {
     g.fillStyle = bg;
-    g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 24); g.fill();
+    g.beginPath();
+    if (g.roundRect) g.roundRect(4, 4, w - 8, h - 8, 24); else g.rect(4, 4, w - 8, h - 8);
+    g.fill();
     g.fillStyle = fg; g.font = `900 ${size}px Trebuchet MS, sans-serif`;
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 2);
   });
@@ -1038,6 +1038,7 @@ requestAnimationFrame(frame);
 
 // test hook for automated checks
 window.__slimJump = { S, ITEMS, get items() { return items; }, get gates() { return gates; }, jumpHeight, startRun };
+})();
 </script>
 </body>
 </html>
