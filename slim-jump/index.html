@@ -1,0 +1,1251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Slim Jump</title>
+<style>
+  :root {
+    --ink: #2b1d3a;
+    --good: #1fbf63;
+    --bad: #ff3b5c;
+    --panel: rgba(255, 255, 255, .92);
+    --accent: #ff4fa3;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; touch-action: none;
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; color: var(--ink);
+    background: linear-gradient(#f27cc4 0%, #f8b3d6 30%, #fde0cf 48%, #6fc3ff 60%, #2f8fff 100%);
+    user-select: none; -webkit-user-select: none;
+  }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* HUD: a level-progress strip and one compact weight meter, kept to the top edge */
+  #hud { position: fixed; top: 0; left: 0; right: 0; display: none; flex-direction: column; align-items: center;
+         gap: 8px; pointer-events: none; z-index: 5;
+         padding-top: calc(10px + env(safe-area-inset-top, 0px));
+         padding-left: max(16px, env(safe-area-inset-left, 0px));
+         padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  #hud.on { display: flex; }
+  #progRow { display: flex; align-items: center; gap: 8px; width: min(300px, 100%); }
+  .lvl { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+         font-weight: 900; font-size: 14px; color: #fff; background: var(--accent);
+         box-shadow: 0 2px 0 #c2307a; font-variant-numeric: tabular-nums; }
+  .lvl.next { background: var(--panel); color: var(--ink); box-shadow: 0 2px 0 rgba(0,0,0,.15); }
+  #prog { flex: 1; height: 10px; border-radius: 99px; background: rgba(255,255,255,.6);
+          box-shadow: inset 0 1px 2px rgba(0,0,0,.12); overflow: hidden; }
+  #progFill { height: 100%; width: 0; border-radius: 99px; background: var(--accent); }
+
+  #weightCard { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+                width: min(380px, 100%); padding: 8px 10px 8px 14px; border-radius: 16px;
+                background: var(--panel); box-shadow: 0 3px 0 rgba(0,0,0,.1); }
+  #wLeft { display: grid; line-height: 1; min-width: 62px; }
+  #weightNum { font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  #weightNum small { font-size: 12px; font-weight: 800; margin-left: 2px; }
+  #status { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; margin-top: 3px; }
+  #wMid { min-width: 0; padding-top: 12px; }
+  #bar { position: relative; height: 10px; border-radius: 99px;
+         background: linear-gradient(90deg, #1fbf63, #a6d93a 35%, #ffc93a 60%, #ff3b5c); }
+  #goalFlag { position: absolute; top: -13px; bottom: -3px; width: 0; border-left: 2px dashed var(--ink); opacity: .55; }
+  #goalFlag::before { content: "🎯"; position: absolute; top: -3px; left: -7px; font-size: 11px; line-height: 1; }
+  #marker { position: absolute; top: -4px; width: 8px; height: 18px; margin-left: -4px; border-radius: 4px;
+            background: var(--ink); border: 2px solid #fff; transition: left .15s; }
+  #barLabels { display: flex; justify-content: space-between; font-size: 10px; font-weight: 800;
+               text-transform: uppercase; letter-spacing: .06em; opacity: .55; margin-top: 3px; }
+  #predict { display: grid; justify-items: center; line-height: 1; padding: 6px 9px; border-radius: 12px;
+             min-width: 58px; background: #ffe3ea; color: #c8143a; transition: background .2s, color .2s; }
+  #predict.ok { background: #d9f7e6; color: #0f8a45; }
+  #predictNum { font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  #predict small { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+
+  /* altimeter replaces the HUD while flying */
+  #altimeter { position: fixed; left: 0; right: 0; top: calc(16px + env(safe-area-inset-top, 0px)); display: none;
+               flex-direction: column; align-items: center; pointer-events: none; z-index: 5; color: #fff;
+               text-shadow: 0 3px 0 var(--accent), 0 6px 16px rgba(0,0,0,.2); }
+  #altimeter.on { display: flex; }
+  #altNum { font-size: clamp(48px, 14vw, 72px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+  #altNum small { font-size: .45em; }
+  #altGoal { margin-top: 6px; padding: 4px 12px; border-radius: 99px; font-size: 14px; font-weight: 900;
+             text-shadow: none; background: var(--panel); color: var(--ink); }
+  #altimeter.passed #altGoal { background: #ffc400; }
+
+  #muteBtn { position: fixed; right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: 44px; height: 44px; border-radius: 50%;
+             border: 0; background: var(--panel); font-size: 20px; cursor: pointer; z-index: 20;
+             box-shadow: 0 3px 0 rgba(0,0,0,.15); }
+
+  #pops { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .pop { position: absolute; font-weight: 900; font-size: 22px; white-space: nowrap; transform: translate(-50%, 0);
+         text-shadow: 0 2px 0 #fff, 0 -2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff;
+         animation: pop .9s ease-out forwards; }
+  @keyframes pop { 0% { opacity: 0; margin-top: 10px; } 15% { opacity: 1; } 100% { opacity: 0; margin-top: -70px; } }
+
+  #banner { position: fixed; left: 0; right: 0; top: 34%; text-align: center; font-size: clamp(34px, 9vw, 64px);
+            font-weight: 900; color: #fff; pointer-events: none; opacity: 0;
+            text-shadow: 0 4px 0 var(--accent), 0 8px 20px rgba(0,0,0,.25); transition: opacity .25s, transform .25s; }
+  #banner.on { opacity: 1; transform: scale(1.06); }
+
+  .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+            padding: 16px; z-index: 10; }
+  .screen.hidden { display: none; }
+  .card { background: var(--panel); border-radius: 24px; padding: 22px 20px; width: min(400px, 100%);
+          text-align: center; box-shadow: 0 8px 0 rgba(0,0,0,.12), 0 20px 50px rgba(80,0,60,.25); }
+  h1 { margin: 0; font-size: clamp(40px, 12vw, 56px); line-height: 1; color: var(--accent); letter-spacing: 1px;
+       text-shadow: 0 4px 0 #ffd2ea; }
+  .sub { margin: 10px 0 14px; font-size: 15px; line-height: 1.4; }
+  .rules { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; text-align: left; font-size: 14px;
+           margin: 0 auto 16px; max-width: 320px; align-items: center; }
+  .rules span:nth-child(odd) { font-size: 20px; }
+  .btn { display: block; width: 100%; border: 0; border-radius: 16px; padding: 14px; margin-top: 10px;
+         font: inherit; font-size: 20px; font-weight: 900; color: #fff; cursor: pointer;
+         background: var(--accent); box-shadow: 0 5px 0 #c2307a; }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c2307a; }
+  .btn.alt { background: #7b6cff; box-shadow: 0 5px 0 #5146c4; }
+  .stats { display: flex; gap: 8px; justify-content: center; margin: 12px 0 4px; }
+  .stat { flex: 1; background: #fff2f9; border-radius: 14px; padding: 8px 4px; }
+  .stat b { display: block; font-size: 22px; }
+  .stat small { font-size: 12px; opacity: .75; }
+  #resHeight { font-size: clamp(54px, 16vw, 76px); font-weight: 900; color: var(--accent); line-height: 1; margin: 6px 0; }
+  #resStars { font-size: 38px; letter-spacing: 4px; }
+  .dim { opacity: .25; filter: grayscale(1); }
+  #resTitle { margin: 0; font-size: 26px; }
+  #resMsg { margin: 6px 0 0; font-size: 15px; }
+  .hint { font-size: 13px; opacity: .7; margin-top: 10px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="progRow" aria-label="Level progress">
+    <span class="lvl" id="lvlNow">1</span>
+    <div id="prog"><div id="progFill"></div></div>
+    <span class="lvl next" id="lvlNext">2</span>
+  </div>
+  <div id="weightCard">
+    <div id="wLeft"><span id="weightNum">95<small>kg</small></span><span id="status">Fit</span></div>
+    <div id="wMid">
+      <div id="bar"><div id="goalFlag"></div><div id="marker"></div></div>
+      <div id="barLabels"><span>Slim</span><span>Heavy</span></div>
+    </div>
+    <div id="predict"><span id="predictNum">16 m</span><small>jump</small></div>
+  </div>
+</div>
+<div id="altimeter"><span id="altNum">0.0<small> m</small></span><span id="altGoal">🎯 Goal 16 m</span></div>
+<div id="pops"></div>
+<div id="banner"></div>
+<button id="muteBtn" aria-label="Toggle sound">🔊</button>
+
+<div id="menu" class="screen">
+  <div class="card">
+    <h1>SLIM JUMP</h1>
+    <p class="sub">Run, eat smart and work out.<br>The lighter you are, the <b>higher</b> you bounce!</p>
+    <div class="rules">
+      <span>🥒🍎🥦</span><span>Healthy food: <b style="color:var(--good)">lose weight</b></span>
+      <span>🍔🍕🍩</span><span>Junk food: <b style="color:var(--bad)">gain weight</b></span>
+      <span>🏃🏋️</span><span>Treadmills, dumbbells &amp; green gates burn fat</span>
+      <span>🛋️</span><span>Dodge the couches</span>
+      <span>👆</span><span>Drag or use ← → / A D to steer</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="menuLevel">1</b><small>Level</small></div>
+      <div class="stat"><b id="menuBest">0 m</b><small>Best jump</small></div>
+    </div>
+    <button class="btn" id="playBtn">PLAY</button>
+  </div>
+</div>
+
+<div id="result" class="screen hidden">
+  <div class="card">
+    <h2 id="resTitle">Level complete!</h2>
+    <div id="resStars">⭐⭐⭐</div>
+    <div id="resHeight">0 m</div>
+    <p id="resMsg"></p>
+    <div class="stats">
+      <div class="stat"><b id="resWeight">0 kg</b><small>Final weight</small></div>
+      <div class="stat"><b id="resGoal">0 m</b><small>Goal</small></div>
+      <div class="stat"><b id="resBest">0 m</b><small>Best</small></div>
+    </div>
+    <button class="btn" id="nextBtn">NEXT LEVEL</button>
+    <button class="btn alt" id="retryBtn">RETRY</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script>
+(() => {
+
+// ---------------------------------------------------------------- utilities
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const damp = (a, b, k, dt) => lerp(a, b, 1 - Math.exp(-k * dt));
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('slimjump.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('slimjump.' + k, JSON.stringify(v)); } catch (e) {} },
+};
+
+function mulberry32(a) {
+  return () => {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ---------------------------------------------------------------- tuning
+const W_MIN = 40, W_MAX = 160;
+const TRACK_W = 8, HALF = TRACK_W / 2, STEER_LIMIT = HALF - 0.7;
+const GRAVITY = 18;
+const LEDGE_STEP = 2, TOWER_H = 46;
+
+// Lighter = higher. 40 kg flies ~40 m, 160 kg barely leaves the trampoline.
+function jumpHeight(w) {
+  const lightness = clamp((W_MAX - w) / (W_MAX - W_MIN), 0, 1);
+  return 1 + 39 * Math.pow(lightness, 1.6);
+}
+const fatness = w => clamp((w - W_MIN) / (W_MAX - W_MIN), 0, 1);
+function statusOf(w) {
+  if (w < 55) return ['Super slim', '#1fbf63'];
+  if (w < 70) return ['Slim', '#3fbf3f'];
+  if (w < 90) return ['Fit', '#8fae00'];
+  if (w < 115) return ['Chubby', '#e69500'];
+  return ['Heavy', '#ff3b5c'];
+}
+const levelGoal = n => Math.min(16 + (n - 1) * 2, 36);
+const levelLength = n => Math.min(230 + n * 25, 520);
+const startWeight = n => Math.min(95 + (n - 1) * 1.5, 110);
+
+// ---------------------------------------------------------------- renderer / scene
+const renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xfbd0dc, 45, 280);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 500);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x9fc4ff, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 50 });
+sun.shadow.bias = -0.0005;
+scene.add(sun, sun.target);
+
+const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, ...extra });
+
+function canvasTexture(w, h, draw) {
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  draw(cv.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+// sea + skyline follow the player so the world feels endless
+const world = new THREE.Group();
+scene.add(world);
+const sea = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), mat(0x3aa2ff, { roughness: 0.3 }));
+sea.rotation.x = -Math.PI / 2;
+sea.position.y = -10;
+world.add(sea);
+{
+  const rnd = mulberry32(42);
+  const cityMat = new THREE.MeshBasicMaterial({ color: 0xf29cc8 });
+  for (let i = 0; i < 60; i++) {
+    const h = 10 + rnd() * 35, w = 8 + rnd() * 14;
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), cityMat);
+    const side = rnd() < .5 ? -1 : 1;
+    b.position.set(side * (20 + rnd() * 200), h / 2 - 10, -210 - rnd() * 40);
+    world.add(b);
+  }
+}
+
+// ---------------------------------------------------------------- character
+// The body is built from a few smooth skinned meshes (torso, arms, legs) instead of
+// separate primitives, so waist, elbows and knees bend without visible joints. Each
+// mesh carries a "fat" morph target; setFat() blends between the slim and heavy shapes.
+const SKIN = 0xf5c4a1, TOP = 0xff4646, PANTS = 0xc93ad6, BELT = 0x3b2a48, HAIR = 0x1e1a22;
+
+// rings: [y, rx, rz, zc, fatRx, fatRz, fatZc, color], ascending y. Front of the body is -z.
+function smoothRings(ctrl, sub) {
+  const cr = (p0, p1, p2, p3, t) => .5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
+  const out = [];
+  for (let i = 0; i < ctrl.length - 1; i++) {
+    const p0 = ctrl[Math.max(i - 1, 0)], p1 = ctrl[i], p2 = ctrl[i + 1], p3 = ctrl[Math.min(i + 2, ctrl.length - 1)];
+    for (let s = 0; s < sub; s++) {
+      const t = s / sub;
+      const r = p1.map((v, k) => k === 7 ? (t < .5 ? p1[7] : p2[7]) : cr(p0[k], v, p2[k], p3[k], t));
+      for (const k of [1, 2, 4, 5]) r[k] = Math.max(0, r[k]);
+      out.push(r);
+    }
+  }
+  out.push(ctrl[ctrl.length - 1]);
+  // split rings where the colour changes so clothing edges stay crisp
+  const rings = [];
+  out.forEach((r, i) => {
+    if (i > 0 && out[i - 1][7] !== r[7]) {
+      const p = out[i - 1], m = p.map((v, k) => k === 7 ? p[7] : (v + r[k]) / 2);
+      rings.push(m, [...m.slice(0, 7), r[7]]);
+    }
+    rings.push(r);
+  });
+  return rings;
+}
+
+function bodyGeometry(rings, joint, blend, seg = 30) {
+  const n = rings.length, N = n * seg;
+  const pos = new Float32Array(N * 3), fat = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  const si = new Uint16Array(N * 4), sw = new Float32Array(N * 4);
+  const c = new THREE.Color();
+  rings.forEach((r, i) => {
+    c.setHex(r[7]);
+    // weight toward bone 1 (the bone above the joint is 1 for torso, below for limbs)
+    const t = joint.up ? clamp((r[0] - joint.y + blend) / (2 * blend), 0, 1) : clamp((joint.y + blend - r[0]) / (2 * blend), 0, 1);
+    for (let j = 0; j < seg; j++) {
+      const a = j / seg * Math.PI * 2, k = i * seg + j;
+      pos.set([Math.sin(a) * r[1], r[0], r[3] + Math.cos(a) * r[2]], k * 3);
+      fat.set([Math.sin(a) * r[4], r[0], r[6] + Math.cos(a) * r[5]], k * 3);
+      col.set([c.r, c.g, c.b], k * 3);
+      si.set([0, 1, 0, 0], k * 4);
+      sw.set([1 - t, t, 0, 0], k * 4);
+    }
+  });
+  const index = [];
+  for (let i = 0; i < n - 1; i++) for (let j = 0; j < seg; j++) {
+    const a = i * seg + j, b = i * seg + (j + 1) % seg, cc = a + seg, d = b + seg;
+    index.push(a, b, cc, b, d, cc);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setIndex(index);
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  geo.computeVertexNormals();
+  const fatGeo = new THREE.BufferGeometry();
+  fatGeo.setIndex(index);
+  fatGeo.setAttribute('position', new THREE.BufferAttribute(fat, 3));
+  fatGeo.computeVertexNormals();
+  geo.morphAttributes.position = [fatGeo.attributes.position];
+  geo.morphAttributes.normal = [fatGeo.attributes.normal];
+  return geo;
+}
+
+// A two-bone skinned mesh. Returns the mesh plus its root and joint bones.
+function skinnedPart(geo, material, jointY) {
+  const mesh = new THREE.SkinnedMesh(geo, material);
+  const b0 = new THREE.Bone(), b1 = new THREE.Bone();
+  b1.position.y = jointY;
+  b0.add(b1);
+  mesh.add(b0);
+  mesh.updateMatrixWorld(true);
+  mesh.bind(new THREE.Skeleton([b0, b1]));
+  mesh.castShadow = true;
+  mesh.frustumCulled = false;
+  mesh.morphTargetInfluences = [0];
+  return { mesh, b0, b1 };
+}
+
+function makeCharacter() {
+  const bodyMat = mat(0xffffff, { vertexColors: true, roughness: .62 });
+  const skin = mat(SKIN), hairM = mat(HAIR, { roughness: .45 }), shoeM = mat(0xfafafa),
+        soleM = mat(0xff8fc8), white = mat(0xffffff, { roughness: .3 }), iris = mat(0x3b2416, { roughness: .2 }),
+        lips = mat(0xd9505a);
+  const root = new THREE.Group();
+  const body = new THREE.Group(); root.add(body);
+  const add = (geo, m, parent, x = 0, y = 0, z = 0) => {
+    const mesh = new THREE.Mesh(geo, m);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    parent.add(mesh);
+    return mesh;
+  };
+
+  // torso: hips (bone 0) and chest (bone 1, joint at the waist)
+  const P = PANTS, S = SKIN, T = TOP, B = BELT;
+  const torsoRings = smoothRings([
+    [-.17, 0, 0, .02, 0, 0, .03, P],
+    [-.15, .09, .08, .02, .16, .15, .04, P],
+    [-.1, .155, .125, .02, .31, .27, .05, P],
+    [-.03, .185, .135, .02, .38, .32, .04, P],
+    [.05, .182, .125, .01, .40, .34, 0, P],
+    [.11, .168, .115, 0, .40, .35, -.04, P],
+    [.135, .162, .112, 0, .40, .36, -.06, B],
+    [.15, .157, .108, 0, .40, .365, -.08, S],
+    [.22, .145, .1, 0, .40, .37, -.1, S],
+    [.28, .152, .104, 0, .39, .35, -.08, T],
+    [.36, .172, .114, -.005, .38, .32, -.05, T],
+    [.44, .188, .114, 0, .37, .29, -.02, T],
+    [.51, .198, .104, .005, .36, .25, 0, T],
+    [.555, .17, .09, .01, .30, .2, .01, T],
+    [.585, .1, .07, .01, .16, .12, .01, S],
+    [.62, .055, .055, .012, .09, .09, .012, S],
+    [.72, .05, .05, .015, .075, .075, .015, S],
+    [.76, 0, 0, .015, 0, 0, .015, S],
+  ], 3);
+  const torso = skinnedPart(bodyGeometry(torsoRings, { y: .2, up: true }, .09), bodyMat, .2);
+  torso.mesh.position.y = .95;
+  body.add(torso.mesh);
+  const hips = torso.b0, chest = torso.b1;
+
+  // head (chest-local: waist joint sits at y .2)
+  const head = new THREE.Group(); head.position.y = .66; chest.add(head);
+  add(new THREE.SphereGeometry(.15, 32, 24), skin, head).scale.set(1, 1.12, 1.05);
+  for (const s of [-1, 1]) {
+    add(new THREE.SphereGeometry(.035, 12, 10), skin, head, s * .148, -.005, .005).scale.set(.45, 1, .8);
+    add(new THREE.SphereGeometry(.028, 16, 12), white, head, s * .054, .012, -.138).scale.set(1, 1, .55);
+    add(new THREE.SphereGeometry(.016, 12, 10), iris, head, s * .054, .012, -.152);
+    const brow = add(new THREE.BoxGeometry(.05, .011, .012), hairM, head, s * .056, .058, -.145);
+    brow.rotation.z = s * -.12;
+    add(new THREE.SphereGeometry(.022, 10, 8), mat(0xffa3a3, { transparent: true, opacity: .35 }), head, s * .085, -.035, -.13).scale.set(1, .6, .4);
+  }
+  add(new THREE.SphereGeometry(.02, 12, 10), skin, head, 0, -.018, -.162).scale.set(.8, 1, 1);
+  const mouth = add(new THREE.TorusGeometry(.024, .006, 6, 16, Math.PI), lips, head, 0, -.058, -.148);
+  mouth.rotation.z = Math.PI;
+  // hair: a cap that clears the forehead plus a back piece down to the nape
+  const cap = add(new THREE.SphereGeometry(.158, 32, 16, 0, Math.PI * 2, 0, Math.PI * .42), hairM, head, 0, .012, .006);
+  cap.scale.set(1.04, 1.13, 1.09);
+  cap.rotation.x = .28;
+  const back = add(new THREE.SphereGeometry(.158, 32, 20, 0, Math.PI, 0, Math.PI * .8), hairM, head, 0, .012, .008);
+  back.scale.set(1.04, 1.13, 1.09);
+  const tail = new THREE.Group(); tail.position.set(0, .1, .16); head.add(tail);
+  add(new THREE.TorusGeometry(.04, .014, 8, 16), mat(0xff4fa3), tail).rotation.x = Math.PI / 2 - .5;
+  const pony = add(new THREE.LatheGeometry([
+    new THREE.Vector2(0, 0), new THREE.Vector2(.045, .02), new THREE.Vector2(.07, .09), new THREE.Vector2(.068, .19),
+    new THREE.Vector2(.045, .29), new THREE.Vector2(.018, .35), new THREE.Vector2(0, .37)], 20), hairM, tail);
+  pony.rotation.x = Math.PI - .55;
+
+  // arms hang from the chest; elbow at -.27
+  const armRings = smoothRings([
+    [-.55, 0, 0, 0, 0, 0, 0, S],
+    [-.52, .032, .027, 0, .05, .045, 0, S],
+    [-.4, .041, .035, 0, .075, .065, 0, S],
+    [-.27, .044, .041, 0, .09, .08, 0, S],
+    [-.15, .054, .054, 0, .12, .115, 0, S],
+    [-.03, .062, .062, 0, .14, .135, 0, S],
+    [.03, .056, .056, 0, .12, .12, 0, S],
+    [.075, 0, 0, 0, 0, 0, 0, S],
+  ], 3);
+  const arm = s => {
+    const p = skinnedPart(bodyGeometry(armRings, { y: -.27 }, .06, 20), bodyMat, -.27);
+    p.mesh.position.set(s * .17, .29, 0);
+    chest.add(p.mesh);
+    const hand = new THREE.Group(); hand.position.y = -.26; p.b1.add(hand);
+    add(new THREE.SphereGeometry(.05, 14, 10), skin, hand, 0, -.04, 0).scale.set(.75, 1.25, .55);
+    add(new THREE.CapsuleGeometry(.014, .035, 4, 8), skin, hand, -s * .03, -.03, -.02).rotation.z = s * .5;
+    return { mesh: p.mesh, sh: p.b0, el: p.b1, s };
+  };
+
+  // legs hang from the hips; knee at -.44
+  const legRings = smoothRings([
+    [-.89, 0, 0, 0, 0, 0, 0, P],
+    [-.86, .042, .042, 0, .065, .065, 0, P],
+    [-.74, .047, .05, .005, .08, .08, .005, P],
+    [-.6, .061, .065, .012, .11, .115, .015, P],
+    [-.46, .056, .057, 0, .105, .105, 0, P],
+    [-.3, .079, .08, 0, .16, .16, 0, P],
+    [-.12, .097, .098, 0, .2, .2, 0, P],
+    [0, .1, .1, 0, .2, .2, 0, P],
+    [.06, .07, .07, 0, .14, .14, 0, P],
+    [.1, 0, 0, 0, 0, 0, 0, P],
+  ], 3);
+  const leg = s => {
+    const p = skinnedPart(bodyGeometry(legRings, { y: -.44 }, .07, 22), bodyMat, -.44);
+    p.mesh.position.set(s * .095, -.04, 0);
+    hips.add(p.mesh);
+    const shoe = new THREE.Group(); shoe.position.set(0, -.46, -.035); p.b1.add(shoe);
+    add(new THREE.SphereGeometry(.07, 18, 12), shoeM, shoe, 0, .015, 0).scale.set(.85, .75, 1.75);
+    add(new THREE.BoxGeometry(.12, .03, .25), soleM, shoe, 0, -.035, -.005);
+    return { mesh: p.mesh, hp: p.b0, kn: p.b1, s };
+  };
+  const arms = [arm(-1), arm(1)], legs = [leg(-1), leg(1)];
+  const morphed = [torso.mesh, ...arms.map(a => a.mesh), ...legs.map(l => l.mesh)];
+
+  const char = {
+    root, body, hips, chest, head, tail, arms, legs, f: 0,
+    halfWidth: .35,
+    setFat(f) {
+      char.f = f;
+      for (const m of morphed) m.morphTargetInfluences[0] = f;
+      head.scale.setScalar(1 + .12 * f);
+      for (const l of legs) l.mesh.position.x = l.s * (.095 + .14 * f);
+      for (const a of arms) a.mesh.position.x = a.s * (.17 + .2 * f);
+      char.halfWidth = .35 + .65 * f;
+    },
+    // phase advances with distance; amp 0 = standing still
+    run(phase, amp) {
+      const s = Math.sin(phase), c = Math.cos(phase), f = char.f;
+      legs[0].hp.rotation.x = s * .8 * amp;
+      legs[1].hp.rotation.x = -s * .8 * amp;
+      legs[0].kn.rotation.x = -(.2 + Math.max(0, c) * 1.1) * amp;
+      legs[1].kn.rotation.x = -(.2 + Math.max(0, -c) * 1.1) * amp;
+      arms[0].sh.rotation.x = -s * .75 * amp;
+      arms[1].sh.rotation.x = s * .75 * amp;
+      for (const a of arms) { a.el.rotation.x = 1.1 * amp; a.sh.rotation.z = a.s * (.1 + .4 * f); }
+      for (const l of legs) l.hp.rotation.z = l.s * .05 * f;
+      body.position.y = Math.abs(s) * .07 * amp;
+      hips.rotation.y = s * .15 * amp;
+      chest.rotation.y = -s * .25 * amp;
+      chest.rotation.x = -.08 * amp;
+      root.rotation.z = s * .09 * f * amp;
+      tail.rotation.x = -Math.abs(c) * .45 * amp;
+      tail.rotation.z = s * .35 * amp;
+    },
+    pose(name, t = 0) {
+      // non-running poses for the trampoline sequence
+      for (const l of legs) { l.hp.rotation.set(0, 0, 0); l.kn.rotation.set(0, 0, 0); }
+      for (const a of arms) { a.sh.rotation.set(0, 0, 0); a.el.rotation.set(0, 0, 0); }
+      hips.rotation.set(0, 0, 0); chest.rotation.set(0, 0, 0); tail.rotation.set(0, 0, 0);
+      root.rotation.z = 0; body.position.y = 0;
+      if (name === 'crouch') {
+        for (const l of legs) { l.hp.rotation.x = .9 * t; l.kn.rotation.x = -1.6 * t; }
+        body.position.y = -.3 * t;
+        chest.rotation.x = .25 * t;
+        for (const a of arms) { a.sh.rotation.x = -.9 * t; a.el.rotation.x = .4 * t; }
+      } else if (name === 'fly') {
+        for (const a of arms) { a.sh.rotation.z = a.s * 2.7; a.sh.rotation.x = Math.sin(t * 9 + a.s) * .2; }
+        for (const l of legs) { l.hp.rotation.z = l.s * .25; l.hp.rotation.x = Math.sin(t * 9 + l.s) * .3; l.kn.rotation.x = -.5; }
+        tail.rotation.x = -1.0;
+      } else if (name === 'cheer') {
+        for (const a of arms) { a.sh.rotation.z = a.s * (2.6 + Math.sin(t * 10) * .25); a.el.rotation.z = -a.s * .3; }
+        body.position.y = Math.abs(Math.sin(t * 6)) * .15;
+      }
+    },
+  };
+  char.setFat(0.3);
+  return char;
+}
+
+// ---------------------------------------------------------------- item prototypes
+function group(...children) { const g = new THREE.Group(); children.forEach(c => g.add(c)); return g; }
+function part(geo, m, x = 0, y = 0, z = 0) { const p = new THREE.Mesh(geo, m); p.position.set(x, y, z); p.castShadow = true; return p; }
+
+const PROTO = {};
+{
+  const bun = mat(0xeea24a), patty = mat(0x6b3a1e), cheese = mat(0xffcc33), tomato = mat(0xe53935), lettuce = mat(0x58b947);
+  const top = part(new THREE.SphereGeometry(.42, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), bun, 0, .36, 0);
+  top.scale.y = .8;
+  const ch = part(new THREE.BoxGeometry(.72, .04, .72), cheese, 0, .27, 0); ch.rotation.y = .7;
+  PROTO.burger = group(
+    part(new THREE.CylinderGeometry(.4, .38, .14, 20), bun, 0, .07, 0),
+    part(new THREE.CylinderGeometry(.45, .45, .04, 16), lettuce, 0, .16, 0),
+    part(new THREE.CylinderGeometry(.42, .42, .1, 20), patty, 0, .22, 0),
+    ch, part(new THREE.CylinderGeometry(.4, .4, .05, 16), tomato, 0, .31, 0), top);
+
+  const crust = mat(0xe0a24c), sauce = mat(0xffd34d), pep = mat(0xc62828);
+  const slice = part(new THREE.CylinderGeometry(.75, .75, .08, 12, 1, false, -Math.PI / 6, Math.PI / 3), sauce);
+  const rim = part(new THREE.CylinderGeometry(.78, .78, .12, 12, 1, true, -Math.PI / 6, Math.PI / 3), crust);
+  const pz = group(slice, rim,
+    part(new THREE.CylinderGeometry(.08, .08, .03, 12), pep, .15, .05, .45),
+    part(new THREE.CylinderGeometry(.07, .07, .03, 12), pep, -.12, .05, .5),
+    part(new THREE.CylinderGeometry(.07, .07, .03, 12), pep, 0, .05, .25));
+  pz.rotation.set(-1.25, Math.PI, 0); pz.position.set(0, .3, .1);
+  PROTO.pizza = group(pz);
+
+  const dough = mat(0xd98c44), icing = mat(0xff7ac8), sprinkle = mat(0x7ad7ff);
+  const ice = part(new THREE.TorusGeometry(.3, .13, 12, 28), icing, 0, 0, .05); ice.scale.z = .7;
+  PROTO.donut = group(part(new THREE.TorusGeometry(.3, .15, 12, 28), dough), ice,
+    part(new THREE.BoxGeometry(.08, .025, .03), sprinkle, .25, .2, .15), part(new THREE.BoxGeometry(.08, .025, .03), sprinkle, -.22, -.15, .15));
+  PROTO.donut.children.forEach(c => c.position.y += .5);
+
+  const can = mat(0xe8212f, { metalness: .3 }), band = mat(0xffffff), straw = mat(0x2fa8ff);
+  PROTO.soda = group(part(new THREE.CylinderGeometry(.22, .2, .6, 18), can, 0, .3, 0),
+    part(new THREE.CylinderGeometry(.225, .225, .1, 18), band, 0, .33, 0),
+    part(new THREE.CylinderGeometry(.025, .025, .45, 6), straw, .06, .7, 0));
+
+  const cuc = mat(0x3fa34d), cucDark = mat(0x2d7a37);
+  const body = part(new THREE.CapsuleGeometry(.14, .55, 6, 12), cuc, 0, .45, 0); body.rotation.z = .25;
+  PROTO.cucumber = group(body, part(new THREE.SphereGeometry(.05, 8, 6), cucDark, .1, .8, 0));
+
+  const apple = mat(0xe8322f), stem = mat(0x6b4226), leaf = mat(0x4caf50);
+  const a = part(new THREE.SphereGeometry(.3, 20, 16), apple, 0, .35, 0); a.scale.y = .9;
+  const lf = part(new THREE.SphereGeometry(.1, 8, 6), leaf, .08, .7, 0); lf.scale.set(1, .35, .5);
+  PROTO.apple = group(a, part(new THREE.CylinderGeometry(.02, .02, .14, 6), stem, 0, .66, 0), lf);
+
+  const broc = mat(0x2e8b3a), brocStem = mat(0x9ccc65);
+  PROTO.broccoli = group(part(new THREE.CylinderGeometry(.09, .13, .4, 10), brocStem, 0, .2, 0),
+    ...[[0, .55, 0, .22], [.17, .48, 0, .16], [-.17, .48, 0, .16], [0, .48, .15, .16], [0, .48, -.15, .16]]
+      .map(([x, y, z, r]) => part(new THREE.SphereGeometry(r, 12, 10), broc, x, y, z)));
+
+  const carrot = mat(0xff8a1f), top2 = mat(0x43a047);
+  const cone = part(new THREE.ConeGeometry(.14, .7, 12), carrot, 0, .45, 0); cone.rotation.z = Math.PI;
+  PROTO.carrot = group(cone, part(new THREE.ConeGeometry(.05, .25, 6), top2, .04, .9, 0), part(new THREE.ConeGeometry(.05, .22, 6), top2, -.05, .88, 0));
+
+  const bottle = mat(0x9fe3ff, { transparent: true, opacity: .75, roughness: .15 }), cap = mat(0x1e6fff);
+  PROTO.water = group(part(new THREE.CylinderGeometry(.16, .16, .55, 16), bottle, 0, .3, 0),
+    part(new THREE.CylinderGeometry(.08, .16, .12, 16), bottle, 0, .63, 0),
+    part(new THREE.CylinderGeometry(.07, .07, .07, 12), cap, 0, .72, 0));
+
+  const iron = mat(0x3a3f4a, { metalness: .5, roughness: .35 }), bar = mat(0xc9ced6, { metalness: .7, roughness: .3 });
+  const plate = r => { const p = part(new THREE.CylinderGeometry(.2, .2, .1, 18), iron); p.rotation.z = Math.PI / 2; return p; };
+  const shaft = part(new THREE.CylinderGeometry(.04, .04, .7, 8), bar); shaft.rotation.z = Math.PI / 2;
+  const p1 = plate(), p2 = plate(); p1.position.x = -.3; p2.position.x = .3;
+  const db = group(shaft, p1, p2); db.position.y = .45;
+  PROTO.dumbbell = group(db);
+}
+
+const protoGeos = new Set();
+for (const p of Object.values(PROTO)) p.traverse(o => { if (o.isMesh) protoGeos.add(o.geometry); });
+
+const ITEMS = {
+  burger:   { kg: +4, kind: 'junk' },
+  pizza:    { kg: +3, kind: 'junk' },
+  donut:    { kg: +3, kind: 'junk' },
+  soda:     { kg: +2, kind: 'junk' },
+  cucumber: { kg: -2, kind: 'healthy' },
+  apple:    { kg: -2, kind: 'healthy' },
+  broccoli: { kg: -3, kind: 'healthy' },
+  carrot:   { kg: -2, kind: 'healthy' },
+  water:    { kg: -1, kind: 'healthy' },
+  dumbbell: { kg: -4, kind: 'exercise' },
+};
+const JUNK = ['burger', 'pizza', 'donut', 'soda'];
+const HEALTHY = ['cucumber', 'apple', 'broccoli', 'carrot', 'water'];
+
+// ---------------------------------------------------------------- shared textures
+const trackTex = canvasTexture(64, 256, (g, w, h) => {
+  g.fillStyle = '#f4f2f7'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#e1dde9'; g.fillRect(0, 0, w, 26);
+});
+trackTex.wrapS = trackTex.wrapT = THREE.RepeatWrapping;
+
+const beltTex = canvasTexture(64, 64, (g, w, h) => {
+  g.fillStyle = '#2d3140'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#454b5e'; g.fillRect(0, 0, w, 10);
+});
+beltTex.wrapS = beltTex.wrapT = THREE.RepeatWrapping;
+
+const trampTex = canvasTexture(256, 256, (g, w) => {
+  const c = w / 2;
+  g.fillStyle = '#4b4d57'; g.fillRect(0, 0, w, w);
+  g.strokeStyle = '#ffffff'; g.lineWidth = 7; g.setLineDash([26, 12]);
+  for (let r = 22; r < c; r += 22) { g.beginPath(); g.arc(c, c, r, 0, Math.PI * 2); g.stroke(); }
+  g.setLineDash([]); g.strokeStyle = '#4b4d57'; g.lineWidth = 10;
+  for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; g.beginPath(); g.moveTo(c, c); g.lineTo(c + Math.cos(a) * c, c + Math.sin(a) * c); g.stroke(); }
+});
+
+const finishTex = canvasTexture(256, 32, (g, w, h) => {
+  const s = 16;
+  for (let x = 0; x < w; x += s) for (let y = 0; y < h; y += s) {
+    g.fillStyle = ((x + y) / s) % 2 ? '#222' : '#fff'; g.fillRect(x, y, s, s);
+  }
+});
+
+// ---------------------------------------------------------------- level construction
+let level = store.get('level', 1);
+let best = store.get('best', 0);
+const levelGroup = new THREE.Group();
+scene.add(levelGroup);
+let levelTextures = [];
+let items = [], gates = [], treadmills = [], sofas = [];
+let L = 0, zFinish = 0, zTramp = 0, zTower = 0, goal = 12;
+let trampTop = null;
+
+function label(text, { bg = '#ffffff', fg = '#2b1d3a', w = 256, h = 96, size = 52 } = {}) {
+  const tex = canvasTexture(w, h, (g) => {
+    g.fillStyle = bg;
+    g.beginPath();
+    if (g.roundRect) g.roundRect(4, 4, w - 8, h - 8, 24); else g.rect(4, 4, w - 8, h - 8);
+    g.fill();
+    g.fillStyle = fg; g.font = `900 ${size}px Trebuchet MS, sans-serif`;
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 2);
+  });
+  levelTextures.push(tex);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  sp.scale.set(w / h * .8, .8, 1);
+  return sp;
+}
+
+function addItem(type, x, z) {
+  const mesh = PROTO[type].clone();
+  mesh.position.set(x, 0, z);
+  mesh.scale.setScalar(1.25);
+  levelGroup.add(mesh);
+  items.push({ type, x, z, mesh, taken: false, t: 0, phase: Math.random() * 6 });
+}
+
+function addGate(x, z, value, name) {
+  const good = value < 0;
+  const color = good ? '#19c26a' : '#ff3b5c';
+  const tex = canvasTexture(256, 200, (g, w, h) => {
+    g.fillStyle = good ? 'rgba(25,194,106,.55)' : 'rgba(255,59,92,.55)'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const fit = (text, weight, size, y) => {
+      g.font = `${weight} ${size}px Trebuchet MS, sans-serif`;
+      const k = Math.min(1, (w - 24) / g.measureText(text).width);
+      g.font = `${weight} ${Math.floor(size * k)}px Trebuchet MS, sans-serif`;
+      g.fillText(text, w / 2, y);
+    };
+    fit(name, 800, 34, 52);
+    fit((value > 0 ? '+' : '') + value + ' kg', 900, 72, 132);
+  });
+  levelTextures.push(tex);
+  const gw = HALF - .2;
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(gw, 2.4),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
+  panel.position.set(x, 1.6, z);
+  const postM = mat(color);
+  const post = new THREE.CylinderGeometry(.1, .1, 3, 10);
+  const g = group(panel, part(post, postM, x - gw / 2, 1.5, z), part(post, postM, x + gw / 2, 1.5, z),
+    part(new THREE.BoxGeometry(gw + .2, .18, .18), postM, x, 2.9, z));
+  levelGroup.add(g);
+  return { x, z, value, name, panel, used: false };
+}
+
+function addTreadmill(x, z0, len) {
+  const tex = beltTex.clone(); tex.needsUpdate = true; tex.repeat.set(1, len / 1.2);
+  levelTextures.push(tex);
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(2.2, .12, len), new THREE.MeshStandardMaterial({ map: tex, roughness: .8 }));
+  belt.position.set(x, .06, z0 - len / 2);
+  belt.receiveShadow = true;
+  const rail = mat(0x8a90a6, { metalness: .4 });
+  const g = group(belt,
+    part(new THREE.BoxGeometry(.18, .25, len), rail, x - 1.19, .12, z0 - len / 2),
+    part(new THREE.BoxGeometry(.18, .25, len), rail, x + 1.19, .12, z0 - len / 2));
+  const sign = label('🏃 BURN', { bg: '#19c26a', fg: '#fff', size: 46 });
+  sign.position.set(x, 1.3, z0 - .5);
+  g.add(sign);
+  levelGroup.add(g);
+  treadmills.push({ x, z0, z1: z0 - len, tex, acc: 0 });
+}
+
+function addSofa(x, z) {
+  const fabric = mat(0x8e5cf6), cushion = mat(0xb79bff);
+  const g = group(part(new THREE.BoxGeometry(2.2, .45, .9), fabric, 0, .32, 0),
+    part(new THREE.BoxGeometry(2.2, .7, .25), fabric, 0, .75, -.35),
+    part(new THREE.BoxGeometry(.25, .6, .9), fabric, -1.1, .5, 0),
+    part(new THREE.BoxGeometry(.25, .6, .9), fabric, 1.1, .5, 0),
+    part(new THREE.BoxGeometry(.95, .12, .7), cushion, -.5, .6, .05),
+    part(new THREE.BoxGeometry(.95, .12, .7), cushion, .5, .6, .05));
+  g.position.set(x, 0, z);
+  g.rotation.y = Math.PI; // backrest away from the runner
+  levelGroup.add(g);
+  sofas.push({ x, z, mesh: g, hit: false });
+}
+
+const GOOD_GATES = ['Jogging', 'Yoga', 'Gym', 'Cycling', 'Swimming', 'Salad Bar', 'Pilates', 'Boxing', 'Dance'];
+const BAD_GATES = ['Fast Food', 'Pizza Party', 'Ice Cream', 'Candy Shop', 'Soda Pop', 'Midnight Snack', 'Buffet'];
+
+function buildLevel(n) {
+  // clear previous level
+  for (const t of levelTextures) t.dispose();
+  levelTextures = [];
+  levelGroup.traverse(o => { if (o.isMesh && !protoGeos.has(o.geometry)) o.geometry.dispose(); });
+  levelGroup.clear();
+  items = []; gates = []; treadmills = []; sofas = [];
+
+  const rnd = mulberry32(n * 7919 + 13);
+  const pick = arr => arr[Math.floor(rnd() * arr.length)];
+  const junkBias = Math.min(.15 + n * .04, .5);
+
+  L = levelLength(n);
+  goal = levelGoal(n);
+  zFinish = -L;
+  zTramp = -(L + 12);
+  zTower = -(L + 24);
+
+  // track
+  const trackStart = 30, trackEnd = zTramp - 5;
+  const len = trackStart - trackEnd;
+  const tt = trackTex.clone(); tt.needsUpdate = true; tt.repeat.set(1, len / 3);
+  levelTextures.push(tt);
+  const track = new THREE.Mesh(new THREE.BoxGeometry(TRACK_W, 3, len),
+    [mat(0xbfd6ff), mat(0xbfd6ff), new THREE.MeshStandardMaterial({ map: tt, roughness: .7 }), mat(0x9fb6e6), mat(0xbfd6ff), mat(0xbfd6ff)]);
+  track.position.set(0, -1.5, (trackStart + trackEnd) / 2);
+  track.receiveShadow = true;
+  levelGroup.add(track);
+  const edgeM = mat(0x7cc4ff);
+  for (const s of [-1, 1]) {
+    const e = part(new THREE.BoxGeometry(.3, .25, len), edgeM, s * (HALF + .1), .05, track.position.z);
+    e.receiveShadow = true; levelGroup.add(e);
+  }
+
+  // obstacle course
+  let z = -22;
+  const patterns = [
+    [3, () => { // junk on one side, healthy on the other
+      const side = rnd() < .5 ? -1 : 1, rows = 3 + Math.floor(rnd() * 3);
+      const junk = pick(JUNK), healthy = pick(HEALTHY);
+      for (let r = 0; r < rows; r++) for (const col of [1.0, 2.4]) {
+        addItem(junk, side * col, z - r * 1.6);
+        if (rnd() > junkBias * .6) addItem(healthy, -side * col, z - r * 1.6);
+      }
+      return z - rows * 1.6;
+    }],
+    [3, () => { // winding healthy line with junk crowding it
+      const count = 6 + Math.floor(rnd() * 4), off = rnd() * 6, amp = 1.6 + rnd() * 1.2;
+      for (let i = 0; i < count; i++) {
+        const x = Math.sin(off + i * .55) * amp, zz = z - i * 1.9;
+        addItem(pick(HEALTHY), x, zz);
+        if (rnd() < junkBias + .2) {
+          const jx = x + (x > 0 ? -1.7 : 1.7);
+          if (Math.abs(jx) < STEER_LIMIT + .3) addItem(pick(JUNK), jx, zz);
+        }
+      }
+      return z - count * 1.9;
+    }],
+    [2, () => { // choice gates
+      const r = rnd(), base = .5 * n;
+      const good = () => -Math.round(6 + rnd() * 6 + base), bad = () => Math.round(5 + rnd() * 7 + base);
+      let a, b;
+      if (r < .7) { a = good(); b = bad(); if (rnd() < .5) [a, b] = [b, a]; }
+      else if (r < .85) { a = good(); b = good(); }
+      else { a = bad(); b = bad(); }
+      gates.push(addGate(-HALF / 2, z, a, pick(a < 0 ? GOOD_GATES : BAD_GATES)));
+      gates.push(addGate(HALF / 2, z, b, pick(b < 0 ? GOOD_GATES : BAD_GATES)));
+      return z - 3;
+    }],
+    [2, () => { // treadmill on one side, buffet on the other
+      const side = rnd() < .5 ? -1 : 1, len = 7 + Math.floor(rnd() * 4);
+      addTreadmill(side * 2, z, len);
+      for (let zz = z - .5; zz > z - len; zz -= 1.8) {
+        addItem(pick(JUNK), -side * 2, zz);
+        if (rnd() < junkBias) addItem(pick(JUNK), -side * .7, zz - .9);
+      }
+      return z - len;
+    }],
+    [2, () => { // couch potato trap guarding the dumbbells
+      const lanes = [-2.4, 0, 2.4];
+      const sofaLane = Math.floor(rnd() * 3);
+      addSofa(lanes[sofaLane], z);
+      const free = lanes.filter((_, i) => i !== sofaLane);
+      addItem('dumbbell', free[0], z - .2);
+      addItem(rnd() < .5 ? 'dumbbell' : pick(JUNK), free[1], z - .2);
+      if (n > 2 && rnd() < .5) addSofa(lanes[(sofaLane + 1 + Math.floor(rnd() * 2)) % 3], z - 5);
+      return z - 6;
+    }],
+    [1, () => { // dumbbell row
+      const x = (rnd() * 2 - 1) * 2.2;
+      for (let i = 0; i < 4; i++) addItem('dumbbell', x, z - i * 1.8);
+      addItem(pick(JUNK), x > 0 ? x - 1.8 : x + 1.8, z - 2.7);
+      return z - 7.2;
+    }],
+  ];
+  const totalW = patterns.reduce((s, p) => s + p[0], 0);
+  while (z > -(L - 20)) {
+    let r = rnd() * totalW, chosen = patterns[0][1];
+    for (const [w, fn] of patterns) { if ((r -= w) < 0) { chosen = fn; break; } }
+    z = chosen() - (6 + rnd() * 5);
+  }
+
+  // finish line
+  const finish = new THREE.Mesh(new THREE.PlaneGeometry(TRACK_W, 1.2), new THREE.MeshStandardMaterial({ map: finishTex }));
+  finish.rotation.x = -Math.PI / 2; finish.position.set(0, .02, zFinish); finish.receiveShadow = true;
+  levelGroup.add(finish);
+  const archM = mat(0xff4fa3);
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(HALF, .18, 10, 40, Math.PI), archM);
+  arch.position.set(0, 0, zFinish);
+  levelGroup.add(arch);
+  const fl = label('FINISH', { bg: '#ff4fa3', fg: '#fff' });
+  fl.position.set(0, HALF + .5, zFinish); fl.scale.multiplyScalar(2);
+  levelGroup.add(fl);
+
+  // trampoline
+  const ringM = mat(0x22b8ff), legM = mat(0x8f96a8, { metalness: .4 });
+  trampTop = new THREE.Mesh(new THREE.CircleGeometry(2.2, 40), new THREE.MeshStandardMaterial({ map: trampTex, roughness: .9 }));
+  trampTop.rotation.x = -Math.PI / 2; trampTop.position.y = .62; trampTop.receiveShadow = true;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2.35, .28, 14, 48), ringM);
+  ring.rotation.x = -Math.PI / 2; ring.position.y = .62; ring.castShadow = true;
+  const tramp = group(trampTop, ring);
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2 + Math.PI / 4;
+    const lg = part(new THREE.CylinderGeometry(.09, .09, .62, 8), legM, Math.cos(a) * 2, .31, Math.sin(a) * 2); tramp.add(lg);
+  }
+  tramp.position.set(0, 0, zTramp);
+  levelGroup.add(tramp);
+
+  // tower of ledges: where you land shows how high you got
+  const towerM = mat(0xb9a8ff);
+  const tower = part(new THREE.BoxGeometry(5, TOWER_H + 10, 4), towerM, 0, (TOWER_H + 10) / 2 - 10, zTower);
+  tower.receiveShadow = true;
+  levelGroup.add(tower);
+  const base = part(new THREE.BoxGeometry(6, 1, 5), mat(0x9a88f0), 0, -.5, zTower + 3.2); levelGroup.add(base);
+  for (let y = LEDGE_STEP; y <= TOWER_H; y += LEDGE_STEP) {
+    const isGoal = y === Math.ceil(goal / LEDGE_STEP) * LEDGE_STEP;
+    const color = isGoal ? new THREE.Color(0xffc400) : new THREE.Color().setHSL((y / TOWER_H) * .8, .75, .62);
+    const ledge = part(new THREE.BoxGeometry(isGoal ? 4.4 : 3.4, .3, 2.4), mat(color), 0, y - .15, zTower + 3.2);
+    ledge.receiveShadow = true;
+    levelGroup.add(ledge);
+    const tag = label(isGoal ? `🎯 ${y} m` : `${y} m`, { bg: isGoal ? '#ffc400' : '#ffffff', size: 50 });
+    tag.position.set(-3.2, y + .3, zTower + 3.2);
+    tag.scale.multiplyScalar(1.6);
+    levelGroup.add(tag);
+  }
+}
+
+// ---------------------------------------------------------------- player & state
+const hero = makeCharacter();
+scene.add(hero.root);
+
+const S = {
+  mode: 'menu',          // menu | run | toTramp | crouch | fly | land | result
+  x: 0, z: 0, y: 0, targetX: 0,
+  weight: 85, shownWeight: 85, pulse: 0,
+  speed: 0, phase: 0, stumble: 0, t: 0,
+  jumpH: 0, vy: 0, landY: 0, flyZ0: 0, flyT: 0, apexT: 0,
+};
+
+function resetRun() {
+  buildLevel(level);
+  S.mode = 'menu';
+  S.x = 0; S.z = 0; S.y = 0; S.targetX = 0;
+  S.weight = S.shownWeight = startWeight(level);
+  S.phase = 0; S.stumble = 0; S.t = 0;
+  hero.root.position.set(0, 0, 0);
+  hero.root.rotation.set(0, 0, 0);
+  hero.setFat(fatness(S.weight));
+  hero.pose('none');
+  camera.position.set(0, 4.2, 8);
+  updateHud(true);
+  $('menuLevel').textContent = level;
+  $('menuBest').textContent = best.toFixed(1) + ' m';
+  $('lvlNow').textContent = level;
+  $('lvlNext').textContent = level + 1;
+  $('altGoal').textContent = `🎯 Goal ${goal} m`;
+  $('altimeter').classList.remove('on', 'passed');
+}
+
+function changeWeight(kg, text) {
+  const before = S.weight;
+  S.weight = clamp(S.weight + kg, W_MIN, W_MAX);
+  const real = Math.round((S.weight - before) * 10) / 10;
+  S.pulse = 1;
+  const good = kg < 0;
+  pop(text ?? ((real > 0 ? '+' : '') + real + ' kg'), good ? 'var(--good)' : 'var(--bad)');
+  if (good) beep(620, 980, .12, 'sine', .12); else beep(260, 140, .16, 'square', .07);
+  if (navigator.vibrate && !good) try { navigator.vibrate(25); } catch (e) {}
+}
+
+// ---------------------------------------------------------------- HUD / popups / audio
+const popsEl = $('pops');
+const tmpV = new THREE.Vector3();
+function pop(text, color) {
+  tmpV.set(S.x, S.y + 2.3, S.z).project(camera);
+  const el = document.createElement('div');
+  el.className = 'pop';
+  el.textContent = text;
+  el.style.color = color;
+  el.style.left = ((tmpV.x * .5 + .5) * innerWidth + (Math.random() - .5) * 40) + 'px';
+  el.style.top = ((-tmpV.y * .5 + .5) * innerHeight) + 'px';
+  popsEl.appendChild(el);
+  setTimeout(() => el.remove(), 950);
+}
+
+let bannerTimer = 0;
+function banner(text, ms = 1100) {
+  const b = $('banner');
+  b.textContent = text; b.classList.add('on');
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => b.classList.remove('on'), ms);
+}
+
+// weight at which a jump just reaches the goal (inverse of jumpHeight)
+const goalWeight = g => W_MAX - Math.pow(clamp((g - 1) / 39, 0, 1), 1 / 1.6) * (W_MAX - W_MIN);
+
+let lastHud = '';
+function updateHud(force) {
+  const w = Math.round(S.shownWeight);
+  const [st, col] = statusOf(S.shownWeight);
+  const h = jumpHeight(S.shownWeight);
+  const prog = Math.round(clamp(S.z / zFinish, 0, 1) * 200);
+  const key = [w, st, h.toFixed(1), prog].join();
+  if (!force && key === lastHud) return;
+  lastHud = key;
+  $('weightNum').innerHTML = `${w}<small>kg</small>`;
+  $('status').textContent = st;
+  $('status').style.color = col;
+  $('marker').style.left = (fatness(S.shownWeight) * 100) + '%';
+  $('goalFlag').style.left = (fatness(goalWeight(goal)) * 100) + '%';
+  $('predictNum').textContent = h.toFixed(1) + ' m';
+  $('predict').classList.toggle('ok', h >= goal);
+  $('progFill').style.width = (prog / 2) + '%';
+}
+
+let altMax = 0;
+function updateAltimeter() {
+  // shows the highest point reached, so it holds the record while falling to the ledge
+  if (S.mode === 'fly') altMax = Math.max(altMax, Math.min(S.y - .62, S.jumpH));
+  else if (S.mode === 'land') altMax = S.jumpH;
+  const h = Math.max(0, altMax);
+  $('altNum').innerHTML = `${h.toFixed(1)}<small> m</small>`;
+  $('altimeter').classList.toggle('passed', h >= goal);
+}
+
+let ac = null, muted = store.get('muted', false);
+function beep(f1, f2, dur, type = 'sine', vol = .12) {
+  if (muted) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+    o.type = type;
+    o.frequency.setValueAtTime(f1, t);
+    o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g).connect(ac.destination);
+    o.start(t); o.stop(t + dur + .02);
+  } catch (e) {}
+}
+function setMuted(m) { muted = m; store.set('muted', m); $('muteBtn').textContent = m ? '🔇' : '🔊'; }
+setMuted(muted);
+$('muteBtn').addEventListener('click', e => { e.stopPropagation(); setMuted(!muted); });
+
+// ---------------------------------------------------------------- input
+const keys = {};
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (['ArrowLeft', 'ArrowRight', 'Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+  if ((e.code === 'Space' || e.code === 'Enter') && S.mode === 'menu') startRun();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+let dragX = null;
+const canvas = renderer.domElement;
+canvas.addEventListener('pointerdown', e => { dragX = e.clientX; canvas.setPointerCapture?.(e.pointerId); });
+canvas.addEventListener('pointermove', e => {
+  if (dragX == null || S.mode !== 'run') { dragX = e.clientX; return; }
+  const dx = e.clientX - dragX;
+  dragX = e.clientX;
+  S.targetX = clamp(S.targetX + dx / Math.min(innerWidth, 600) * 9, -STEER_LIMIT, STEER_LIMIT);
+});
+const endDrag = () => { dragX = null; };
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+function startRun() {
+  $('menu').classList.add('hidden');
+  $('result').classList.add('hidden');
+  $('hud').classList.add('on');
+  S.mode = 'run';
+  banner('GO!', 700);
+  beep(440, 880, .2);
+}
+$('playBtn').addEventListener('click', startRun);
+$('nextBtn').addEventListener('click', () => { resetRun(); startRun(); });
+$('retryBtn').addEventListener('click', () => { resetRun(); startRun(); });
+
+// ---------------------------------------------------------------- game update
+function updateRun(dt) {
+  const f = fatness(S.weight);
+  // heavier runners are slower; couches knock the wind out of you
+  let speed = Math.min(11 + level * .3, 15) * (1.12 - .4 * f);
+  if (S.stumble > 0) { S.stumble -= dt; speed *= .4; }
+  S.speed = damp(S.speed, speed, 4, dt);
+
+  if (S.mode === 'run') {
+    const dir = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    if (dir) S.targetX = clamp(S.targetX + dir * 9 * dt, -STEER_LIMIT, STEER_LIMIT);
+  } else {
+    S.targetX = 0;
+  }
+  const prevZ = S.z;
+  S.z -= S.speed * dt;
+  S.x = damp(S.x, S.targetX, 14, dt);
+
+  // pickups: a wider body sweeps up more food, for better and for worse
+  const reach = hero.halfWidth * .8 + .35;
+  for (const it of items) {
+    if (it.taken) continue;
+    if (Math.abs(it.z - S.z) < .7 && Math.abs(it.x - S.x) < reach) {
+      it.taken = true;
+      const d = ITEMS[it.type];
+      changeWeight(d.kg, (d.kg > 0 ? '+' : '') + d.kg + ' kg');
+    }
+  }
+  for (const g of gates) {
+    if (g.used || !(prevZ > g.z && S.z <= g.z)) continue;
+    const pair = gates.filter(o => o.z === g.z);
+    const chosen = pair.reduce((a, b) => Math.abs(b.x - S.x) < Math.abs(a.x - S.x) ? b : a);
+    for (const o of pair) o.used = true;
+    chosen.panel.material.opacity = .25;
+    changeWeight(chosen.value, `${chosen.name} ${chosen.value > 0 ? '+' : ''}${chosen.value} kg`);
+    beep(chosen.value < 0 ? 520 : 300, chosen.value < 0 ? 1200 : 120, .3, 'triangle', .14);
+  }
+  for (const tm of treadmills) {
+    if (S.z < tm.z0 && S.z > tm.z1 && Math.abs(S.x - tm.x) < 1.2) {
+      const burn = 6 * dt;
+      S.weight = clamp(S.weight - burn, W_MIN, W_MAX);
+      tm.acc += burn;
+      if (tm.acc >= 1) { tm.acc -= 1; pop('-1 kg 💦', 'var(--good)'); beep(700, 900, .06, 'sine', .07); }
+    }
+  }
+  for (const so of sofas) {
+    if (so.hit) continue;
+    if (Math.abs(so.z - S.z) < .6 && Math.abs(so.x - S.x) < 1.1 + hero.halfWidth * .5) {
+      so.hit = true; S.stumble = .6;
+      changeWeight(6, 'Couch potato! +6 kg');
+    }
+  }
+
+  if (S.mode === 'run' && S.z <= zFinish) {
+    S.mode = 'toTramp';
+    banner('JUMP!');
+    beep(500, 1000, .3, 'triangle');
+  }
+  if (S.mode === 'toTramp' && S.z <= zTramp) {
+    S.z = zTramp; S.x = 0;
+    S.mode = 'crouch'; S.t = 0;
+    $('hud').classList.remove('on');
+    $('altimeter').classList.add('on');
+    altMax = 0;
+    updateAltimeter();
+    S.jumpH = jumpHeight(S.weight);
+  }
+  S.phase += S.speed * dt * 1.15;
+}
+
+function updateJump(dt) {
+  S.t += dt;
+  const f = fatness(S.weight);
+  if (S.mode === 'crouch') {
+    // heavier = deeper sag in the trampoline
+    const k = Math.min(S.t / .35, 1);
+    const sag = Math.sin(k * Math.PI) * (.25 + .7 * f);
+    trampTop.position.y = .62 - sag;
+    S.y = .62 - sag;
+    hero.pose('crouch', Math.sin(k * Math.PI));
+    if (k >= 1) {
+      S.mode = 'fly'; S.t = 0;
+      S.vy = Math.sqrt(2 * GRAVITY * S.jumpH);
+      S.apexT = S.vy / GRAVITY;
+      S.flyZ0 = S.z;
+      S.landY = Math.floor(S.jumpH / LEDGE_STEP) * LEDGE_STEP;
+      trampTop.position.y = .62;
+      beep(200, 1400, .6, 'sine', .15);
+    }
+  } else if (S.mode === 'fly') {
+    const t = S.t;
+    const landZ = zTower + 3.2;
+    S.z = lerp(S.flyZ0, landZ, Math.min(t / S.apexT, 1));
+    S.y = .62 + S.vy * t - .5 * GRAVITY * t * t;
+    hero.pose('fly', t);
+    hero.root.rotation.x = -Math.min(t / S.apexT, 1) * Math.PI * 2; // a full flip on the way up
+    if (t > S.apexT && S.y <= S.landY) {
+      S.y = S.landY; S.mode = 'land'; S.t = 0;
+      hero.root.rotation.x = 0;
+      finishLevel();
+    }
+  } else if (S.mode === 'land' || S.mode === 'result') {
+    hero.pose('cheer', S.t);
+  }
+}
+
+function finishLevel() {
+  const h = S.jumpH;
+  const passed = h >= goal;
+  const stars = passed ? 1 + (h >= goal + 5 ? 1 : 0) + (h >= goal + 10 ? 1 : 0) : 0;
+  const newBest = h > best;
+  if (newBest) { best = h; store.set('best', best); }
+  if (passed) { level += 1; store.set('level', level); }
+  banner(passed ? `${h.toFixed(1)} m!` : 'So close!', 1400);
+  beep(passed ? 660 : 300, passed ? 1320 : 200, .5, 'triangle', .14);
+  setTimeout(() => {
+    S.mode = 'result';
+    $('altimeter').classList.remove('on');
+    $('hud').classList.remove('on');
+    $('resTitle').textContent = passed ? (newBest ? 'New record!' : 'Level complete!') : 'Too heavy to reach the goal';
+    $('resStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < stars ? '' : 'dim'}">⭐</span>`).join('');
+    $('resHeight').textContent = h.toFixed(1) + ' m';
+    $('resMsg').textContent = passed
+      ? 'Great running! Fewer burgers = even more height.'
+      : `You needed ${goal} m. Grab the greens, skip the junk and hit the treadmills.`;
+    $('resWeight').textContent = Math.round(S.weight) + ' kg';
+    $('resGoal').textContent = goal + ' m';
+    $('resBest').textContent = best.toFixed(1) + ' m';
+    $('nextBtn').style.display = passed ? '' : 'none';
+    $('retryBtn').textContent = passed ? 'REPLAY' : 'TRY AGAIN';
+    $('result').classList.remove('hidden');
+  }, 1600);
+}
+
+// ---------------------------------------------------------------- frame loop
+const camPos = new THREE.Vector3(), camLook = new THREE.Vector3(), lookNow = new THREE.Vector3(0, 1, -6);
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.fov = w < h ? 72 : 58;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+
+const clock = new THREE.Clock();
+let elapsed = 0;
+function frame() {
+  const dt = Math.min(clock.getDelta(), .05);
+  elapsed += dt;
+
+  if (S.mode === 'run' || S.mode === 'toTramp') updateRun(dt);
+  else if (S.mode !== 'menu') updateJump(dt);
+
+  // body morph eases toward the real weight, with a bounce on every change
+  S.shownWeight = damp(S.shownWeight, S.weight, 6, dt);
+  S.pulse = Math.max(0, S.pulse - dt * 4);
+  hero.setFat(fatness(S.shownWeight));
+  hero.root.scale.setScalar(1 + Math.sin(S.pulse * Math.PI) * .08);
+  if (S.mode === 'run' || S.mode === 'toTramp') hero.run(S.phase, S.stumble > 0 ? .4 : 1);
+  else if (S.mode === 'menu') { hero.run(elapsed * 2.2, .15); hero.body.position.y = 0; }
+  hero.root.position.set(S.x, S.y, S.z);
+  updateHud(false);
+  if (S.mode === 'fly' || S.mode === 'land') updateAltimeter();
+
+  // item idle animation + pickup shrink
+  for (const it of items) {
+    if (it.taken) {
+      if (it.mesh.visible) {
+        it.t += dt;
+        const k = it.t / .2;
+        it.mesh.position.set(lerp(it.x, S.x, k), lerp(0, 1.2, k), lerp(it.z, S.z, k));
+        it.mesh.scale.setScalar(1.25 * (1 - k));
+        if (k >= 1) it.mesh.visible = false;
+      }
+      continue;
+    }
+    if (Math.abs(it.z - S.z) > 90) continue;
+    it.mesh.rotation.y = Math.sin(elapsed * 1.5 + it.phase) * .5;
+    it.mesh.position.y = Math.sin(elapsed * 3 + it.phase) * .06 + .05;
+  }
+  for (const tm of treadmills) tm.tex.offset.y = (tm.tex.offset.y + dt * 1.6) % 1;
+
+  // camera
+  if (S.mode === 'fly' || S.mode === 'land' || S.mode === 'result' || S.mode === 'crouch') {
+    camPos.set(8.5, S.y + 3, S.z + 11);
+    camLook.set(0, S.y + .8, S.z - 1);
+  } else {
+    camPos.set(S.x * .5, 4.2, S.z + 7.6);
+    camLook.set(S.x * .3, 1.0, S.z - 6);
+  }
+  if (window.__freeCam) camPos.copy(window.__freeCam.pos), camLook.copy(window.__freeCam.look);
+  camera.position.x = damp(camera.position.x, camPos.x, 5, dt);
+  camera.position.y = damp(camera.position.y, camPos.y, 5, dt);
+  camera.position.z = damp(camera.position.z, camPos.z, 8, dt);
+  lookNow.x = damp(lookNow.x, camLook.x, 6, dt);
+  lookNow.y = damp(lookNow.y, camLook.y, 6, dt);
+  lookNow.z = damp(lookNow.z, camLook.z, 10, dt);
+  camera.lookAt(lookNow);
+
+  sun.position.set(S.x + 5, S.y + 14, S.z + 6);
+  sun.target.position.set(S.x, S.y, S.z - 2);
+  world.position.z = S.z;
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+resetRun();
+camera.position.set(0, 4.2, 7.6);
+requestAnimationFrame(frame);
+
+// test hook for automated checks
+window.__slimJump = { S, ITEMS, get items() { return items; }, get gates() { return gates; }, jumpHeight, startRun };
+})();
+</script>
+</body>
+</html>
