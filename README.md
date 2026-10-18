@@ -84,3 +84,26 @@ python3 tools/package_game.py
 Creates `release/megavac-crazygames.zip` with `index.html`, `music.m4a`, and `music.mp3`
 at its root. It excludes backups, development previews, and tests. See `RELEASE_NOTES.md`
 for scope, verification, and remaining launch work.
+
+---
+
+# MEGA DEMOLITION
+
+A separate physics demolition game in `demolition/index.html` (single file, no assets,
+procedural sound). Flatten 50 targets — from a garden shed and a family car to the
+Taj Mahal, Eiffel Tower, Burj Khalifa and whole cities — with 16 weapons.
+
+```sh
+python3 -m http.server 8788 --directory demolition   # then open http://localhost:8788/
+```
+
+- Every structure is built from destructible blocks of different materials (wood burns,
+  glass shatters, steel is tough). Blocks that lose their connection to the ground collapse.
+- A level is cleared at 75% destroyed (★), 90% (★★) and 98% (★★★). Clearing a level
+  unlocks the next one and, at set levels, a new weapon.
+- Weapons (unlock level / cooldown): TNT 1, Grenade 2, Rocket 3, C4 Remote 5 (place up to
+  10, Space to detonate), Missile 7, Wrecking Ball 9, Napalm 11, Laser 13 (overheats),
+  Cluster 16, Airstrike 19, Railgun 22, Earthquake 25, Meteors 29, Tornado 33,
+  Black Hole 38, Nuke 44. Bigger weapons have longer cooldowns.
+- The camera zooms to fit each target; scroll, pinch or use +/− to zoom, Z to refit.
+- Controls: click/tap to fire, 1–9/0/Q–Y to switch weapons, Space detonate, R restart, M mute, Esc menu.
