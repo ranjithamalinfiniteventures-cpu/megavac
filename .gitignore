@@ -3,3 +3,4 @@
 node_modules/
 release_smoke_*.png
 test_log.txt
+timber-rocket/node_modules
