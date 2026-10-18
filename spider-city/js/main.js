@@ -8,11 +8,12 @@ import { World, AIR, ISLAND, HALF, rng } from './world.js';
 import { Hero } from './hero.js';
 import { Traffic, Plane, Peds, headMat, tailMat } from './vehicles.js';
 import { FX, Sound } from './fx.js';
+import { isTouch, setupTouch } from './touch.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-let pixelRatio = Math.min(devicePixelRatio, 1.5);
+let pixelRatio = isTouch ? 1 : Math.min(devicePixelRatio, 1.5);
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
@@ -21,7 +22,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 6000);
-const rt = new THREE.WebGLRenderTarget(innerWidth * pixelRatio, innerHeight * pixelRatio, { type: THREE.HalfFloatType, samples: 4 });
+const rt = new THREE.WebGLRenderTarget(innerWidth * pixelRatio, innerHeight * pixelRatio, { type: THREE.HalfFloatType, samples: isTouch ? 0 : 4 });
 const composer = new EffectComposer(renderer, rt);
 composer.setPixelRatio(pixelRatio);
 composer.addPass(new RenderPass(scene, camera));
@@ -84,6 +85,9 @@ function start() {
     if (p && p.catch) p.catch(() => {});
   } catch (e) { /* not allowed in this frame */ }
   canvas.focus?.();
+  if (isTouch) { // phones: go fullscreen and landscape where the browser allows it
+    try { document.documentElement.requestFullscreen?.()?.then(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {}); } catch (e) { /* refused */ }
+  }
 }
 function pause() {
   playing = false;
@@ -91,6 +95,11 @@ function pause() {
   $('play').textContent = 'RESUME';
 }
 $('play').addEventListener('click', start);
+
+// touch controls press the same virtual keys as the keyboard
+function vkey(code, down) { if (down && !keys[code]) pressed.add(code); keys[code] = down; }
+const touch = isTouch ? setupTouch($('touch'), { key: vkey, look: (dx, dy) => { mdx += dx; mdy += dy; }, pause }) : null;
+if (isTouch) document.body.classList.add('touch');
 
 // ---------- camera ----------
 const cam = { yaw: 0, pitch: 0.25, dist: 6, target: new THREE.Vector3(11, 1.7, 30), lastMouse: -10, shake: 0, fov: 70, t: 0 };
@@ -285,7 +294,12 @@ function updateHUD(dt) {
   }
   $('mode').textContent = label;
   $('speed').textContent = Math.round(spd * 3.6);
-  $('hint').innerHTML = hint;
+  $('hint').innerHTML = isTouch ? '' : hint;
+  if (touch) {
+    const action = mode !== 'foot' ? 'EXIT' : plane.crashed <= 0 && hero.pos.distanceTo(plane.pos) < 9 ? 'FLY' : traffic.nearest(hero.pos, 5) ? 'DRIVE' : '';
+    touch.update(mode, action);
+    if (mode === 'plane') $('mode').textContent += ` · THR ${Math.round(plane.throttle * 100)}%`;
+  }
   $('tokens').textContent = `${tokens} / ${world.tokens.length}`;
   $('cross').style.display = mode === 'foot' ? 'block' : 'none';
   const hrs = (world.time * 24 + 24) % 24;
@@ -303,7 +317,7 @@ function setQuality(q) {
   world.sun.shadow.map?.dispose(); world.sun.shadow.map = null;
   bloom.enabled = q === 'high' || world.night > 0.3;
   onResize();
-  toast('Graphics: ' + q.toUpperCase());
+  if (started) toast('Graphics: ' + q.toUpperCase());
 }
 
 function update(dt) {
@@ -313,14 +327,18 @@ function update(dt) {
   if (pressed.has('KeyF')) interact();
   if (pressed.has('KeyR') && mode === 'foot') { hero.pos.copy(world.nearestRoad(hero.pos.x, hero.pos.z)); hero.pos.y = 0.3; hero.vel.set(0, 0, 0); hero.state = 'air'; }
 
-  const raw = { f: (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0), r: (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) };
+  const clamp1 = x => Math.max(-1, Math.min(1, x));
+  const raw = {
+    f: clamp1((keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + (touch ? touch.f : 0)),
+    r: clamp1((keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + (touch ? touch.r : 0)),
+  };
   const camFlat = new THREE.Vector3(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw));
   const camRight = new THREE.Vector3(Math.cos(cam.yaw), 0, -Math.sin(cam.yaw));
   const move = new THREE.Vector3().addScaledVector(camFlat, raw.f).addScaledVector(camRight, raw.r);
   if (move.lengthSq() > 1) move.normalize();
   const inp = {
     raw, move, camFlat, camPos: camera.position.clone(), camDir: camera.getWorldDirection(new THREE.Vector3()),
-    sprint: keys.ShiftLeft || keys.ShiftRight,
+    sprint: keys.ShiftLeft || keys.ShiftRight || (touch && touch.sprint),
     jumpPressed: pressed.has('Space'), swingPressed: lmbHit, swingHeld: lmb || keys.Space,
     zipPressed: rmbHit || pressed.has('KeyE'),
     handbrake: keys.Space, throttleUp: keys.ShiftLeft || keys.ShiftRight, throttleDown: keys.KeyX || keys.KeyC,
@@ -393,6 +411,7 @@ function frame(now) {
   pressed.clear(); lmbHit = rmbHit = false; mdx = mdy = 0;
 }
 $('loading').style.display = 'none';
+if (isTouch) setQuality('low');
 $('play').disabled = false;
 requestAnimationFrame(frame);
 

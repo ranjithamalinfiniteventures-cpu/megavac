@@ -101,6 +101,12 @@ python3 -m http.server 8788 --directory spider-city
 Open http://localhost:8788/ and click **PLAY** (keyboard and mouse; the mouse is
 captured for camera look, Esc releases it and pauses).
 
+On phones and tablets touch controls appear automatically: drag on the left half for
+a floating joystick (push it all the way to sprint), drag on the right half to look,
+and use the context buttons (JUMP/WEB — hold in the air to swing, ZIP, DRIVE/FLY/EXIT,
+DRIFT in cars, THR +/− in the plane). Phones start on the lighter graphics setting and
+landscape works best.
+
 - **On foot** — WASD, Shift sprint, Space jump. Run into any building to climb it;
   climbing over the top vaults you onto the roof.
 - **Web** — in the air hold Space or the left mouse button to swing, release to fling
