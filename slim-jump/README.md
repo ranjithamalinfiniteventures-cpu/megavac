@@ -11,9 +11,20 @@ level's goal ledge to unlock the next level.
 python3 -m http.server 8787 --directory slim-jump
 ```
 
-Open http://localhost:8787/. Drag (touch or mouse) or use ← → / A D to steer. Three.js loads
-from jsDelivr as a classic script, so the first load needs a network connection. Level, best
-jump and mute are saved in localStorage.
+Open http://localhost:8787/. Drag (touch or mouse) or use ← → / A D to steer. `index.html`
+loads Three.js from jsDelivr, so it needs a network connection. Level, best jump and mute are
+saved in localStorage.
+
+## Offline single file
+
+`slim-jump.html` is the whole game in one file: Three.js r158 is inlined and the page uses only
+system fonts, so it makes no network requests. Open it directly from disk (double-click) or host
+it anywhere. Rebuild it after changing `index.html`:
+
+```sh
+python3 slim-jump/build_standalone.py            # downloads three.min.js r158
+python3 slim-jump/build_standalone.py three.min.js   # or use a local copy
+```
 
 ## Tuning
 
