@@ -10,3 +10,7 @@ Open `index.html` in a browser (needs internet for the CDN scripts). On desktop,
 - Progress and stars are saved in the browser
 
 Size: `index.html` is about 70 KB (about 20 KB gzipped). It loads three.js r128 (~600 KB, ~150 KB gzipped) and cannon.js 0.6.2 (~130 KB, ~37 KB gzipped) from cdnjs.
+
+## Offline build
+
+`smash-fiesta-offline.html` (~880 KB) is the same game with three.js, cannon.js and both fonts embedded. It makes no network requests, so it plays with no internet at all.
