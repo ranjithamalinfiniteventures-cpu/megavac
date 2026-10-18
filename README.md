@@ -84,3 +84,15 @@ python3 tools/package_game.py
 Creates `release/megavac-crazygames.zip` with `index.html`, `music.m4a`, and `music.mp3`
 at its root. It excludes backups, development previews, and tests. See `RELEASE_NOTES.md`
 for scope, verification, and remaining launch work.
+
+## Roll Rush (rolling-ball prototype)
+
+A separate 3D ball-runner in `rollball/` (Three.js r160 vendored, no build step):
+hold to roll forward, drag / A-D / arrows to steer, reach the finish without
+falling. Levels are seeded and procedurally built from straights, narrow bridges,
+zigzags, ramp jumps, stairs, split paths, sweepers, sliding blocks and swinging
+hammers, with checkpoints, coins and unlockable ball skins.
+
+```sh
+python3 -m http.server 8787 --directory rollball
+```
