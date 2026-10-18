@@ -8,6 +8,7 @@
   :root { --red: #e0182d; --blue: #1d3c9c; --ink: #0b0d14; }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d14; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; }
+  #game:focus { outline: none; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   .hidden { display: none !important; }
 
@@ -58,7 +59,7 @@
 </style>
 </head>
 <body>
-<canvas id="game"></canvas>
+<canvas id="game" tabindex="0"></canvas>
 
 <div id="hud" class="hidden">
   <canvas id="map" width="170" height="170"></canvas>
@@ -107,7 +108,11 @@
 </script>
 <script type="module" src="js/main.js"></script>
 <script>
-  window.addEventListener('error', e => { const l = document.getElementById('loading'); if (l) l.textContent = 'Error: ' + e.message; });
+  // Surface load/runtime errors on the title screen instead of failing silently.
+  const showErr = msg => { const l = document.getElementById('loading'); if (l) { l.style.display = 'block'; l.style.color = '#ff8a95'; l.textContent = 'Error: ' + msg; } };
+  window.addEventListener('error', e => showErr(e.message || 'a script failed to load'), true);
+  window.addEventListener('unhandledrejection', e => showErr(String(e.reason && e.reason.message || e.reason)));
+  setTimeout(() => { if (document.getElementById('play').disabled) showErr('the game did not start after 20 seconds (WebGL or script loading blocked?)'); }, 20000);
 </script>
 </body>
 </html>

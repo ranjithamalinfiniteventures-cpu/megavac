@@ -66,9 +66,12 @@ canvas.addEventListener('mousedown', e => {
 addEventListener('mouseup', e => { if (e.button === 0) lmb = false; if (e.button === 2) rmb = false; dragging = false; });
 addEventListener('mousemove', e => { if (document.pointerLockElement === canvas || dragging) { mdx += e.movementX; mdy += e.movementY; } });
 addEventListener('contextmenu', e => e.preventDefault());
+let hadLock = false;
 document.addEventListener('pointerlockchange', () => {
-  if (!document.pointerLockElement && playing) pause();
+  if (document.pointerLockElement) hadLock = true;
+  else if (playing && hadLock) pause();
 });
+addEventListener('keydown', e => { if (e.code === 'Escape' && playing && !document.pointerLockElement) pause(); });
 
 function start() {
   sound.init();
@@ -76,8 +79,11 @@ function start() {
   $('hud').classList.remove('hidden');
   playing = true;
   if (!started) { started = true; cam.yaw = 0; cam.pitch = 0.22; toast('Find the 30 golden tokens across the city'); }
-  const p = canvas.requestPointerLock?.();
-  if (p && p.catch) p.catch(() => {});
+  try { // pointer lock is optional: without it, drag with the mouse to look around
+    const p = canvas.requestPointerLock?.();
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) { /* not allowed in this frame */ }
+  canvas.focus?.();
 }
 function pause() {
   playing = false;
