@@ -56,6 +56,21 @@ canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
 <div id="stick"><div id="knob"></div></div>
 <button id="jump" class="btn">JUMP</button>
 <div id="loading"><div>🏭 Mega Factory Tycoon</div><div style="font-size:18px;opacity:.85">Loading…</div></div>
+<script>
+// If the game fails to start, say why on the loading screen instead of
+// leaving "Loading…" up forever.
+function showBootError(msg) {
+  var l = document.getElementById('loading');
+  if (!l) return;
+  l.innerHTML = '<div>The factory could not start</div><div style="font-size:15px;max-width:90vw;opacity:.9;text-align:center"></div>';
+  l.lastChild.textContent = String(msg);
+}
+addEventListener('error', function (e) {
+  if (e.target === window || (e.target && e.target.tagName === 'SCRIPT')) showBootError(e.message || 'A script failed to load. Check your connection and reload.');
+}, true);
+addEventListener('unhandledrejection', function (e) { showBootError((e.reason && e.reason.message) || e.reason); });
+setTimeout(function () { if (document.getElementById('loading')) showBootError('Still loading after 20 seconds. Check your connection and reload.'); }, 20000);
+</script>
 <script type="module">
 import * as THREE from 'three';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
@@ -186,7 +201,12 @@ function unlockAudio() {
 const TEST = new URLSearchParams(location.search).has('test');
 const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
 const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true, preserveDrawingBuffer:TEST, powerPreference:'high-performance'});
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({canvas, antialias:true, preserveDrawingBuffer:TEST, powerPreference:'high-performance'});
+} catch {
+  throw new Error('This browser could not start 3D graphics (WebGL). Try another browser or turn on hardware acceleration.');
+}
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.95;
