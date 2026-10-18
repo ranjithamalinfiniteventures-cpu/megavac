@@ -28,9 +28,19 @@
   @keyframes tin{from{opacity:0;transform:translateY(-8px)}}
   .btn{pointer-events:auto;border:0;border-radius:14px;font-weight:900;cursor:pointer;font-family:inherit}
   #mute{position:fixed;z-index:6;top:calc(12px + env(safe-area-inset-top, 0px));right:calc(12px + env(safe-area-inset-right, 0px));width:44px;height:44px;background:#1e2a38d8;color:#fff;font-size:20px}
-  #act{position:fixed;z-index:6;right:calc(22px + env(safe-area-inset-right, 0px));bottom:calc(26px + env(safe-area-inset-bottom, 0px));min-width:120px;height:64px;padding:0 18px;background:#ffb703;color:#1e2a38;
-    font-size:19px;box-shadow:0 5px 0 #b57f00;display:none}
-  #act:active{transform:translateY(3px);box-shadow:0 2px 0 #b57f00}
+  #act{position:fixed;z-index:6;right:calc(20px + env(safe-area-inset-right, 0px));bottom:calc(22px + env(safe-area-inset-bottom, 0px));
+    width:112px;height:112px;border-radius:50%;background:#ffb703;color:#1e2a38;box-shadow:0 6px 0 #b57f00,0 8px 18px #0004;
+    display:none;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0;touch-action:manipulation}
+  #act svg{width:46px;height:46px}
+  #act b{font-size:15px;line-height:1.05;letter-spacing:.5px;text-align:center}
+  #act small{font-size:11px;font-weight:800;opacity:.65}
+  #act.walk{background:#3fae5a;color:#fff;box-shadow:0 6px 0 #26773b,0 8px 18px #0004}
+  #act:active{transform:translateY(4px);box-shadow:0 2px 0 #b57f00}
+  #act.walk:active{box-shadow:0 2px 0 #26773b}
+  #act.pulse{animation:pulse 1s ease-in-out infinite}
+  @keyframes pulse{50%{transform:scale(1.12)}}
+  @media (pointer:coarse){#act small{display:none}}
+  @media (prefers-reduced-motion:reduce){#act.pulse{animation:none;outline:4px solid #fff}}
   #joy{position:fixed;z-index:4;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;background:#ffffff30;border:3px solid #ffffff90;display:none;pointer-events:none}
   #joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:#fffffff0;box-shadow:0 3px 0 #0003}
   #start{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:linear-gradient(#1e2a38cc,#1e2a38ee)}
@@ -53,7 +63,7 @@
 <div id="toasts" class="hud"></div>
 <div id="tip" class="hud"></div>
 <button id="mute" class="btn" aria-label="Toggle sound">&#9835;</button>
-<button id="act" class="btn">GET OUT</button>
+<button id="act" class="btn" aria-label="Get in or out of the truck"><svg id="actIcon" viewBox="0 0 48 48"></svg><b id="actTxt">GET OUT</b><small>E / Space</small></button>
 <div id="joy"><i></i></div>
 
 <div id="start">
@@ -984,32 +994,54 @@ function updatePads(dt) {
 }
 
 // ---------- action (enter / exit truck) ----------
-let actLabel = '';
+// One button, always on screen. Walking far from the truck calls it over.
+const ICON_PERSON = '<circle cx="24" cy="9" r="5" fill="currentColor"/><path d="M24 16v14M24 30l-7 12M24 30l7 12M13 22l11-4 11 4" stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none"/>';
+const ICON_TRUCK = '<rect x="3" y="14" width="27" height="18" rx="3" fill="currentColor"/><path d="M30 20h8l6 7v5H30z" fill="currentColor"/><circle cx="13" cy="35" r="5" fill="#fff" stroke="currentColor" stroke-width="3"/><circle cx="36" cy="35" r="5" fill="#fff" stroke="currentColor" stroke-width="3"/>';
+let actKey = '';
 function updateAction() {
-  let label = '';
-  const nearTruck = !driving && Math.hypot(player.x - truck.x, player.z - truck.z) < 4.6;
-  if (driving) label = 'GET OUT';
-  else if (nearTruck) label = 'DRIVE';
+  const dist = Math.hypot(player.x - truck.x, player.z - truck.z);
+  const nearTruck = !driving && dist < 7;
   if (actionQueued) {
     actionQueued = false;
-    if (driving && Math.abs(truck.speed) < 4) {
+    if (driving) {
       driving = false; truck.speed = 0;
       const rx = -Math.cos(truck.h), rz = Math.sin(truck.h);
       player.x = truck.x + rx * 2.6; player.z = truck.z + rz * 2.6; player.h = truck.h;
       collide(player, 0.55);
       playerV.g.visible = true; sfx('door');
-    } else if (nearTruck) {
+    } else {
+      if (!nearTruck) {
+        burst(truck.x, 1, truck.z, 10, [0xe8e8e8, 0xcccccc], 4, 0.5);
+        truck.x = player.x - Math.sin(player.h) * 1.5; truck.z = player.z - Math.cos(player.h) * 1.5; truck.h = player.h; truck.speed = 0;
+        collide(truck, 2.3);
+        burst(truck.x, 1, truck.z, 14, [0xe8e8e8, 0xffd60a], 5, 0.5);
+        sfx('horn');
+      }
       driving = true; playerV.g.visible = false; sfx('door');
     }
   }
-  if (label !== actLabel) { actLabel = label; const a = $('act'); a.textContent = label; a.style.display = label ? 'block' : 'none'; }
+  const inIntake = machines.some(m => S.mach[m.i] >= 0 && inBox(truck, IN_X, m.z, 4.2));
+  const pulse = (S.tut === 2) || (S.tut === 0 && !driving) ||
+    (driving && truck.load === 0 && inIntake && machines.some(m => m.out.n > 0)) ||
+    (!driving && carry.n === 0 && trash.length > 5 && machines.every(m => m.out.n === 0) && dock.n === 0 && cash.amount === 0 && S.tut > 6);
+  const label = driving ? 'GET OUT' : nearTruck ? 'DRIVE' : 'CALL TRUCK';
+  const key = label + pulse;
+  if (key !== actKey) {
+    actKey = key;
+    const a = $('act');
+    a.style.display = 'flex';
+    a.classList.toggle('walk', !driving);
+    a.classList.toggle('pulse', pulse);
+    $('actTxt').textContent = label;
+    $('actIcon').innerHTML = driving ? ICON_PERSON : ICON_TRUCK;
+  }
 }
 
 // ---------- tutorial ----------
 const TUT = [
-  { text: () => driving ? 'Drive over trash in the park to collect it' : 'Walk to the truck and press E to drive', target: () => driving ? nearestTrash() : truck, done: () => truck.load >= Math.min(8, stat.truckCap()) },
+  { text: () => driving ? 'Drive over trash in the park to collect it' : 'Tap DRIVE (or press E) to get back in the truck', target: () => driving ? nearestTrash() : truck, done: () => truck.load >= Math.min(8, stat.truckCap()) },
   { text: () => 'Drive into the TRASH IN zone of the Brick Press', target: () => ({ x: IN_X, z: machines[0].z }), done: () => (S.unloaded || 0) >= 6 && truck.load === 0 },
-  { text: () => 'Press E (or GET OUT) to step out of the truck', target: () => null, done: () => !driving },
+  { text: () => 'Tap GET OUT (or press E) to step out of the truck', target: () => null, done: () => !driving },
   { text: () => machines[0].out.n ? 'Pick up bricks at the machine\'s PICK UP zone' : 'The machine is making bricks…', target: () => ({ x: OUT_X, z: machines[0].z }), done: () => carry.n >= 3 || (carry.n > 0 && machines[0].out.n === 0) },
   { text: () => 'Carry the goods to the SELL dock at the port', target: () => DOCK, done: () => dock.n > 0 || buyer.state !== 'wait' },
   { text: () => cash.amount > 0 ? 'Collect your CASH!' : 'A cargo truck is buying your goods…', target: () => CASHPAD, done: () => S.cashCollected },

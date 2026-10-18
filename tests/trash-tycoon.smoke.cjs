@@ -90,6 +90,17 @@ function check(cond, msg) {
     await page.evaluate(() => TT.step(1 / 30, 20));
     check((await s()).tut >= 6, 'tutorial reached the upgrade step');
 
+    // 6b. The action button works far from the truck: it calls the truck over.
+    const call = await page.evaluate(() => {
+      const label = document.getElementById('actTxt').textContent;
+      TT.action(); TT.step(1 / 30, 2);
+      const d = Math.hypot(TT.truck.x - TT.player.x, TT.truck.z - TT.player.z);
+      TT.action(); TT.step(1 / 30, 2);
+      return { label, driving: TT.driving, d, visible: getComputedStyle(document.getElementById('act')).display };
+    });
+    check(call.label === 'CALL TRUCK' && call.visible === 'flex', 'button offers CALL TRUCK when far away');
+    check(call.d < 4 && !call.driving, `truck came to the player (${call.d.toFixed(1)} away) and player got back out`);
+
     // 7. Buy a machine and an upgrade.
     await page.evaluate(() => { TT.S.cash = 1000; TT.place(12, TT.machines[1].z); TT.step(1 / 30, 120); });
     check(await page.evaluate(() => TT.S.mach[1] === 0), 'built the Bottle Factory');
