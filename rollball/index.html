@@ -56,6 +56,8 @@
   .btn.glass { background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: 0 6px 0 rgba(10, 4, 30, .35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font-size: 18px; padding: 14px 16px; }
   .btn.glass:active { box-shadow: 0 2px 0 rgba(10, 4, 30, .35); }
   .btn svg { width: 22px; height: 22px; flex: none; }
+  .menu-bottom .row .btn.glass { font-size: 15px; padding: 13px 8px; gap: 6px; letter-spacing: .5px; }
+  .menu-bottom .row .btn svg { width: 18px; height: 18px; }
   .card { width: min(380px, 100%); padding: 26px 22px 22px; border-radius: 28px; background: linear-gradient(180deg, rgba(60, 36, 130, .72), rgba(28, 16, 70, .82)); border: 1px solid var(--glass-edge); box-shadow: 0 30px 60px rgba(10, 4, 30, .5); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); display: flex; flex-direction: column; gap: 14px; align-items: center; animation: pop .45s cubic-bezier(.2, 1.4, .4, 1); }
   @keyframes pop { from { transform: scale(.7); opacity: 0 } }
   .card h2 { margin: 0; font-size: 34px; letter-spacing: 2px; background: linear-gradient(180deg, #fff, #ffd0a8 60%, #ff8fb8); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -105,6 +107,7 @@
     <div class="row">
       <button class="btn glass" id="skinsBtn"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M3 10c3-2.5 11-2.5 14 0" fill="none" stroke="#3fe6ff" stroke-width="2"/></svg>BALLS</button>
       <button class="btn glass" id="soundBtn"><svg viewBox="0 0 20 20" fill="#fff"><path d="M3 7.5h3l4-3.5v12l-4-3.5H3z"/><path id="soundWave" d="M13 6.5c1.5 1 1.5 6 0 7M15.5 4.5c3 2 3 9 0 11" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg><span id="soundLbl">SOUND</span></button>
+      <button class="btn glass" id="musicBtn"><svg viewBox="0 0 20 20" fill="#fff"><path d="M7 14.5V4.5l9-2v10" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><circle cx="5" cy="14.5" r="2.5"/><circle cx="14" cy="12.5" r="2.5"/></svg>MUSIC</button>
     </div>
   </div>
 </div>
@@ -140,6 +143,7 @@
       <button class="btn glass" id="restartBtn">RESTART</button>
       <button class="btn glass" id="quitBtn">MENU</button>
     </div>
+    <button class="btn glass" id="musicBtn2">MUSIC: ON</button>
   </div>
 </div>
 <div class="flash" id="flash"></div>
@@ -155,7 +159,7 @@ const $ = (id) => document.getElementById(id);
 
 // ---------- save ----------
 const SAVE_KEY = "rollrush.v1";
-let save = { level: 1, coins: 0, skin: 0, owned: [0], sound: true };
+let save = { level: 1, coins: 0, skin: 0, owned: [0], sound: true, music: true };
 try { Object.assign(save, JSON.parse(localStorage.getItem(SAVE_KEY) || "{}")); } catch (e) {}
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
 
@@ -183,6 +187,82 @@ const sfx = {
   check: () => { beep(660, 0.15, "sine", 0.1); beep(990, 0.25, "sine", 0.08, 0, 0.08); },
   land: () => beep(90, 0.12, "sine", 0.18, 0.6),
 };
+
+// ---------- music: a generated dusk-synth loop (pad, bass, arpeggio, light drums) ----------
+const music = (() => {
+  const BPM = 98, S16 = 60 / BPM / 4;
+  // Fmaj7 - Em7 - Dm7 - Cmaj7, two bars each
+  const CHORDS = [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [48, 52, 55, 59]];
+  const ROOTS = [41, 40, 38, 36];
+  const ARP = [0, 1, 2, 3, 2, 3, 1, 2];
+  const BASS_STEPS = [0, 3, 6, 8, 11, 14];
+  const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  let ctx = null, out, filter, drumBus, echo, noise, timer = 0, step = 0, nextT = 0, drums = 0;
+  function init() {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    ctx = actx;
+    out = ctx.createGain(); out.gain.value = 0; out.connect(ctx.destination);
+    filter = ctx.createBiquadFilter(); filter.type = "lowpass"; filter.frequency.value = 1400; filter.Q.value = 0.7; filter.connect(out);
+    drumBus = ctx.createGain(); drumBus.gain.value = 0; drumBus.connect(out);
+    echo = ctx.createDelay(1); echo.delayTime.value = S16 * 3;
+    const fb = ctx.createGain(); fb.gain.value = 0.32; const wet = ctx.createGain(); wet.gain.value = 0.35;
+    echo.connect(fb).connect(echo); echo.connect(wet).connect(filter);
+    noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  function tone(t, freq, dur, type, vol, dest, attack = 0.01, detune = 0) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.value = freq; o.detune.value = detune;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + attack);
+    g.gain.setValueAtTime(vol, t + Math.max(attack, dur - 0.3)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(dest); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function hit(t, type, vol, freq, dur) {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noise; f.type = type; f.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f).connect(g).connect(drumBus); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
+  }
+  function kick(t) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.14);
+    g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    o.connect(g).connect(drumBus); o.start(t); o.stop(t + 0.32);
+  }
+  function play(s, t) {
+    const i = s % 16, bar = Math.floor(s / 32) % 4, ch = CHORDS[bar];
+    if (s % 32 === 0) for (const n of ch) for (const dt of [-8, 8]) tone(t, mtof(n), S16 * 32 + 0.4, "sawtooth", 0.012, filter, 0.6, dt);
+    if (BASS_STEPS.includes(i)) tone(t, mtof(ROOTS[bar] - 12), S16 * 1.8, "triangle", 0.16, filter, 0.01);
+    if (i % 2 === 0) { const n = ch[ARP[(s / 2) % 8]] + 12; tone(t, mtof(n), S16 * 1.6, "triangle", 0.05, filter, 0.005); tone(t, mtof(n), S16 * 1.2, "sine", 0.03, echo, 0.005); }
+    if (drums > 0) {
+      if (i === 0 || i === 8 || i === 10) kick(t);
+      if (i === 4 || i === 12) hit(t, "bandpass", 0.18, 1800, 0.16);
+      if (i % 2 === 1) hit(t, "highpass", i % 4 === 3 ? 0.06 : 0.035, 7000, 0.05);
+    }
+  }
+  function tick() {
+    while (nextT < ctx.currentTime + 0.15) { play(step, nextT); nextT += S16; step++; }
+  }
+  return {
+    start() {
+      if (!save.music) return;
+      if (!ctx) init();
+      if (ctx.state === "suspended") ctx.resume();
+      if (!timer) { nextT = ctx.currentTime + 0.1; timer = setInterval(tick, 30); }
+    },
+    stop() { clearInterval(timer); timer = 0; if (out) out.gain.setTargetAtTime(0, ctx.currentTime, 0.1); },
+    // called every frame: fades volume, opens the filter with speed, adds drums while rolling
+    update(mode, speed) {
+      if (!ctx || !timer) return;
+      const t = ctx.currentTime;
+      const vol = mode === "paused" ? 0.12 : 0.32;
+      out.gain.setTargetAtTime(vol, t, 0.3);
+      drums = mode === "play" || mode === "dead" ? 1 : 0;
+      drumBus.gain.setTargetAtTime(drums ? 0.55 + speed * 0.45 : 0, t, 0.4);
+      filter.frequency.setTargetAtTime(mode === "play" ? 1600 + speed * 4500 : 1100, t, 0.25);
+    },
+  };
+})();
 
 // ---------- textures ----------
 function canvasTex(w, h, draw, srgb = true) {
@@ -297,7 +377,7 @@ const skyMat = new THREE.ShaderMaterial({
       c = mix(c, zen, smoothstep(0.18, 0.75, h));
       float s = max(dot(d, uSun), 0.);
       c += vec3(1.0,0.45,0.2) * pow(s, 6.) * 0.45 + vec3(1.0,0.75,0.45) * pow(s, 80.) * 0.6;
-      c += vec3(2.2,1.8,1.3) * smoothstep(0.9988, 0.9993, s);
+      c += vec3(1.5,1.25,0.95) * smoothstep(0.9988, 0.9993, s);
       float m = dot(d, uMoon);
       float disc = smoothstep(0.9983, 0.9987, m);
       vec3 md = normalize(d - uMoon * m);
@@ -359,7 +439,7 @@ const rim = new THREE.DirectionalLight(0x9fdcff, 0.7); scene.add(rim, rim.target
 // post-processing
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.4, 1.15);
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.28, 0.3, 1.3);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -380,21 +460,21 @@ const M = {
   top: new THREE.MeshPhysicalMaterial({ map: tileTex, roughness: 0.5, clearcoat: 0.4, clearcoatRoughness: 0.3, color: 0xcfc6ec }),
   side: new THREE.MeshStandardMaterial({ map: sideTex, roughness: 0.35, metalness: 0.25 }),
   under: new THREE.MeshStandardMaterial({ color: 0x1d1446, roughness: 0.6 }),
-  edge: glow(0x3fe6ff, 3),
+  edge: glow(0x3fe6ff, 1.5),
   arrow: new THREE.MeshBasicMaterial({ map: arrowTex, transparent: true, opacity: 0.35, depthWrite: false, color: 0x3fe6ff }),
   hazard: new THREE.MeshPhysicalMaterial({ color: 0xff3d6e, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.1 }),
-  hazardGlow: glow(0xffe0ea, 3.2),
+  hazardGlow: glow(0xffe0ea, 1.2),
   chrome: new THREE.MeshStandardMaterial({ color: 0x2a2150, metalness: 0.85, roughness: 0.22 }),
-  gem: new THREE.MeshPhysicalMaterial({ color: 0xffc94a, emissive: 0xff8a1a, emissiveIntensity: 0.7, metalness: 0.1, roughness: 0.08, clearcoat: 1, flatShading: true }),
-  gemHalo: new THREE.SpriteMaterial({ map: softDot, color: 0xffb347, transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending }),
-  gateOff: glow(0x3fe6ff, 3), gateOn: glow(0x6dff9e, 3.5),
-  gold: glow(0xffd36b, 3.4),
+  gem: new THREE.MeshPhysicalMaterial({ color: 0xffc94a, emissive: 0xff8a1a, emissiveIntensity: 0.3, metalness: 0.1, roughness: 0.08, clearcoat: 1, flatShading: true }),
+  gemHalo: new THREE.SpriteMaterial({ map: softDot, color: 0xffb347, transparent: true, opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending }),
+  gateOff: glow(0x3fe6ff, 1.5), gateOn: glow(0x6dff9e, 1.6),
+  gold: glow(0xffd36b, 1.6),
   check: new THREE.MeshBasicMaterial({ map: checkTex }),
   rock: new THREE.MeshStandardMaterial({ color: 0x6a4aa8, flatShading: true, roughness: 0.9 }),
   rockDark: new THREE.MeshStandardMaterial({ color: 0x3a2770, flatShading: true, roughness: 0.9 }),
   moss: new THREE.MeshStandardMaterial({ color: 0x5fe0c6, flatShading: true, roughness: 0.8 }),
   bloom: new THREE.MeshStandardMaterial({ color: 0xffa6cf, flatShading: true, roughness: 0.7, emissive: 0xff5fa8, emissiveIntensity: 0.15 }),
-  crystal: new THREE.MeshPhysicalMaterial({ color: 0x9ff5ff, emissive: 0x3fe6ff, emissiveIntensity: 1.2, roughness: 0.05, flatShading: true, transparent: true, opacity: 0.9 }),
+  crystal: new THREE.MeshPhysicalMaterial({ color: 0x9ff5ff, emissive: 0x3fe6ff, emissiveIntensity: 0.45, roughness: 0.05, flatShading: true, transparent: true, opacity: 0.9 }),
 };
 const gemGeo = new THREE.OctahedronGeometry(0.34, 0).scale(1, 1.35, 1);
 
@@ -403,12 +483,12 @@ const R = 0.6;
 const ballMats = SKINS.map((s) => new THREE.MeshPhysicalMaterial({
   map: canvasTex(1024, 512, (c, w, h) => drawSkin(c, w, h, s, false)),
   emissiveMap: canvasTex(1024, 512, (c, w, h) => drawSkin(c, w, h, s, true)),
-  emissive: new THREE.Color(1, 1, 1), emissiveIntensity: 2.4,
+  emissive: new THREE.Color(1, 1, 1), emissiveIntensity: 1.1,
   roughness: 0.22, metalness: 0.35, clearcoat: 1, clearcoatRoughness: 0.08,
 }));
 const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 64, 40), ballMats[save.skin] || ballMats[0]);
 ball.castShadow = true; scene.add(ball);
-const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }));
+const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot, transparent: true, opacity: 0.12, depthWrite: false, blending: THREE.AdditiveBlending }));
 halo.scale.setScalar(R * 4.2); scene.add(halo);
 const contact = new THREE.Mesh(new THREE.PlaneGeometry(R * 3, R * 3).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: canvasTex(64, 64, (c) => { const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, "rgba(20,8,50,.55)"); g.addColorStop(1, "rgba(20,8,50,0)"); c.fillStyle = g; c.fillRect(0, 0, 64, 64); }), transparent: true, depthWrite: false }));
 scene.add(contact);
@@ -459,7 +539,7 @@ function updateParticles(dt) {
     const p = P[i];
     if (p.life > 0) {
       p.life -= dt; p.vy -= p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
-      const k = Math.max(0, p.life / p.max) * 2;
+      const k = Math.max(0, p.life / p.max) * 1.2;
       pPos[i * 3] = p.x; pPos[i * 3 + 1] = p.y; pPos[i * 3 + 2] = p.z;
       pCol[i * 3] = p.c.r * k; pCol[i * 3 + 1] = p.c.g * k; pCol[i * 3 + 2] = p.c.b * k;
     } else { pCol[i * 3] = pCol[i * 3 + 1] = pCol[i * 3 + 2] = 0; }
@@ -472,7 +552,7 @@ const MOTES = 160;
 const moteGeo = new THREE.BufferGeometry(); const motePos = new Float32Array(MOTES * 3);
 for (let i = 0; i < MOTES; i++) { motePos[i * 3] = (Math.random() - 0.5) * 60; motePos[i * 3 + 1] = (Math.random() - 0.3) * 30; motePos[i * 3 + 2] = (Math.random() - 0.5) * 80; }
 moteGeo.setAttribute("position", new THREE.BufferAttribute(motePos, 3));
-const motes = new THREE.Points(moteGeo, new THREE.PointsMaterial({ size: 0.22, map: softDot, color: 0xffd6b0, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+const motes = new THREE.Points(moteGeo, new THREE.PointsMaterial({ size: 0.22, map: softDot, color: 0xffd6b0, transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending }));
 motes.frustumCulled = false; scene.add(motes);
 const STREAKS = 40;
 const streakGeo = new THREE.BufferGeometry(); const streakPos = new Float32Array(STREAKS * 6);
@@ -541,7 +621,7 @@ function addSweeper(x, y, z, len, speed) {
 function addSlider(x, y, z, range, speed, phase) {
   const geo = new THREE.BoxGeometry(1.6, 1.4, 1.6);
   const g = new THREE.Mesh(geo, M.hazard); g.castShadow = true;
-  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: new THREE.Color(0xffe0ea).multiplyScalar(3) })));
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: new THREE.Color(0xffe0ea).multiplyScalar(1.2) })));
   const band = new THREE.Mesh(new THREE.BoxGeometry(1.64, 0.14, 1.64), M.hazardGlow); g.add(band);
   world.add(g);
   obstacles.push({ type: "slide", g, bx: x, x, y, z, hx: 0.8, hz: 0.8, h: 1.4, range, speed, phase, vx: 0 });
@@ -620,7 +700,7 @@ function buildLevel(n) {
   world = new THREE.Group(); scene.add(world);
   tiles = []; obstacles = []; gems = []; checkpoints = []; decor = [];
   const pal = PALETTES[(n - 1) % PALETTES.length];
-  M.edge.color.set(pal.edge).multiplyScalar(3); M.arrow.color.set(pal.edge); M.gateOff.color.set(pal.edge).multiplyScalar(3);
+  M.edge.color.set(pal.edge).multiplyScalar(1.5); M.arrow.color.set(pal.edge); M.gateOff.color.set(pal.edge).multiplyScalar(1.5);
   M.side.color.set(pal.side).lerp(new THREE.Color(0xffffff), 0.35);
   const rnd = rng(n * 7919 + 13);
   const diff = Math.min(1, (n - 1) / 14);
@@ -850,7 +930,7 @@ function frame(now) {
   }
   ball.position.copy(pos);
   halo.position.copy(pos);
-  halo.material.opacity = 0.25 + Math.min(1, Math.abs(vel.z) / MAXV) * 0.25;
+  halo.material.opacity = 0.08 + Math.min(1, Math.abs(vel.z) / MAXV) * 0.12;
   const g = tileAt(pos.x, pos.z, pos.y - R + 0.5);
   contact.visible = !!g;
   if (g) { const s = surface(g, pos.z), hgt = pos.y - R - s; contact.position.set(pos.x, s + 0.015, pos.z); contact.scale.setScalar(Math.max(0.4, 1 - hgt * 0.12)); contact.material.opacity = Math.max(0, 1 - hgt * 0.15); }
@@ -869,7 +949,7 @@ function frame(now) {
     const f = 1 - i / TRAIL, w = R * 0.45 * f;
     const px = trailPts[j * 3], py = trailPts[j * 3 + 1], pz = trailPts[j * 3 + 2];
     tp.set([px - dz * w, py, pz + dx * w, px + dz * w, py, pz - dx * w], i * 6);
-    ta[i * 2] = ta[i * 2 + 1] = f * f * speedF * 0.6;
+    ta[i * 2] = ta[i * 2 + 1] = f * f * speedF * 0.35;
   }
   trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.alpha.needsUpdate = true;
 
@@ -914,7 +994,7 @@ function frame(now) {
     const ry = motePos[i * 3 + 1] - camera.position.y; if (ry > 18) motePos[i * 3 + 1] -= 30; else if (ry < -12) motePos[i * 3 + 1] += 30;
   }
   moteGeo.attributes.position.needsUpdate = true;
-  streakMat.opacity = Math.max(0, speedF - 0.55) * 1.2;
+  streakMat.opacity = Math.max(0, speedF - 0.55) * 0.6;
   for (let i = 0; i < STREAKS; i++) {
     const s = streakData[i];
     if (s.z > camera.position.z + 1 || s.z < camera.position.z - 60) { const a = Math.random() * 6.28, r = 2.5 + Math.random() * 6; s.x = pos.x + Math.cos(a) * r; s.y = pos.y + 1 + Math.sin(a) * r * 0.6; s.z = pos.z - 25 - Math.random() * 30; }
@@ -924,6 +1004,7 @@ function frame(now) {
   streakGeo.attributes.position.needsUpdate = true;
   $("vignette").style.opacity = 0.7 + speedF * 0.6;
 
+  music.update(state, speedF);
   composer.render(dt);
 }
 
@@ -954,8 +1035,12 @@ $("playBtn").onclick = () => startLevel(save.level);
 $("nextBtn").onclick = () => startLevel(save.level);
 $("skinsBtn").onclick = () => { renderSkins(); show("skinScreen"); };
 $("skinBack").onclick = () => toMenu();
+const toggleMusic = () => { save.music = !save.music; persist(); syncSound(); save.music ? music.start() : music.stop(); };
+$("musicBtn").onclick = $("musicBtn2").onclick = toggleMusic;
+addEventListener("pointerdown", () => music.start(), { once: true });
+addEventListener("keydown", () => music.start(), { once: true });
 $("soundBtn").onclick = () => { save.sound = !save.sound; persist(); syncSound(); if (save.sound) sfx.check(); };
-function syncSound() { $("soundLbl").textContent = save.sound ? "SOUND" : "MUTED"; $("soundWave").style.opacity = save.sound ? 1 : 0.2; }
+function syncSound() { $("soundLbl").textContent = save.sound ? "SOUND" : "MUTED"; $("soundWave").style.opacity = save.sound ? 1 : 0.2; $("soundBtn").style.opacity = save.sound ? 1 : 0.5; $("musicBtn").style.opacity = save.music ? 1 : 0.5; $("musicBtn2").textContent = save.music ? "MUSIC: ON" : "MUSIC: OFF"; }
 function toMenu() {
   state = "menu"; buildLevel(save.level); trailPts.length = 0; vel.set(0, 0, 0); ball.quaternion.identity();
   $("menuInfo").innerHTML = `<small>LEVEL</small>${save.level}&nbsp;&nbsp;<span class="gem"></span>${save.coins}`;
