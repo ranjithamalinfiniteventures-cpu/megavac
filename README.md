@@ -3,6 +3,9 @@
 A procedural vacuum game: clean a kitchen, garage, street, skyline, and orbit.
 Single HTML file, no build step, no image assets. Existing `megavac.v1` saves are preserved.
 
+This repo also holds a separate Roblox game, **Dropper Tycoon**, in
+[`roblox-tycoon/`](roblox-tycoon/README.md).
+
 ## Play locally
 
 ```sh

@@ -1,0 +1,23 @@
+{
+  "name": "DropperTycoon",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "Tycoon": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "TycoonClient": {
+          "$path": "src/client"
+        }
+      }
+    }
+  }
+}
