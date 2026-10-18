@@ -1,0 +1,1151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Trash Tycoon 3D</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#8fd0f0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    user-select:none;-webkit-user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent}
+  #game{position:fixed;inset:0}
+  canvas{display:block}
+  .hud{position:fixed;z-index:5;pointer-events:none}
+  #cash{top:12px;left:50%;transform:translateX(-50%);background:#1e2a38e6;color:#ffe066;font-weight:900;font-size:28px;
+    padding:6px 20px 6px 12px;border-radius:999px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 0 #0004}
+  #cash .coin{width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff6b0,#f5b800 60%,#b77d00);
+    box-shadow:inset 0 -2px 0 #0003}
+  #cash.bump{animation:bump .25s}
+  @keyframes bump{50%{transform:translateX(-50%) scale(1.12)}}
+  #load{top:14px;left:14px;background:#1e2a38d8;color:#fff;padding:8px 12px;border-radius:12px;font-weight:800;font-size:15px;min-width:150px}
+  #load .bar{height:9px;background:#ffffff2a;border-radius:5px;margin-top:6px;overflow:hidden}
+  #load .bar i{display:block;height:100%;width:0;background:#7bd389;border-radius:5px;transition:width .15s}
+  #load.full .bar i{background:#ff6b6b}
+  #tip{bottom:24px;left:50%;transform:translateX(-50%);background:#fffffff2;color:#1e2a38;font-weight:800;font-size:18px;
+    padding:10px 18px;border-radius:14px;box-shadow:0 4px 0 #0003;max-width:min(560px,80vw);text-align:center;display:none}
+  #toasts{top:66px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px}
+  .toast{background:#1e2a38ee;color:#fff;font-weight:800;padding:7px 14px;border-radius:10px;font-size:15px;animation:tin .25s ease-out;white-space:nowrap}
+  .toast.good{background:#2f9e57ee}.toast.bad{background:#d64545ee}
+  @keyframes tin{from{opacity:0;transform:translateY(-8px)}}
+  .btn{pointer-events:auto;border:0;border-radius:14px;font-weight:900;cursor:pointer;font-family:inherit}
+  #mute{position:fixed;z-index:6;top:12px;right:12px;width:44px;height:44px;background:#1e2a38d8;color:#fff;font-size:20px}
+  #act{position:fixed;z-index:6;right:22px;bottom:26px;min-width:120px;height:64px;padding:0 18px;background:#ffb703;color:#1e2a38;
+    font-size:19px;box-shadow:0 5px 0 #b57f00;display:none}
+  #act:active{transform:translateY(3px);box-shadow:0 2px 0 #b57f00}
+  #joy{position:fixed;z-index:4;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;background:#ffffff30;border:3px solid #ffffff90;display:none;pointer-events:none}
+  #joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:#fffffff0;box-shadow:0 3px 0 #0003}
+  #start{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:linear-gradient(#1e2a38cc,#1e2a38ee)}
+  #start .card{background:#fff;border-radius:22px;padding:26px 30px;text-align:center;max-width:min(440px,86vw);box-shadow:0 10px 0 #0003}
+  #start h1{margin:0;font-size:40px;line-height:1;color:#2f9e57;letter-spacing:1px}
+  #start h1 span{color:#ffb703}
+  #start p{color:#3d4b5c;font-weight:600;line-height:1.45;margin:14px 0}
+  #start .loop{font-size:14px;color:#55657a;background:#f2f5f8;border-radius:12px;padding:10px 12px;text-align:left}
+  #play{background:#2f9e57;color:#fff;font-size:24px;padding:14px 44px;box-shadow:0 6px 0 #1f6e3c;margin-top:6px}
+  #play:active{transform:translateY(3px);box-shadow:0 3px 0 #1f6e3c}
+  #reset{background:none;color:#99a5b3;font-size:13px;margin-top:14px;text-decoration:underline}
+  .keys{font-size:13px;color:#7a8899;margin-top:10px}
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="cash" class="hud"><span class="coin"></span><span id="cashTxt">0</span></div>
+<div id="load" class="hud"><div id="loadTxt">Truck 0/12</div><div class="bar"><i id="loadBar"></i></div></div>
+<div id="toasts" class="hud"></div>
+<div id="tip" class="hud"></div>
+<button id="mute" class="btn" aria-label="Toggle sound">&#9835;</button>
+<button id="act" class="btn">GET OUT</button>
+<div id="joy"><i></i></div>
+
+<div id="start">
+  <div class="card">
+    <h1>TRASH <span>TYCOON</span> 3D</h1>
+    <p>Clean the park, recycle trash into goods, sell them at the port and grow your recycling empire!</p>
+    <div class="loop">
+      1. Drive the truck over trash in the park<br>
+      2. Drive into a machine's <b>TRASH IN</b> zone<br>
+      3. Step out, grab the goods it makes<br>
+      4. Drop them at the port's <b>SELL</b> dock, then grab your cash<br>
+      5. Stand on pads to buy machines &amp; upgrades
+    </div>
+    <button id="play" class="btn">PLAY</button>
+    <div class="keys">Move: WASD / arrows / drag &nbsp;·&nbsp; Get in / out: E or Space</div>
+    <button id="reset" class="btn">Reset progress</button>
+  </div>
+</div>
+
+<script type="importmap">{"imports":{"three":"./three.module.min.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ---------- utils ----------
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
+const pick = a => a[(Math.random() * a.length) | 0];
+const angDiff = (a, b) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return d; };
+const approach = (v, t, s) => v < t ? Math.min(t, v + s) : Math.max(t, v - s);
+const fmt = n => { n = Math.floor(n); return n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + 'K' : String(n); };
+const TEST = /[?&]test=1/.test(location.search);
+const V3 = () => new THREE.Vector3();
+
+// ---------- renderer / scene ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+$('game').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8fd0f0);
+scene.fog = new THREE.Fog(0x8fd0f0, 95, 230);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.5, 500);
+scene.add(new THREE.HemisphereLight(0xeaf6ff, 0x6a8f4f, 1.5));
+const sun = new THREE.DirectionalLight(0xfff1d6, 2.4);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 220 });
+sun.shadow.bias = -0.0005;
+sun.shadow.normalBias = 0.03;
+scene.add(sun, sun.target);
+
+// ---------- materials / geometry helpers ----------
+const mats = new Map();
+function M(color, o) {
+  const k = color + (o ? JSON.stringify(o) : '');
+  let m = mats.get(k);
+  if (!m) { m = new THREE.MeshLambertMaterial(Object.assign({ color }, o)); mats.set(k, m); }
+  return m;
+}
+const GEO = {
+  box: new THREE.BoxGeometry(1, 1, 1),
+  cyl: new THREE.CylinderGeometry(0.5, 0.5, 1, 16),
+  sph: new THREE.SphereGeometry(0.5, 16, 12),
+  cone: new THREE.ConeGeometry(0.5, 1, 16),
+  ico: new THREE.IcosahedronGeometry(1, 0),
+  wheel: new THREE.CylinderGeometry(0.55, 0.55, 0.45, 16).rotateZ(Math.PI / 2),
+};
+function mesh(geo, color, x, y, z, sx, sy, sz, parent, o) {
+  const m = new THREE.Mesh(GEO[geo] || geo, color && color.isMaterial ? color : M(color, o));
+  m.position.set(x, y, z);
+  m.scale.set(sx, sy ?? sx, sz ?? sx);
+  m.castShadow = true; m.receiveShadow = true;
+  (parent || scene).add(m);
+  return m;
+}
+const B = (p, w, h, d, c, x, y, z, o) => mesh('box', c, x, y, z, w, h, d, p, o);
+
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+function canvasTex(w, h) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  return { c, g: c.getContext('2d'), tex };
+}
+// Text painted flat on the ground (zones).
+function floorSign(w, d, text, color, x, z) {
+  const { c, g, tex } = canvasTex(256, Math.round(256 * d / w));
+  g.fillStyle = color + '55'; roundRect(g, 6, 6, c.width - 12, c.height - 12, 22); g.fill();
+  g.lineWidth = 10; g.strokeStyle = color; g.setLineDash([26, 14]); g.stroke();
+  g.fillStyle = '#ffffff'; g.font = '900 40px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.shadowColor = '#0006'; g.shadowBlur = 6; g.fillText(text, c.width / 2, c.height / 2);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.set(x, 0.06, z); scene.add(m);
+  return m;
+}
+// Billboard label that redraws only when its text changes.
+function makeLabel(width, title, sub = '', color = '#1e2a38') {
+  const { c, g, tex } = canvasTex(512, 160);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sp.scale.set(width, width * 160 / 512, 1);
+  sp.renderOrder = 5;
+  let key = '';
+  sp.set = (t, s = '', col = color) => {
+    const k = t + '|' + s + '|' + col; if (k === key) return; key = k;
+    g.clearRect(0, 0, 512, 160);
+    g.fillStyle = col + 'e6'; roundRect(g, 8, 8, 496, s ? 144 : 96, 30); g.fill();
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '900 54px system-ui,sans-serif'; g.fillText(t, 256, 58);
+    if (s) { g.font = '700 40px system-ui,sans-serif'; g.fillStyle = '#ffe9a8'; g.fillText(s, 256, 118); }
+    tex.needsUpdate = true;
+  };
+  sp.set(title, sub);
+  scene.add(sp);
+  return sp;
+}
+
+// ---------- ground ----------
+function flat(w, d, color, x, z, y) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), M(color));
+  m.scale.set(w, d, 1); m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true; scene.add(m);
+  return m;
+}
+flat(700, 700, 0x86c06c, 0, 0, 0);
+const parkPatch = flat(1, 1, 0x9fdb7d, 0, 0, 0.015);
+flat(46, 84, 0xc9c4b8, 17, 0, 0.02);          // factory floor
+flat(40, 118, 0xb6b1a6, 66, 0, 0.022);        // port concrete
+flat(8, 240, 0x44484e, 78, 0, 0.03);          // cargo road
+for (let z = -110; z < 110; z += 6) flat(0.35, 2.6, 0xf2f2f2, 78, z, 0.035);
+flat(66, 11, 0xd9d2c3, 22, -50, 0.025);        // upgrade yard
+const water = flat(260, 400, 0x2f8fd0, 216, 0, 0.04);
+water.material = new THREE.MeshLambertMaterial({ color: 0x2f8fd0 });
+
+// ---------- colliders ----------
+const circles = [];             // {x,z,r}
+const boxes = [];               // {x0,x1,z0,z1,on?}
+const WORLD = { x1: 85, z0: -57, z1: 57 };
+
+// ---------- save ----------
+const SAVE_KEY = 'trashtycoon3d.v1';
+function defSave() { return { v: 1, cash: 0, earned: 0, up: { truckCap: 0, truckSpd: 0, carry: 0, shoes: 0, helpers: 0, park: 0 }, mach: [0, -1, -1, -1], tut: 0 }; }
+function loadSave() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY));
+    if (s && s.v === 1) { const d = defSave(); return Object.assign(d, s, { up: Object.assign(d.up, s.up), mach: Array.isArray(s.mach) && s.mach.length === 4 ? s.mach : d.mach }); }
+  } catch (e) { /* storage unavailable */ }
+  return defSave();
+}
+const S = loadSave();
+let saveDirty = false, saveT = 0;
+function writeSave() { saveDirty = false; try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }
+
+// ---------- economy ----------
+const UP = {
+  truckCap: { name: 'Bigger Truck', max: 8, cost: l => Math.round(60 * Math.pow(1.75, l)) },
+  truckSpd: { name: 'Truck Engine', max: 6, cost: l => Math.round(90 * Math.pow(1.8, l)) },
+  carry: { name: 'Strong Arms', max: 8, cost: l => Math.round(50 * Math.pow(1.7, l)) },
+  shoes: { name: 'Fast Shoes', max: 6, cost: l => Math.round(40 * Math.pow(1.75, l)) },
+  helpers: { name: 'Hire Worker', max: 3, cost: l => [300, 1200, 3500][l] },
+  park: { name: 'Expand Park', max: 2, cost: l => [500, 2500][l] },
+};
+const MACH = [
+  { name: 'Brick Press', good: 'brick', price: 0, use: 1, cycle: 1.1, value: 3, color: 0xe76f51 },
+  { name: 'Bottle Factory', good: 'bottle', price: 150, use: 1, cycle: 1.4, value: 7, color: 0x2a9df4 },
+  { name: 'Furniture Shop', good: 'bench', price: 700, use: 2, cycle: 2.2, value: 18, color: 0x9c6644 },
+  { name: 'Gadget Lab', good: 'gadget', price: 2500, use: 3, cycle: 3.0, value: 45, color: 0x9b5de5 },
+];
+const MACH_MAX_LVL = 5;
+const machUpCost = (i, l) => Math.round(40 * (i + 1) * Math.pow(1.85, l));
+const GOODS = {
+  brick: { c: 0xd9653b, s: [0.82, 0.42, 0.5] },
+  bottle: { c: 0x3fa7f5, s: [0.74, 0.5, 0.74] },
+  bench: { c: 0x8a5a36, s: [0.88, 0.38, 0.62] },
+  gadget: { c: 0xa970ff, s: [0.62, 0.46, 0.62], e: 0x3a1670 },
+};
+const GOOD_VALUE = Object.fromEntries(MACH.map(m => [m.good, m.value]));
+const stat = {
+  truckCap: () => 12 + 6 * S.up.truckCap,
+  truckSpd: () => 11 + 1.6 * S.up.truckSpd,
+  carry: () => 6 + 3 * S.up.carry,
+  walk: () => 6.5 + 0.8 * S.up.shoes,
+  cycle: i => MACH[i].cycle / (1 + 0.45 * S.mach[i]),
+};
+const PARK = [{ x0: -55, z: 32 }, { x0: -75, z: 44 }, { x0: -95, z: 55 }];
+const parkBounds = () => { const p = PARK[S.up.park]; return { x0: p.x0, x1: -12, z0: -p.z, z1: p.z }; };
+
+function addCash(v) {
+  S.cash += v; if (v > 0) S.earned += v; saveDirty = true;
+  if (v > 0) { const el = $('cash'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+}
+
+// ---------- audio ----------
+const AU = { ctx: null, master: null, muted: false, eng: null, engGain: null, last: {} };
+function initAudio() {
+  if (AU.ctx) { if (AU.ctx.state === 'suspended') AU.ctx.resume(); return; }
+  try {
+    AU.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    AU.master = AU.ctx.createGain(); AU.master.gain.value = 0.5; AU.master.connect(AU.ctx.destination);
+    const o = AU.ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 50;
+    const f = AU.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 380;
+    AU.engGain = AU.ctx.createGain(); AU.engGain.gain.value = 0;
+    o.connect(f).connect(AU.engGain).connect(AU.master); o.start(); AU.eng = o;
+  } catch (e) { AU.ctx = null; }
+}
+function tone(f, d, type = 'sine', v = 0.12, f2 = 0, delay = 0) {
+  if (!AU.ctx || AU.muted) return;
+  const t = AU.ctx.currentTime + delay;
+  const o = AU.ctx.createOscillator(), g = AU.ctx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
+  o.connect(g).connect(AU.master); o.start(t); o.stop(t + d + 0.03);
+}
+function sfx(name) {
+  const now = performance.now();
+  if (now - (AU.last[name] || 0) < 45) return;
+  AU.last[name] = now;
+  switch (name) {
+    case 'pop': tone(420 + rand(0, 220), 0.08, 'triangle', 0.08, 900); break;
+    case 'stack': tone(660 + rand(0, 120), 0.05, 'square', 0.035); break;
+    case 'coin': tone(988, 0.06, 'square', 0.04); tone(1319, 0.1, 'square', 0.04, 0, 0.05); break;
+    case 'buy': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.2, 'triangle', 0.11, 0, i * 0.07)); break;
+    case 'thunk': tone(150, 0.12, 'square', 0.05, 70); break;
+    case 'door': tone(320, 0.09, 'square', 0.05, 180); break;
+    case 'horn': tone(330, 0.35, 'sawtooth', 0.07); tone(415, 0.35, 'sawtooth', 0.06); break;
+    case 'bad': tone(220, 0.25, 'square', 0.05, 120); break;
+  }
+}
+
+// ---------- particles & flyers ----------
+const parts = [];
+function burst(x, y, z, n, colors, spd = 5, size = 0.25) {
+  for (let i = 0; i < n; i++) {
+    const m = mesh('box', pick(colors), x, y, z, size * rand(0.7, 1.3));
+    m.castShadow = false;
+    parts.push({ m, vx: rand(-1, 1) * spd, vy: rand(0.6, 1.4) * spd, vz: rand(-1, 1) * spd, life: rand(0.6, 1.1), g: 18 });
+  }
+}
+function smoke(x, y, z) {
+  const m = mesh('sph', 0xe8e8e8, x, y, z, 0.8);
+  m.castShadow = false; m.material = M(0xe8e8e8, { transparent: true, opacity: 0.7 });
+  parts.push({ m, vx: rand(-0.3, 0.3), vy: 2.2, vz: rand(-0.3, 0.3), life: 1.6, g: 0, grow: 1.2 });
+}
+function updateParts(dt) {
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i]; p.life -= dt;
+    p.vy -= p.g * dt; p.m.position.x += p.vx * dt; p.m.position.y += p.vy * dt; p.m.position.z += p.vz * dt;
+    if (p.grow) p.m.scale.multiplyScalar(1 + p.grow * dt); else p.m.rotation.x += dt * 8;
+    if (p.m.position.y < 0.1 && p.g) { p.m.position.y = 0.1; p.vy *= -0.3; p.vx *= 0.6; p.vz *= 0.6; }
+    if (p.life <= 0) { scene.remove(p.m); parts.splice(i, 1); }
+  }
+}
+const flyers = [];
+// The game state changes immediately; flyers only carry the visual from A to B.
+function fly(m, from, toFn, dur = 0.35, arc = 2, done) {
+  if (m.parent !== scene) scene.add(m);
+  m.position.copy(from);
+  flyers.push({ m, from: from.clone(), toFn, t: 0, dur, arc, done });
+}
+const tmpV = V3();
+function updateFlyers(dt) {
+  for (let i = flyers.length - 1; i >= 0; i--) {
+    const f = flyers[i]; f.t += dt / f.dur;
+    const k = Math.min(1, f.t), to = f.toFn();
+    f.m.position.lerpVectors(f.from, to, k); f.m.position.y += Math.sin(k * Math.PI) * f.arc;
+    f.m.rotation.y += dt * 7;
+    if (k >= 1) { scene.remove(f.m); flyers.splice(i, 1); if (f.done) f.done(); }
+  }
+}
+
+// ---------- goods & stacks ----------
+function goodMesh(type) {
+  const g = GOODS[type];
+  const m = new THREE.Mesh(GEO.box, M(g.c, g.e ? { emissive: g.e } : undefined));
+  m.scale.set(...g.s); m.castShadow = true;
+  return m;
+}
+class Stack {
+  constructor(anchor, slot, max) { this.anchor = anchor; this.slot = slot; this.max = max; this.items = []; }
+  get n() { return this.items.length; }
+  get full() { return this.items.length >= this.max; }
+  add(type, hidden) {
+    const m = goodMesh(type); m.position.copy(this.slot(this.items.length)); m.visible = !hidden;
+    this.anchor.add(m); this.items.push({ type, m }); return m;
+  }
+  pop() {
+    const it = this.items.pop(); if (!it) return null;
+    const p = V3(); it.m.getWorldPosition(p); this.anchor.remove(it.m);
+    return { type: it.type, pos: p };
+  }
+  clear() { while (this.items.length) this.pop(); }
+  value() { return this.items.reduce((s, it) => s + GOOD_VALUE[it.type], 0); }
+}
+// Move one good from one stack to another with a flying visual.
+function transfer(src, dst, dur = 0.3) {
+  const it = src.pop(); if (!it) return null;
+  const m = dst.add(it.type, true);
+  const fm = goodMesh(it.type);
+  fly(fm, it.pos, () => m.getWorldPosition(tmpV), dur, 1.6, () => { m.visible = true; });
+  return it;
+}
+
+// ---------- characters & vehicles ----------
+function makeTruck(col) {
+  const g = new THREE.Group();
+  B(g, 2.5, 0.6, 5.8, 0x2b2f36, 0, 0.95, 0);
+  B(g, 2.6, 1.9, 1.8, 0xf4f1e8, 0, 2.1, 2.0);
+  B(g, 2.3, 0.8, 0.08, 0x23415e, 0, 2.5, 2.92);
+  B(g, 0.08, 0.7, 1.1, 0x23415e, 1.31, 2.5, 2.0); B(g, 0.08, 0.7, 1.1, 0x23415e, -1.31, 2.5, 2.0);
+  B(g, 2.7, 0.5, 3.9, col, 0, 1.45, -0.9);
+  B(g, 0.2, 1.4, 3.9, col, 1.25, 2.35, -0.9); B(g, 0.2, 1.4, 3.9, col, -1.25, 2.35, -0.9);
+  B(g, 2.7, 1.4, 0.2, col, 0, 2.35, -2.8); B(g, 2.7, 1.4, 0.2, col, 0, 2.35, 1.0);
+  B(g, 0.22, 0.22, 3.92, 0xffffff, 1.27, 2.2, -0.9); B(g, 0.22, 0.22, 3.92, 0xffffff, -1.27, 2.2, -0.9);
+  B(g, 2.7, 0.4, 0.3, 0x55595f, 0, 1.0, 3.0);
+  B(g, 0.5, 0.3, 0.06, 0xfff6c2, 0.85, 1.6, 2.92, { emissive: 0xfff3a0 });
+  B(g, 0.5, 0.3, 0.06, 0xfff6c2, -0.85, 1.6, 2.92, { emissive: 0xfff3a0 });
+  const beacon = B(g, 0.5, 0.25, 0.5, 0xff9f1c, 0, 3.17, 2.2);
+  beacon.material = new THREE.MeshLambertMaterial({ color: 0xff9f1c, emissive: 0xff7b00 });
+  const pile = B(g, 2.3, 1, 3.5, 0x6b5b4b, 0, 1.8, -0.9);
+  const pileTop = [];
+  for (let i = 0; i < 6; i++) pileTop.push(B(pile, rand(0.18, 0.3), 0.3, rand(0.15, 0.25), pick([0x3fa7f5, 0xdddddd, 0x222222, 0xc9a26b]), rand(-0.35, 0.35), 0.5, rand(-0.4, 0.4)));
+  const wheels = [];
+  for (const z of [1.9, -1.9]) for (const s of [-1, 1]) {
+    const w = mesh('wheel', 0x1d1d1f, s * 1.3, 0.55, z, 1, 1, 1, g);
+    B(w, 0.48, 0.75, 0.16, 0x9aa0a6, 0, 0, 0);
+    wheels.push(w);
+  }
+  return { g, pile, wheels, beacon };
+}
+function makePerson(shirt, cap = 0x1f6fd1) {
+  const g = new THREE.Group();
+  const leg = x => { const p = new THREE.Group(); p.position.set(x, 0.85, 0); B(p, 0.32, 0.85, 0.34, 0x2d3a5a, 0, -0.42, 0); g.add(p); return p; };
+  const arm = x => { const p = new THREE.Group(); p.position.set(x, 1.6, 0); B(p, 0.24, 0.75, 0.26, shirt, 0, -0.35, 0); B(p, 0.22, 0.2, 0.22, 0xf2c29b, 0, -0.78, 0); g.add(p); return p; };
+  const legL = leg(-0.2), legR = leg(0.2);
+  B(g, 0.85, 0.9, 0.5, shirt, 0, 1.3, 0);
+  B(g, 0.87, 0.14, 0.52, 0xfff35c, 0, 1.45, 0);
+  B(g, 0.56, 0.56, 0.56, 0xf2c29b, 0, 2.03, 0);
+  B(g, 0.1, 0.1, 0.02, 0x222222, 0.13, 2.08, 0.29); B(g, 0.1, 0.1, 0.02, 0x222222, -0.13, 2.08, 0.29);
+  B(g, 0.6, 0.18, 0.6, cap, 0, 2.38, 0); B(g, 0.6, 0.06, 0.32, cap, 0, 2.31, 0.42);
+  const armL = arm(-0.55), armR = arm(0.55);
+  const carryAnchor = new THREE.Group(); carryAnchor.position.set(0, 1.15, 0.78); g.add(carryAnchor);
+  return { g, legL, legR, armL, armR, carryAnchor };
+}
+function animPerson(p, moving, t, carrying) {
+  const s = moving ? Math.sin(t * 11) * 0.7 : 0;
+  p.legL.rotation.x = s; p.legR.rotation.x = -s;
+  const armBase = carrying ? -1.25 : 0;
+  p.armL.rotation.x = armBase + (carrying ? 0 : -s * 0.8);
+  p.armR.rotation.x = armBase + (carrying ? 0 : s * 0.8);
+  p.g.position.y = moving ? Math.abs(Math.sin(t * 11)) * 0.08 : 0;
+}
+const carrySlot = i => new THREE.Vector3(0, i * 0.5 + 0.2, 0);
+
+function makeTree(x, z, s = 1, collide = true) {
+  mesh('cyl', 0x7a5232, x, 1.1 * s, z, 0.5 * s, 2.2 * s, 0.5 * s);
+  const f = mesh('ico', pick([0x4f9d4a, 0x5cae55, 0x3f8f3f]), x, 3.2 * s, z, 1.8 * s);
+  f.rotation.set(rand(0, 3), rand(0, 3), 0);
+  mesh('ico', 0x5fb85a, x + 0.6 * s, 3.9 * s, z - 0.4 * s, 1.1 * s);
+  if (collide) circles.push({ x, z, r: 0.9 * s });
+}
+
+// ---------- park ----------
+const fence = new THREE.Group(); scene.add(fence);
+for (let z = WORLD.z0; z <= WORLD.z1; z += 3) B(fence, 0.25, 1.4, 0.25, 0xf4f1e8, 0, 0.7, z);
+B(fence, 0.15, 0.18, WORLD.z1 - WORLD.z0, 0xf4f1e8, 0, 1.15, 0); B(fence, 0.15, 0.18, WORLD.z1 - WORLD.z0, 0xf4f1e8, 0, 0.6, 0);
+function applyPark() {
+  const b = parkBounds();
+  parkPatch.scale.set(b.x1 - b.x0, b.z1 - b.z0, 1); parkPatch.position.set((b.x0 + b.x1) / 2, 0.015, 0);
+  fence.position.x = b.x0 - 1;
+  WORLD.x0 = b.x0;
+}
+(function buildPark() {
+  // swing set
+  const sw = new THREE.Group(); sw.position.set(-40, 0, -18); scene.add(sw);
+  for (const x of [-3, 3]) for (const z of [-1, 1]) { const l = B(sw, 0.25, 4.3, 0.25, 0xe63946, x, 2.05, z * 0.9); l.rotation.x = -z * 0.22; }
+  B(sw, 6.4, 0.28, 0.28, 0xe63946, 0, 4.15, 0);
+  for (const x of [-1.4, 1.4]) { B(sw, 0.06, 3, 0.06, 0x888888, x - 0.35, 2.6, 0); B(sw, 0.06, 3, 0.06, 0x888888, x + 0.35, 2.6, 0); B(sw, 1, 0.12, 0.55, 0xffb703, x, 1.1, 0); }
+  circles.push({ x: -43, z: -18, r: 1.2 }, { x: -37, z: -18, r: 1.2 }, { x: -40, z: -18, r: 1.2 });
+  // slide
+  const sl = new THREE.Group(); sl.position.set(-24, 0, 16); scene.add(sl);
+  B(sl, 2.2, 3.2, 2.2, 0x2a9df4, 0, 1.6, 0);
+  mesh('cone', 0xffb703, 0, 4.1, 0, 2.6, 1.6, 2.6, sl);
+  const ramp = B(sl, 1.3, 0.18, 5.4, 0xffd166, 0, 1.6, 3.2); ramp.rotation.x = 0.55;
+  circles.push({ x: -24, z: 16, r: 1.8 }, { x: -24, z: 19.5, r: 1.1 });
+  // sandbox
+  const sx = -44, sz = 14;
+  flat(7, 7, 0xf2d49b, sx, sz, 0.05);
+  for (const [w, d, x, z] of [[7.6, 0.4, 0, -3.6], [7.6, 0.4, 0, 3.6], [0.4, 7.6, -3.6, 0], [0.4, 7.6, 3.6, 0]]) B(scene, w, 0.45, d, 0xb5835a, sx + x, 0.22, sz + z);
+  mesh('cone', 0xe63946, sx + 1.5, 0.35, sz - 1, 0.7, 0.6, 0.7);
+  // merry-go-round
+  const mg = new THREE.Group(); mg.position.set(-30, 0, -2); scene.add(mg);
+  mesh('cyl', 0x9b5de5, 0, 0.35, 0, 4, 0.3, 4, mg); mesh('cyl', 0xcccccc, 0, 1.2, 0, 0.25, 1.6, 0.25, mg);
+  for (let i = 0; i < 4; i++) { const b = B(mg, 0.12, 0.12, 3.6, 0xffb703, 0, 1.9, 0); b.rotation.y = i * Math.PI / 4; }
+  circles.push({ x: -30, z: -2, r: 2.1 });
+  scene.userData.merry = mg;
+  // seesaw
+  B(scene, 0.6, 0.6, 0.6, 0x666666, -22, 0.3, -20); const ss = B(scene, 0.5, 0.15, 5.6, 0xe63946, -22, 0.75, -20); ss.rotation.x = 0.2;
+  circles.push({ x: -22, z: -20, r: 1.2 });
+  // benches
+  for (const [x, z, r] of [[-16, -6, Math.PI / 2], [-16, 6, Math.PI / 2], [-50, 0, -Math.PI / 2]]) {
+    const b = new THREE.Group(); b.position.set(x, 0, z); b.rotation.y = r; scene.add(b);
+    B(b, 2.6, 0.15, 0.7, 0x9c6644, 0, 0.6, 0); B(b, 2.6, 0.6, 0.12, 0x9c6644, 0, 1.0, -0.32);
+    B(b, 0.15, 0.6, 0.6, 0x444444, -1.1, 0.3, 0); B(b, 0.15, 0.6, 0.6, 0x444444, 1.1, 0.3, 0);
+  }
+  for (const [x, z, s] of [[-52, -29, 1.2], [-52, 29, 1.1], [-15, -30, 1], [-15, 30, 1.1], [-36, 6, 1], [-48, -6, 0.9], [-33, 28, 1],
+    [-66, -10, 1.2], [-70, 22, 1.1], [-63, 38, 1], [-60, -38, 1.1], [-86, 0, 1.3], [-82, -30, 1.1], [-88, 40, 1], [-78, 50, 1.2], [-90, -48, 1]]) makeTree(x, z, s);
+})();
+applyPark();
+
+// ---------- trash ----------
+const trash = [];
+const TRASH_KINDS = [
+  () => { const m = mesh('cyl', 0x5bc0f8, 0, 0, 0, 0.36, 0.95, 0.36); m.rotation.z = Math.PI / 2; m.position.y = 0.2; return m; },
+  () => { const m = mesh('cyl', 0xb8bec6, 0, 0, 0, 0.38, 0.55, 0.38); m.position.y = 0.28; return m; },
+  () => { const m = mesh('sph', 0x2b2b2b, 0, 0, 0, 0.95, 0.75, 0.9); m.position.y = 0.36; return m; },
+  () => { const m = mesh('box', 0xf4f1e8, 0, 0, 0, 0.7, 0.12, 0.9); m.position.y = 0.07; return m; },
+  () => { const m = mesh('box', 0xc39b6a, 0, 0, 0, 0.75, 0.55, 0.75); m.position.y = 0.28; return m; },
+  () => { const m = mesh('cyl', 0x7bd389, 0, 0, 0, 0.3, 0.8, 0.3); m.rotation.z = Math.PI / 2; m.position.y = 0.16; return m; },
+];
+const trashMax = () => 40 + 30 * S.up.park;
+function spawnTrash(pop = true) {
+  const b = parkBounds();
+  for (let tries = 0; tries < 12; tries++) {
+    const x = rand(b.x0 + 2, b.x1 - 2), z = rand(b.z0 + 2, b.z1 - 2);
+    if (circles.some(c => (c.x - x) ** 2 + (c.z - z) ** 2 < (c.r + 1.2) ** 2)) continue;
+    if ((truck.x - x) ** 2 + (truck.z - z) ** 2 < 36) continue;
+    const kind = (Math.random() * TRASH_KINDS.length) | 0;
+    const holder = new THREE.Group(); holder.position.set(x, 0, z); holder.rotation.y = rand(0, 6.3); scene.add(holder);
+    const m = TRASH_KINDS[kind](); holder.add(m);
+    holder.scale.setScalar(pop ? 0.01 : 1.4);
+    trash.push({ x, z, g: holder, kind, grow: pop ? 0 : 1 });
+    return true;
+  }
+  return false;
+}
+
+// ---------- factory / machines ----------
+const SLOT_Z = [-27, -9, 9, 27];
+const IN_X = 3, OUT_X = 22.6, TRAY_X = 18.4, MX = 12;
+const machines = MACH.map((def, i) => {
+  const z = SLOT_Z[i];
+  B(scene, 9, 0.12, 9, 0x9ea3a8, MX, 0.06, z);
+  const g = new THREE.Group(); g.position.set(MX, 0, z); scene.add(g);
+  B(g, 8, 0.6, 8, 0x5c6470, 0, 0.3, 0);
+  B(g, 6.4, 4.4, 6.4, def.color, 0, 2.8, 0);
+  B(g, 6.6, 0.4, 6.6, 0x3d4450, 0, 5.1, 0);
+  B(g, 0.3, 2.6, 6.5, 0xffffff, -3.25, 2.6, 0);
+  const hopper = mesh('cone', 0x7d8590, -3.2, 5.6, 0, 4.2, 2.2, 4.2, g); hopper.rotation.x = Math.PI;
+  const fill = B(g, 2.4, 1, 2.4, 0x6b5b4b, -3.2, 5.6, 0);
+  B(g, 5, 0.35, 2.8, 0x2f3338, -6.5, 0.5, 0); // intake conveyor
+  for (let k = 0; k < 5; k++) B(g, 0.15, 0.37, 2.6, 0xffb703, -8.6 + k, 0.52, 0);
+  mesh('cyl', 0x8a8f96, 2, 6.2, -2, 1.1, 3, 1.1, g);
+  const piston = B(g, 1.6, 1.4, 1.6, 0xdedede, 1.2, 5.8, 1.4);
+  B(g, 1.6, 2, 0.3, 0x2f3338, 3.3, 1.5, 0); // output chute
+  B(g, 4.4, 0.3, 4.4, 0x6c737c, TRAY_X - MX, 0.15, 0);
+  const tray = new THREE.Group(); tray.position.set(TRAY_X, 0.3, z); scene.add(tray);
+  const out = new Stack(tray, i2 => { const l = Math.floor(i2 / 6), j = i2 % 6; return new THREE.Vector3(((j % 2) - 0.5) * 1.0, 0.25 + l * 0.52, (Math.floor(j / 2) - 1) * 1.0); }, 24);
+  const label = makeLabel(7.5, def.name); label.position.set(MX, 9.4, z);
+  const inZone = floorSign(6.4, 6.4, 'TRASH IN', '#ffb703', IN_X, z);
+  const outZone = floorSign(4.6, 4.6, 'PICK UP', '#2f9e57', OUT_X, z);
+  const lockedSign = floorSign(9, 9, '', '#ffffff', MX, z); lockedSign.position.y = 0.07;
+  const box = { x0: MX - 4, x1: MX + 4, z0: z - 4, z1: z + 4, on: () => S.mach[i] >= 0 };
+  boxes.push(box);
+  return { i, def, z, g, hopper, fill, piston, out, label, inZone, outZone, lockedSign, inn: 0, maxIn: 40, t: 0, work: 0, pop: 1 };
+});
+function refreshMachines() {
+  for (const m of machines) {
+    const on = S.mach[m.i] >= 0;
+    m.g.visible = m.label.visible = m.inZone.visible = m.outZone.visible = on;
+    m.lockedSign.visible = !on;
+    m.label.position.y = on ? 9.4 : 4;
+  }
+}
+
+// ---------- port ----------
+const DOCK = { x: 58, z: 0 }, CASHPAD = { x: 58, z: 11 };
+floorSign(5.4, 5.4, 'SELL', '#ffb703', DOCK.x, DOCK.z);
+floorSign(5.4, 5.4, 'CASH', '#2f9e57', CASHPAD.x, CASHPAD.z);
+const dockAnchor = new THREE.Group(); dockAnchor.position.set(66, 0.05, 0); scene.add(dockAnchor);
+B(scene, 5, 0.1, 5, 0x8a6b4a, 66, 0.05, 0);
+const dock = new Stack(dockAnchor, i => { const l = Math.floor(i / 16), j = i % 16; return new THREE.Vector3(((j % 4) - 1.5) * 1.0, 0.25 + l * 0.52, (Math.floor(j / 4) - 1.5) * 1.0); }, 96);
+makeLabel(6.5, 'PORT', 'Sell goods here').position.set(62, 7, -6);
+// decor: containers, crane, bollards, ship
+const CONT_COLS = [0xe63946, 0x2a9df4, 0xffb703, 0x2f9e57, 0xf4a261, 0x9b5de5];
+for (const zc of [-34, 32]) {
+  for (let k = 0; k < 3; k++) for (let l = 0; l < 1 + ((k + zc) & 1) + (k === 1 ? 1 : 0); l++) {
+    const c = B(scene, 7, 2.8, 2.8, pick(CONT_COLS), 64, 1.4 + l * 2.85, zc + k * 3);
+    for (let r = -3; r <= 3; r++) B(c, 0.02, 0.9, 1.02, 0x000000, r / 7.2, 0, 0, { transparent: true, opacity: 0.12 });
+  }
+  boxes.push({ x0: 60.3, x1: 67.7, z0: zc - 1.6, z1: zc + 7.6 });
+}
+(function crane() {
+  const g = new THREE.Group(); g.position.set(86, 0, -20); scene.add(g);
+  for (const x of [-2, 2]) for (const z of [-2.5, 2.5]) B(g, 0.6, 14, 0.6, 0xffb703, x, 7, z);
+  B(g, 30, 1, 1.2, 0xffb703, 6, 14.5, 0); B(g, 3, 2, 3, 0xe63946, 0, 15.8, 0);
+  B(g, 0.08, 8, 0.08, 0x333333, 14, 10.5, 0); B(g, 3, 2.6, 2.6, pick(CONT_COLS), 14, 5.2, 0);
+  boxes.push({ x0: 83.3, x1: 88.7, z0: -23, z1: -17 });
+})();
+for (let z = -50; z <= 50; z += 10) mesh('cyl', 0x333333, 85.6, 0.4, z, 0.6, 0.8, 0.6);
+const ship = new THREE.Group(); ship.position.set(112, 0, 4); scene.add(ship);
+B(ship, 16, 4, 52, 0xb23a3a, 0, 1, 0); B(ship, 16.2, 1.2, 52.2, 0x1e2a38, 0, 3.4, 0);
+B(ship, 10, 6, 7, 0xf4f1e8, 0, 6.5, -20); B(ship, 6, 2, 5, 0x2f8fd0, 0, 10.4, -20);
+for (let k = 0; k < 10; k++) B(ship, 6, 2.6, 2.6, pick(CONT_COLS), (k % 2 ? 3.1 : -3.1), 5.3 + (k % 3 === 0 ? 2.7 : 0), -8 + (k >> 1) * 6);
+
+// HQ backdrop
+B(scene, 34, 10, 10, 0xe8dcc6, 22, 5, -66); B(scene, 35, 0.8, 11, 0x2f9e57, 22, 10.4, -66);
+for (let k = 0; k < 5; k++) B(scene, 3, 3, 0.2, 0x7fb7e6, 10 + k * 6, 6, -60.9);
+makeLabel(12, 'TRASH TYCOON HQ', '', '#2f9e57').position.set(22, 13.5, -64);
+for (const x of [-10, 54]) makeTree(x, -62, 1.2, false);
+
+// ---------- player, truck, helpers ----------
+const truckV = makeTruck(0x3fae5a);
+scene.add(truckV.g);
+const truck = { x: -6, z: 0, h: -Math.PI / 2, speed: 0, load: 0, unloadT: 0, beaconT: 0 };
+const playerV = makePerson(0xff8c1a);
+scene.add(playerV.g);
+const player = { x: 0, z: 0, h: 0, moving: false, walkT: 0, takeT: 0 };
+const carry = new Stack(playerV.carryAnchor, carrySlot, 99);
+let driving = true;
+const helpers = [];
+function addHelper() {
+  const v = makePerson(0x2ec4b6, 0xe63946); scene.add(v.g);
+  const h = { v, x: 40, z: -44, h: 0, state: 'idle', wait: 0, t: 0, target: null, m: null, stack: new Stack(v.carryAnchor, carrySlot, 8) };
+  v.g.position.set(h.x, 0, h.z);
+  helpers.push(h);
+}
+
+// ---------- cargo buyer ----------
+function makeLorry() {
+  const g = new THREE.Group();
+  B(g, 2.6, 0.6, 10, 0x2b2f36, 0, 0.95, 0);
+  B(g, 2.9, 2.6, 2.4, 0x2b6cb0, 0, 2.3, 4.0);
+  B(g, 2.5, 1.0, 0.08, 0x23415e, 0, 2.9, 5.21);
+  B(g, 3.0, 3.2, 7.2, 0xf4f1e8, 0, 2.9, -1.4);
+  B(g, 3.02, 0.5, 7.22, 0x2b6cb0, 0, 1.6, -1.4);
+  for (const z of [3.8, -0.5, -3.8]) for (const s of [-1, 1]) mesh('wheel', 0x1d1d1f, s * 1.35, 0.55, z, 1, 1, 1, g);
+  const pile = B(g, 2.6, 0.2, 6.6, 0x8a6b4a, 0, 4.6, -1.4); pile.visible = false;
+  return { g, pile };
+}
+const lorryV = makeLorry(); scene.add(lorryV.g);
+const buyer = { z: -110, state: 'wait', t: 0, n: 0, value: 0, speed: 0, cap: 40 };
+const BUYER_X = 78, BUYER_STOP = 0;
+
+// ---------- cash pad ----------
+const cashAnchor = new THREE.Group(); cashAnchor.position.set(CASHPAD.x, 0.06, CASHPAD.z); scene.add(cashAnchor);
+const cash = { amount: 0, bills: [] };
+function syncBills() {
+  const want = Math.min(60, Math.ceil(cash.amount / 5));
+  while (cash.bills.length < want) {
+    const i = cash.bills.length, l = Math.floor(i / 6), j = i % 6;
+    const b = B(cashAnchor, 0.95, 0.14, 0.5, 0x4caf50, ((j % 2) - 0.5) * 1.1, 0.08 + l * 0.15, (Math.floor(j / 2) - 1) * 0.65);
+    B(b, 0.4, 1.05, 0.5, 0xd7f5c8, 0, 0, 0);
+    cash.bills.push(b);
+  }
+  while (cash.bills.length > want) cashAnchor.remove(cash.bills.pop());
+}
+
+// ---------- pay pads ----------
+const pads = [];
+function makePad(x, z, o) {
+  const { c, g, tex } = canvasTex(256, 256);
+  const base = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  base.rotation.x = -Math.PI / 2; base.position.set(x, 0.08, z); scene.add(base);
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x2f9e57, transparent: true, opacity: 0.55, depthWrite: false }));
+  fill.rotation.x = -Math.PI / 2; fill.position.set(x, 0.09, z + 1.85); fill.scale.set(0.001, 0.5, 1); scene.add(fill);
+  const p = { x, z, o, paid: 0, stand: 0, coinT: 0, base, fill, c, g, tex, key: '' };
+  pads.push(p);
+  return p;
+}
+function drawPad(p) {
+  const cost = p.o.cost(), left = Math.max(0, Math.ceil(cost - p.paid));
+  const key = p.o.name + left + p.o.lvl() + (S.cash >= cost - p.paid ? 1 : 0);
+  if (key === p.key) return; p.key = key;
+  const { g } = p;
+  g.clearRect(0, 0, 256, 256);
+  g.fillStyle = '#fffffff0'; roundRect(g, 8, 8, 240, 240, 28); g.fill();
+  g.lineWidth = 10; g.strokeStyle = p.o.color || '#ffb703'; g.stroke();
+  g.fillStyle = '#1e2a38'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = '900 30px system-ui,sans-serif';
+  const words = p.o.name.split(' ');
+  if (words.length > 1 && g.measureText(p.o.name).width > 210) { g.fillText(words.slice(0, -1).join(' '), 128, 52); g.fillText(words.at(-1), 128, 86); }
+  else g.fillText(p.o.name, 128, 64);
+  g.font = '700 24px system-ui,sans-serif'; g.fillStyle = '#6a7788'; g.fillText(p.o.lvl(), 128, 124);
+  g.fillStyle = S.cash >= cost - p.paid ? '#2f9e57' : '#c0392b';
+  g.beginPath(); g.arc(66, 186, 17, 0, 7); g.fillStyle = '#f5b800'; g.fill();
+  g.fillStyle = S.cash >= cost - p.paid ? '#2f9e57' : '#c0392b';
+  g.font = '900 50px system-ui,sans-serif'; g.textAlign = 'left'; g.fillText(fmt(left), 92, 188);
+  p.tex.needsUpdate = true;
+}
+function upgradePad(key, x, z, color) {
+  const u = UP[key];
+  return makePad(x, z, {
+    name: u.name, color,
+    cost: () => u.cost(S.up[key]),
+    lvl: () => key === 'helpers' ? `Workers ${S.up[key]}/${u.max}` : `Level ${S.up[key] + 1}/${u.max + 1}`,
+    visible: () => S.up[key] < u.max && S.tut >= 5,
+    buy: () => {
+      S.up[key]++;
+      if (key === 'helpers') addHelper();
+      if (key === 'park') { applyPark(); toast('Park expanded — more trash!', 'good'); }
+      if (key !== 'park') toast(key === 'helpers' ? 'New worker hired!' : `${u.name} upgraded!`, 'good');
+    },
+  });
+}
+upgradePad('truckCap', -2, -50, '#3fae5a');
+upgradePad('truckSpd', 10, -50, '#3fae5a');
+upgradePad('carry', 22, -50, '#ff8c1a');
+upgradePad('shoes', 34, -50, '#ff8c1a');
+upgradePad('helpers', 46, -50, '#2ec4b6');
+upgradePad('park', -18, -46, '#7bd389');
+for (const m of machines) {
+  if (m.i > 0) makePad(MX, m.z, {
+    name: 'Build ' + m.def.name, color: '#ffb703',
+    cost: () => m.def.price, lvl: () => `$${m.def.value} per item`,
+    visible: () => S.mach[m.i] < 0 && S.mach[m.i - 1] >= 0 && S.tut >= 5,
+    buy: () => { S.mach[m.i] = 0; m.pop = 0; refreshMachines(); burst(MX, 4, m.z, 30, [m.def.color, 0xffffff, 0xffb703], 8, 0.35); toast(`${m.def.name} built!`, 'good'); },
+  });
+  makePad(MX, m.z + 7, {
+    name: 'Faster Machine', color: '#' + m.def.color.toString(16).padStart(6, '0'),
+    cost: () => machUpCost(m.i, S.mach[m.i]), lvl: () => `Speed ${S.mach[m.i] + 1}/${MACH_MAX_LVL + 1}`,
+    visible: () => S.mach[m.i] >= 0 && S.mach[m.i] < MACH_MAX_LVL && S.tut >= 5,
+    buy: () => { S.mach[m.i]++; toast(`${m.def.name} is faster!`, 'good'); },
+  });
+}
+
+// ---------- tutorial guide ----------
+const guide = new THREE.Group(); scene.add(guide);
+mesh('cone', 0xffd60a, 0, 0, 0, 1.4, 1.8, 1.4, guide, { emissive: 0x7a5a00 }).rotation.x = Math.PI;
+mesh('cyl', 0xffd60a, 0, 1.6, 0, 0.6, 1.8, 0.6, guide, { emissive: 0x7a5a00 });
+guide.children.forEach(c => { c.castShadow = false; });
+const pointerGeo = new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0, 1.1), new THREE.Vector2(-0.8, -0.5), new THREE.Vector2(0, -0.15), new THREE.Vector2(0.8, -0.5)])).rotateX(-Math.PI / 2);
+const pointer = new THREE.Mesh(pointerGeo, new THREE.MeshBasicMaterial({ color: 0xffd60a, depthWrite: false, transparent: true, opacity: 0.95 }));
+scene.add(pointer);
+
+// ---------- input ----------
+const keys = {};
+const joy = { on: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
+let actionQueued = false;
+addEventListener('keydown', e => {
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+  if (e.repeat) return;
+  keys[e.code] = true;
+  if (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') actionQueued = true;
+  if (e.code === 'KeyM') toggleMute();
+  if (e.code === 'KeyH') sfx('horn');
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; joy.on = false; $('joy').style.display = 'none'; });
+const cv = renderer.domElement;
+cv.addEventListener('pointerdown', e => {
+  initAudio();
+  if (joy.on) return;
+  joy.on = true; joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = 0;
+  const j = $('joy'); j.style.left = e.clientX + 'px'; j.style.top = e.clientY + 'px'; j.style.display = 'block'; j.firstChild.style.transform = '';
+  cv.setPointerCapture?.(e.pointerId);
+});
+cv.addEventListener('pointermove', e => {
+  if (!joy.on || e.pointerId !== joy.id) return;
+  let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const d = Math.hypot(dx, dy), R = 55;
+  if (d > R) { dx *= R / d; dy *= R / d; }
+  joy.x = dx / R; joy.y = dy / R;
+  $('joy').firstChild.style.transform = `translate(${dx}px,${dy}px)`;
+});
+const joyEnd = e => { if (e.pointerId !== joy.id) return; joy.on = false; joy.x = joy.y = 0; $('joy').style.display = 'none'; };
+cv.addEventListener('pointerup', joyEnd); cv.addEventListener('pointercancel', joyEnd);
+cv.addEventListener('wheel', e => { camZoom = clamp(camZoom + Math.sign(e.deltaY) * 0.08, 0.7, 1.5); }, { passive: true });
+$('act').addEventListener('pointerdown', e => { e.stopPropagation(); initAudio(); actionQueued = true; });
+function toggleMute() { AU.muted = !AU.muted; $('mute').innerHTML = AU.muted ? '&#128263;' : '&#9835;'; }
+$('mute').addEventListener('click', () => { initAudio(); toggleMute(); });
+const inputVec = { x: 0, z: 0, len: 0 };
+function readInput() {
+  let x = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+  let z = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0);
+  if (joy.on) { x += joy.x; z += joy.y; }
+  if (TEST && window.TT.forceInput) { x = window.TT.forceInput.x; z = window.TT.forceInput.z; }
+  const l = Math.hypot(x, z);
+  if (l > 1) { x /= l; z /= l; }
+  inputVec.x = x; inputVec.z = z; inputVec.len = Math.min(1, l);
+}
+
+// ---------- HUD ----------
+function toast(msg, cls = '') {
+  const box = $('toasts');
+  const el = document.createElement('div'); el.className = 'toast ' + cls; el.textContent = msg; box.appendChild(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => { el.style.transition = 'opacity .4s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 2200);
+}
+const lastToast = {};
+function toastOnce(id, msg, cls, cd = 4) { const t = performance.now(); if (t - (lastToast[id] || 0) < cd * 1000) return; lastToast[id] = t; toast(msg, cls); }
+let shownCash = S.cash;
+const hudCache = {};
+function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
+
+// ---------- collisions ----------
+function collide(e, r) {
+  for (const c of circles) {
+    const dx = e.x - c.x, dz = e.z - c.z, rr = c.r + r, d2 = dx * dx + dz * dz;
+    if (d2 < rr * rr) { const d = Math.sqrt(d2) || 0.001; e.x = c.x + dx / d * rr; e.z = c.z + dz / d * rr; }
+  }
+  const all = boxes.concat([{ x0: BUYER_X - 1.6, x1: BUYER_X + 1.6, z0: buyer.z - 5.2, z1: buyer.z + 5.4 }]);
+  for (const b of all) {
+    if (b.on && !b.on()) continue;
+    const x0 = b.x0 - r, x1 = b.x1 + r, z0 = b.z0 - r, z1 = b.z1 + r;
+    if (e.x > x0 && e.x < x1 && e.z > z0 && e.z < z1) {
+      const p = [e.x - x0, x1 - e.x, e.z - z0, z1 - e.z], m = Math.min(...p);
+      if (m === p[0]) e.x = x0; else if (m === p[1]) e.x = x1; else if (m === p[2]) e.z = z0; else e.z = z1;
+    }
+  }
+  e.x = clamp(e.x, WORLD.x0 + r * 0.6, WORLD.x1 - r * 0.6);
+  e.z = clamp(e.z, WORLD.z0 + r * 0.6, WORLD.z1 - r * 0.6);
+}
+const inBox = (e, x, z, hw) => Math.abs(e.x - x) < hw && Math.abs(e.z - z) < hw;
+
+// ---------- update systems ----------
+let clock = 0, camZoom = 1;
+function updateTruck(dt) {
+  const st = truck;
+  if (driving && inputVec.len > 0.1) {
+    const target = Math.atan2(inputVec.x, inputVec.z);
+    const d = angDiff(st.h, target);
+    const turn = 3.4 * dt * clamp(Math.abs(st.speed) / 4 + 0.35, 0.35, 1);
+    st.h += clamp(d, -turn, turn);
+    const want = stat.truckSpd() * inputVec.len * clamp(1 - Math.abs(d) / 2.4, 0.3, 1);
+    st.speed = approach(st.speed, want, 20 * dt);
+  } else st.speed = approach(st.speed, 0, 24 * dt);
+  st.x += Math.sin(st.h) * st.speed * dt; st.z += Math.cos(st.h) * st.speed * dt;
+  collide(st, 2.3);
+  truckV.g.position.set(st.x, 0, st.z); truckV.g.rotation.y = st.h;
+  for (const w of truckV.wheels) w.rotation.x += st.speed * dt / 0.55;
+  const fillR = st.load / stat.truckCap();
+  truckV.pile.visible = st.load > 0;
+  truckV.pile.scale.y = 0.15 + 1.25 * fillR; truckV.pile.position.y = 1.7 + truckV.pile.scale.y / 2;
+  st.beaconT += dt;
+  truckV.beacon.material.emissiveIntensity = driving && Math.sin(st.beaconT * 10) > 0 ? 1.4 : 0.2;
+
+  if (!driving) return;
+  // pick up trash
+  const cap = stat.truckCap();
+  const fx = st.x + Math.sin(st.h) * 1.4, fz = st.z + Math.cos(st.h) * 1.4;
+  for (let i = trash.length - 1; i >= 0; i--) {
+    const t = trash[i];
+    if ((t.x - fx) ** 2 + (t.z - fz) ** 2 > 3.6 * 3.6) continue;
+    if (st.load >= cap) { toastOnce('full', 'Truck full! Unload at a machine\'s TRASH IN zone', 'bad'); break; }
+    trash.splice(i, 1); st.load++;
+    const g = t.g, from = g.position.clone();
+    fly(g, from, () => truckV.g.localToWorld(tmpV.set(0, 3, -0.9)), 0.3, 2.2);
+    sfx('pop');
+  }
+  // unload into machines
+  st.unloadT -= dt;
+  for (const m of machines) {
+    if (S.mach[m.i] < 0 || !inBox(st, IN_X, m.z, 4.2)) continue;
+    if (st.load > 0 && m.inn >= m.maxIn) toastOnce('mfull' + m.i, `${m.def.name} hopper is full`, 'bad');
+    if (st.load > 0 && m.inn < m.maxIn && st.unloadT <= 0 && Math.abs(st.speed) < 6) {
+      st.unloadT = 0.06; st.load--; m.inn++; S.unloaded = (S.unloaded || 0) + 1;
+      const tm = TRASH_KINDS[(Math.random() * TRASH_KINDS.length) | 0]();
+      const holder = new THREE.Group(); holder.add(tm);
+      fly(holder, truckV.g.localToWorld(V3().set(0, 3, -0.9)), () => tmpV.set(MX - 3.2, 6.4, m.z), 0.35, 2.5);
+      sfx('thunk');
+    }
+  }
+}
+function updatePlayer(dt) {
+  const p = player;
+  const sp = stat.walk();
+  p.moving = inputVec.len > 0.1;
+  if (p.moving) {
+    p.x += inputVec.x * sp * dt; p.z += inputVec.z * sp * dt;
+    const target = Math.atan2(inputVec.x, inputVec.z);
+    p.h += angDiff(p.h, target) * Math.min(1, dt * 14);
+    p.walkT += dt;
+  }
+  collide(p, 0.55);
+  playerV.g.position.x = p.x; playerV.g.position.z = p.z; playerV.g.rotation.y = p.h;
+  animPerson(playerV, p.moving, p.walkT, carry.n > 0);
+
+  // pick up from machine outputs
+  p.takeT -= dt;
+  const cap = stat.carry();
+  for (const m of machines) {
+    if (S.mach[m.i] < 0 || !inBox(p, OUT_X, m.z, 2.6)) continue;
+    if (p.takeT <= 0 && m.out.n > 0 && carry.n < cap) { transfer(m.out, carry); p.takeT = 0.08; sfx('stack'); }
+    else if (carry.n >= cap && m.out.n > 0) toastOnce('cfull', 'Hands full! Sell at the port', 'bad');
+  }
+  if (inBox(p, DOCK.x, DOCK.z, 2.8) && carry.n > 0 && p.takeT <= 0 && !dock.full) { transfer(carry, dock); p.takeT = 0.06; sfx('stack'); }
+  for (const m of machines) if (S.mach[m.i] >= 0 && inBox(p, IN_X, m.z, 3.2)) toastOnce('walkin', 'Bring trash here with the truck', '', 6);
+}
+function updateMachines(dt) {
+  for (const m of machines) {
+    if (S.mach[m.i] < 0) continue;
+    if (m.pop < 1) { m.pop = Math.min(1, m.pop + dt * 2.5); const s = 1 + Math.sin(m.pop * Math.PI) * 0.25; m.g.scale.set(s, m.pop, s); }
+    const working = m.inn >= m.def.use && !m.out.full;
+    if (working) {
+      m.t += dt;
+      m.work += dt;
+      if (m.t >= stat.cycle(m.i)) {
+        m.t = 0; m.inn -= m.def.use;
+        const gm = m.out.add(m.def.good, true);
+        fly(goodMesh(m.def.good), V3().set(MX + 3.6, 2, m.z), () => gm.getWorldPosition(tmpV), 0.25, 1, () => { gm.visible = true; });
+        if (Math.random() < 0.5) smoke(MX + 2, 8, m.z - 2);
+      }
+    }
+    m.piston.position.y = 5.8 + (working ? Math.abs(Math.sin(m.work * 7)) * 0.7 : 0);
+    m.fill.visible = m.inn > 0;
+    m.fill.scale.y = 0.1 + 1.6 * (m.inn / m.maxIn); m.fill.position.y = 5.1 + m.fill.scale.y / 2;
+    const sub = m.out.full ? 'Output FULL' : `Trash ${m.inn}/${m.maxIn}`;
+    m.label.set(m.def.name, sub, m.out.full ? '#c0392b' : '#1e2a38');
+  }
+}
+function updateTrash(dt) {
+  S.spawnT = (S.spawnT || 0) - dt;
+  if (S.spawnT <= 0 && trash.length < trashMax()) { spawnTrash(); S.spawnT = 0.6 / (1 + 0.6 * S.up.park); }
+  for (const t of trash) if (t.grow < 1) { t.grow = Math.min(1, t.grow + dt * 4); t.g.scale.setScalar(t.grow * 1.4); }
+}
+function updateHelpers(dt) {
+  for (const h of helpers) {
+    let moving = false;
+    const goTo = (x, z) => {
+      const dx = x - h.x, dz = z - h.z, d = Math.hypot(dx, dz);
+      if (d < 0.4) return true;
+      const s = Math.min(d, 5.5 * dt); h.x += dx / d * s; h.z += dz / d * s; h.h += angDiff(h.h, Math.atan2(dx, dz)) * Math.min(1, dt * 10); moving = true;
+      return false;
+    };
+    h.wait -= dt;
+    if (h.state === 'idle' && h.wait <= 0) {
+      const opts = machines.filter(m => S.mach[m.i] >= 0 && m.out.n > 0).sort((a, b) => b.out.n - a.out.n);
+      if (opts.length) { h.m = opts[0]; h.state = 'toM'; h.ox = rand(-1, 1); } else h.wait = 0.5;
+    } else if (h.state === 'toM') {
+      if (goTo(OUT_X + 0.8, h.m.z + h.ox)) h.state = 'take';
+    } else if (h.state === 'take') {
+      if (h.wait <= 0) {
+        if (h.m.out.n > 0 && !h.stack.full) { transfer(h.m.out, h.stack); h.wait = 0.12; }
+        else h.state = h.stack.n ? 'toDock' : 'idle';
+      }
+    } else if (h.state === 'toDock') {
+      if (goTo(DOCK.x - 0.5, DOCK.z + 1.5)) h.state = 'drop';
+    } else if (h.state === 'drop') {
+      if (h.wait <= 0) { if (h.stack.n && !dock.full) { transfer(h.stack, dock); h.wait = 0.08; } else if (!h.stack.n) h.state = 'idle'; }
+    }
+    if (moving) h.t += dt;
+    h.v.g.position.x = h.x; h.v.g.position.z = h.z; h.v.g.rotation.y = h.h;
+    animPerson(h.v, moving, h.t, h.stack.n > 0);
+  }
+}
+function updateBuyer(dt) {
+  const b = buyer;
+  b.t -= dt;
+  if (b.state === 'wait') {
+    b.z = -110;
+    if (dock.n > 0 && b.t <= 0) { b.state = 'in'; b.speed = 16; }
+  } else if (b.state === 'in') {
+    const d = BUYER_STOP - b.z;
+    b.speed = Math.min(16, Math.max(2, d * 1.2));
+    b.z += b.speed * dt;
+    if (d < 0.05) { b.z = BUYER_STOP; b.state = 'load'; b.t = 0.6; sfx('horn'); }
+  } else if (b.state === 'load') {
+    if (b.t <= 0) {
+      if (dock.n > 0 && b.n < b.cap) {
+        const it = dock.pop(); b.n++; b.value += GOOD_VALUE[it.type];
+        fly(goodMesh(it.type), it.pos, () => tmpV.set(BUYER_X, 4.6, b.z - 1.4 + rand(-2, 2)), 0.35, 2.5, () => { lorryV.pile.visible = true; });
+        b.t = 0.09; b.idle = 0; sfx('stack');
+      } else {
+        b.idle = (b.idle || 0) + 0.1; b.t = 0.1;
+        if (b.n >= b.cap || b.idle > 1.2) {
+          b.state = 'out'; b.speed = 0;
+          cash.amount += b.value; syncBills();
+          toast(`Sold ${b.n} goods for $${fmt(b.value)}!`, 'good'); sfx('coin');
+          burst(CASHPAD.x, 1, CASHPAD.z, 14, [0x4caf50, 0xffd60a], 5);
+        }
+      }
+    }
+  } else if (b.state === 'out') {
+    b.speed = Math.min(18, b.speed + 10 * dt); b.z += b.speed * dt;
+    if (b.z > 115) { b.state = 'wait'; b.t = 1.2; b.n = 0; b.value = 0; b.idle = 0; lorryV.pile.visible = false; }
+  }
+  lorryV.g.position.set(BUYER_X, 0, b.z);
+  lorryV.pile.scale.y = 0.2 + b.n / b.cap * 10;
+}
+function activeBody() { return driving ? truck : player; }
+function updateCashPad(dt) {
+  const e = activeBody();
+  if (cash.amount > 0 && inBox(e, CASHPAD.x, CASHPAD.z, driving ? 4.5 : 3)) {
+    const amt = cash.amount; cash.amount = 0;
+    const n = Math.min(12, cash.bills.length);
+    for (let k = 0; k < n; k++) {
+      const bm = new THREE.Mesh(GEO.box, M(0x4caf50)); bm.scale.set(0.95, 0.14, 0.5);
+      const from = V3().set(CASHPAD.x + rand(-1, 1), 0.5 + k * 0.1, CASHPAD.z + rand(-1, 1));
+      setTimeout(() => fly(bm, from, () => tmpV.set(e.x, 2.2, e.z), 0.3, 1.5, () => sfx('coin')), k * 40);
+    }
+    syncBills();
+    addCash(amt);
+    S.cashCollected = true;
+  }
+}
+function updatePads(dt) {
+  const e = activeBody();
+  for (const p of pads) {
+    const vis = p.o.visible();
+    p.base.visible = p.fill.visible = vis;
+    if (!vis) { p.stand = 0; continue; }
+    const cost = p.o.cost();
+    const on = inBox(e, p.x, p.z, driving ? 3.2 : 2.4);
+    p.stand = on ? p.stand + dt : 0;
+    if (on && p.stand > 0.35 && S.cash >= 1 && p.paid < cost) {
+      const rate = Math.max(40, cost * 0.9);
+      const amt = Math.min(S.cash, cost - p.paid, rate * dt);
+      S.cash -= amt; p.paid += amt; saveDirty = true;
+      p.coinT -= dt;
+      if (p.coinT <= 0) {
+        p.coinT = 0.06;
+        const cm = new THREE.Mesh(GEO.cyl, M(0xf5b800, { emissive: 0x5a3c00 })); cm.scale.set(0.55, 0.12, 0.55);
+        fly(cm, V3().set(e.x, 2, e.z), () => tmpV.set(p.x, 0.2, p.z), 0.28, 1.6);
+        sfx('coin');
+      }
+      if (p.paid >= cost - 0.001) {
+        p.paid = 0; p.stand = -1.2;
+        p.o.buy(); sfx('buy'); saveDirty = true;
+        burst(p.x, 0.5, p.z, 22, [0xffd60a, 0x2f9e57, 0xffffff, 0xff8c1a], 7);
+      }
+    } else if (on && p.stand > 0.35 && S.cash < 1 && p.paid < cost) toastOnce('broke', 'Not enough cash — sell more goods!', 'bad', 5);
+    p.fill.scale.x = Math.max(0.001, 4.2 * p.paid / cost); p.fill.position.x = p.x - 2.1 + p.fill.scale.x / 2;
+    drawPad(p);
+  }
+}
+
+// ---------- action (enter / exit truck) ----------
+let actLabel = '';
+function updateAction() {
+  let label = '';
+  const nearTruck = !driving && Math.hypot(player.x - truck.x, player.z - truck.z) < 4.6;
+  if (driving) label = 'GET OUT';
+  else if (nearTruck) label = 'DRIVE';
+  if (actionQueued) {
+    actionQueued = false;
+    if (driving && Math.abs(truck.speed) < 4) {
+      driving = false; truck.speed = 0;
+      const rx = -Math.cos(truck.h), rz = Math.sin(truck.h);
+      player.x = truck.x + rx * 2.6; player.z = truck.z + rz * 2.6; player.h = truck.h;
+      collide(player, 0.55);
+      playerV.g.visible = true; sfx('door');
+    } else if (nearTruck) {
+      driving = true; playerV.g.visible = false; sfx('door');
+    }
+  }
+  if (label !== actLabel) { actLabel = label; const a = $('act'); a.textContent = label; a.style.display = label ? 'block' : 'none'; }
+}
+
+// ---------- tutorial ----------
+const TUT = [
+  { text: () => driving ? 'Drive over trash in the park to collect it' : 'Walk to the truck and press E to drive', target: () => driving ? nearestTrash() : truck, done: () => truck.load >= Math.min(8, stat.truckCap()) },
+  { text: () => 'Drive into the TRASH IN zone of the Brick Press', target: () => ({ x: IN_X, z: machines[0].z }), done: () => (S.unloaded || 0) >= 6 && truck.load === 0 },
+  { text: () => 'Press E (or GET OUT) to step out of the truck', target: () => null, done: () => !driving },
+  { text: () => machines[0].out.n ? 'Pick up bricks at the machine\'s PICK UP zone' : 'The machine is making bricks…', target: () => ({ x: OUT_X, z: machines[0].z }), done: () => carry.n >= 3 || (carry.n > 0 && machines[0].out.n === 0) },
+  { text: () => 'Carry the goods to the SELL dock at the port', target: () => DOCK, done: () => dock.n > 0 || buyer.state !== 'wait' },
+  { text: () => cash.amount > 0 ? 'Collect your CASH!' : 'A cargo truck is buying your goods…', target: () => CASHPAD, done: () => S.cashCollected },
+  { text: () => 'Stand on pads to buy upgrades and new machines!', target: () => ({ x: 22, z: -50 }), done: () => S.tutT > 7 },
+];
+function nearestTrash() {
+  let best = null, bd = 1e9;
+  for (const t of trash) { const d = (t.x - truck.x) ** 2 + (t.z - truck.z) ** 2; if (d < bd) { bd = d; best = t; } }
+  return best;
+}
+function updateTutorial(dt) {
+  let target = null, text = '';
+  if (S.tut < TUT.length) {
+    const step = TUT[S.tut];
+    if (S.tut === 6) S.tutT = (S.tutT || 0) + dt;
+    if (step.done()) { S.tut++; saveDirty = true; if (S.tut === 5 || S.tut === TUT.length) sfx('buy'); }
+    else { text = step.text(); target = step.target(); }
+  } else if (driving && truck.load >= stat.truckCap()) {
+    target = { x: IN_X, z: bestMachine().z }; text = '';
+  }
+  const tip = $('tip');
+  if (text !== hudCache.tip) { hudCache.tip = text; tip.textContent = text; tip.style.display = text ? 'block' : 'none'; }
+  guide.visible = !!target;
+  const e = activeBody();
+  if (target) {
+    guide.position.set(target.x, 4.2 + Math.abs(Math.sin(clock * 4)) * 1.2, target.z);
+    guide.rotation.y += dt * 2;
+    const dx = target.x - e.x, dz = target.z - e.z, d = Math.hypot(dx, dz);
+    pointer.visible = d > 7;
+    const off = driving ? 4.6 : 2.2;
+    pointer.position.set(e.x + dx / d * off, 0.12, e.z + dz / d * off);
+    pointer.rotation.y = Math.atan2(dx, dz) + Math.PI;
+    pointer.scale.setScalar(driving ? 1.4 : 0.9);
+  } else pointer.visible = false;
+}
+function bestMachine() {
+  return machines.filter(m => S.mach[m.i] >= 0).sort((a, b) => (a.inn - b.inn) || (b.i - a.i))[0];
+}
+
+// ---------- camera / HUD ----------
+const camPos = V3().set(truck.x, 30, truck.z + 24), camLook = V3().set(truck.x, 0, truck.z);
+function updateCamera(dt, snap) {
+  const e = activeBody();
+  const lead = driving ? 3 : 0;
+  const lx = e.x + Math.sin(e.h) * lead * Math.min(1, Math.abs(truck.speed) / 6) * (driving ? 1 : 0);
+  const lz = e.z + Math.cos(e.h) * lead * Math.min(1, Math.abs(truck.speed) / 6) * (driving ? 1 : 0);
+  const zoom = camZoom * (driving ? 1.12 : 0.9) * (innerWidth < innerHeight ? 1.3 : 1);
+  const k = snap ? 1 : 1 - Math.exp(-dt * 5);
+  camLook.x += (lx - camLook.x) * k; camLook.z += (lz - camLook.z) * k;
+  camPos.set(camLook.x, 30 * zoom, camLook.z + 23 * zoom);
+  camera.position.copy(camPos); camera.lookAt(camLook);
+  sun.position.set(camLook.x + 30, 60, camLook.z + 20); sun.target.position.copy(camLook);
+}
+function updateHUD(dt) {
+  shownCash += (S.cash - shownCash) * Math.min(1, dt * 10);
+  if (Math.abs(S.cash - shownCash) < 0.5) shownCash = S.cash;
+  setText('cashTxt', fmt(shownCash));
+  let txt, r;
+  if (driving) { const c = stat.truckCap(); txt = `Truck  ${truck.load}/${c}`; r = truck.load / c; }
+  else { const c = stat.carry(); txt = `Carrying  ${carry.n}/${c}`; r = carry.n / c; }
+  setText('loadTxt', txt);
+  const w = Math.round(r * 100) + '%';
+  if (hudCache.bar !== w) { hudCache.bar = w; $('loadBar').style.width = w; $('load').classList.toggle('full', r >= 1); }
+}
+
+// ---------- main loop ----------
+let started = false;
+function update(dt) {
+  clock += dt;
+  readInput();
+  updateAction();
+  updateTruck(dt);
+  if (!driving) updatePlayer(dt);
+  updateTrash(dt);
+  updateMachines(dt);
+  updateHelpers(dt);
+  updateBuyer(dt);
+  updateCashPad(dt);
+  updatePads(dt);
+  updateFlyers(dt);
+  updateParts(dt);
+  updateTutorial(dt);
+  updateCamera(dt);
+  updateHUD(dt);
+  if (scene.userData.merry) scene.userData.merry.rotation.y += dt * 0.6;
+  ship.position.y = Math.sin(clock * 0.8) * 0.25; ship.rotation.z = Math.sin(clock * 0.6) * 0.01;
+  if (AU.engGain) { AU.engGain.gain.value = driving && !AU.muted ? 0.035 + 0.02 * Math.abs(truck.speed) / 12 : 0; AU.eng.frequency.value = 45 + Math.abs(truck.speed) * 5; }
+  saveT += dt;
+  if (saveDirty && saveT > 3) { saveT = 0; writeSave(); }
+}
+let last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (started && !TEST) update(dt);
+  else if (!started) { clock += dt; camLook.set(-10, 0, 0); camPos.set(-10 + Math.sin(clock * 0.1) * 70, 55, Math.cos(clock * 0.1) * 70); camera.position.copy(camPos); camera.lookAt(camLook); sun.position.set(20, 70, 30); sun.target.position.set(-10, 0, 0); }
+  renderer.render(scene, camera);
+}
+function onResize() { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); }
+addEventListener('resize', onResize);
+document.addEventListener('visibilitychange', () => { if (document.hidden) { writeSave(); if (AU.ctx) AU.ctx.suspend(); } else if (AU.ctx && started) AU.ctx.resume(); });
+addEventListener('pagehide', writeSave);
+
+function start() {
+  if (started) return;
+  started = true; initAudio();
+  $('start').style.display = 'none';
+  last = performance.now();
+  updateCamera(0, true);
+}
+$('play').addEventListener('click', start);
+$('reset').addEventListener('click', () => {
+  if (!confirm('Reset all progress?')) return;
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+  location.reload();
+});
+
+// ---------- boot ----------
+refreshMachines();
+for (let k = 0; k < S.up.helpers; k++) addHelper();
+for (let k = 0; k < trashMax(); k++) spawnTrash(false);
+playerV.g.visible = false;
+truckV.g.position.set(truck.x, 0, truck.z); truckV.g.rotation.y = truck.h;
+lorryV.g.position.set(BUYER_X, 0, buyer.z);
+if (S.tut > 0 || S.earned > 0) $('play').textContent = 'CONTINUE';
+requestAnimationFrame(frame);
+
+// Hooks for automated tests.
+window.TT = {
+  S, truck, player, carry, dock, cash, buyer, machines, pads, trash, helpers, stat,
+  get driving() { return driving; },
+  start, update, action() { actionQueued = true; }, forceInput: null,
+  step(dt, n) { for (let k = 0; k < n; k++) update(dt); renderer.render(scene, camera); },
+  place(x, z) { const e = activeBody(); e.x = x; e.z = z; if (driving) { e.speed = 0; } updateCamera(0, true); },
+  writeSave,
+};
+</script>
+</body>
+</html>
