@@ -1,5 +1,8 @@
 # MEGAVAC
 
+> This repo also holds **Trash Tycoon 3D**, a separate 3D trash-collection tycoon game.
+> See [`trash-tycoon/README.md`](trash-tycoon/README.md).
+
 A procedural vacuum game: clean a kitchen, garage, street, skyline, and orbit.
 Single HTML file, no build step, no image assets. Existing `megavac.v1` saves are preserved.
 
