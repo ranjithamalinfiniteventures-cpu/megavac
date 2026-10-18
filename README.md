@@ -114,5 +114,11 @@ camera and scroll to zoom. On touch screens, the left side is a joystick and the
 side turns the camera. M toggles sound. Costs and drop values are in the `ITEMS` list
 at the top of the script.
 
+**Offline copy:** [`tycoon/mega-factory-tycoon.html`](tycoon/mega-factory-tycoon.html) is the whole game
+in one file, with three.js and the Fredoka font built in. It needs no network: open it
+straight from disk. Rebuild it after changing `tycoon/index.html` with
+`python3 tools/build_tycoon_offline.py` (needs node and npm). Fredoka is under the SIL
+Open Font License, in `tycoon/fonts/OFL.txt`.
+
 `node tests/tycoon.test.cjs` drives the page in headless Chromium (needs network
 access for three.js).

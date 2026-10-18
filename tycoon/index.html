@@ -410,6 +410,7 @@ function canvasTex(w, h, draw, {repeat = [1, 1], color = true} = {}) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   draw(c.getContext('2d'), w, h);
   const t = new THREE.CanvasTexture(c);
+  t.userData.redraw = () => { draw(c.getContext('2d'), w, h); t.needsUpdate = true; };
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(...repeat);
   t.anisotropy = MAX_ANISO;
@@ -489,6 +490,9 @@ const padTex = canvasTex(256, 256, (x, w, h) => {
   x.font = '700 150px Fredoka, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
   x.fillStyle = '#e9ffe9'; x.fillText('$', 128, 136);
 });
+// Text on the sign and pad is drawn before the web font may have loaded;
+// draw it again once it has.
+document.fonts?.load('700 100px Fredoka').then(() => { signTex.userData.redraw(); padTex.userData.redraw(); }, () => {});
 const faceTex = canvasTex(128, 128, (x) => {
   x.clearRect(0, 0, 128, 128);
   x.fillStyle = '#1b1b1b';
