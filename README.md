@@ -87,7 +87,7 @@ for scope, verification, and remaining launch work.
 
 ## Roll Rush (rolling-ball prototype)
 
-A separate 3D ball-runner in `rollball/` (Three.js r160 vendored, no build step):
+A separate 3D ball-runner in `rollball/` (Three.js r160 + bloom post-processing and the Fredoka font vendored in `rollball/lib/`, no build step):
 hold to roll forward, drag / A-D / arrows to steer, reach the finish without
 falling. Levels are seeded and procedurally built from straights, narrow bridges,
 zigzags, ramp jumps, stairs, split paths, sweepers, sliding blocks and swinging
