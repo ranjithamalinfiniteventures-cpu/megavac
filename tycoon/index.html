@@ -19,7 +19,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
 #rate{font-size:15px;color:#cfe;opacity:.9;margin-top:3px}
 #floorName{font-size:13px;opacity:.75;margin-top:3px}
 [hidden]{display:none!important}
-#guide{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(460px,calc(100vw - 600px));min-width:300px;padding:10px 14px 12px;display:flex;gap:12px;align-items:center;border-color:rgba(255,212,71,.6)}
+#guide{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(460px,calc(100vw - 860px));min-width:300px;padding:10px 14px 12px;display:flex;gap:12px;align-items:center;border-color:rgba(255,212,71,.6)}
 body.guiding #next{display:none!important}
 .gStep{font-size:12px;font-weight:700;color:var(--gold);letter-spacing:.06em;text-transform:uppercase}
 #guideText{font-size:16px;line-height:1.3}
@@ -33,17 +33,27 @@ body.guiding #next{display:none!important}
 #skBadge{background:var(--gold);color:#3a2600;border-radius:8px;padding:0 6px;margin-left:6px;font-size:13px}
 #skills.glow{animation:glow 1.2s ease-in-out infinite alternate}
 @keyframes glow{to{box-shadow:0 4px 0 rgba(0,0,0,.28),0 0 18px 4px rgba(255,212,71,.75)}}
-#skillsPanel{background:linear-gradient(180deg,#2a2e39,#1b1e26);position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(580px,calc(100vw - 28px));max-height:calc(100% - 40px);overflow:auto;padding:18px;z-index:20}
+#skillsPanel,#achPanel,#rebirthPanel{background:linear-gradient(180deg,#2a2e39,#1b1e26);position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(580px,calc(100vw - 28px));max-height:calc(100% - 40px);overflow:auto;padding:18px;z-index:20}
 .skHead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
 .skTitle{font-size:26px;font-weight:700}
 #skPoints{color:var(--gold);font-weight:600;margin-top:2px}
-#skList{display:grid;gap:10px}
+#skList,#achList{display:grid;gap:10px}
 .sk{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06)}
 .skIcon{font-size:28px;text-align:center}
 .skName{font-weight:700;font-size:17px}
 .skDesc{font-size:14px;opacity:.85}
 .pips{display:flex;gap:4px;margin-top:6px}.pip{width:20px;height:6px;border-radius:3px;background:rgba(255,255,255,.18)}.pip.on{background:var(--gold)}
 .sk .btn[disabled]{opacity:.45;cursor:default;filter:none;transform:none}
+.rbSub{opacity:.85;margin-top:2px}
+.rbCols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rbCol{padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.06)}
+.rbH{font-weight:700;font-size:16px}.lose .rbH{color:var(--red)}.gain .rbH{color:var(--green)}
+.rbCol ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px;font-size:15px}
+.rbBtns{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+.btn.gold{background:linear-gradient(180deg,#ffd447,#e0a800);color:#3a2600}
+.sk.done{background:rgba(95,240,127,.1)}.sk.done .skName{color:var(--green)}
+.achState{font-size:13px;font-weight:700;text-align:right;white-space:nowrap}
+@media (max-width:480px){.rbCols{grid-template-columns:1fr}}
 .skFoot{margin-top:14px;font-size:13px;opacity:.7;text-align:center}
 .btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 #rebirths{margin-top:4px;font-size:13px;font-weight:700;color:#3a2600;background:var(--gold);border-radius:8px;padding:1px 8px;width:max-content}
@@ -70,6 +80,11 @@ body.guiding #next{display:none!important}
 #knob{position:absolute;left:32px;top:32px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.65)}
 #jump{position:fixed;right:calc(24px + env(safe-area-inset-right,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px));width:80px;height:80px;border-radius:50%;font-size:18px;display:none;touch-action:none}
 #loading{position:fixed;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;font-size:30px;font-weight:700;background:linear-gradient(#5aa9f0,#bfe6ff);color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.25)}
+/* Mid-width screens: the top row is full, so goal and guide cards sit at the bottom. */
+@media (max-width:1200px){
+  #guide,#next{top:auto;bottom:calc(88px + env(safe-area-inset-bottom,0px));width:min(460px,calc(100vw - 28px));min-width:0}
+  #toasts{bottom:calc(170px + env(safe-area-inset-bottom,0px))}
+}
 /* Phones: compact HUD, buttons stacked down the right edge, goal bar at the
    bottom, and nothing over the JUMP button. */
 @media (max-width:640px),(max-height:500px){
@@ -104,8 +119,21 @@ body.guiding #next{display:none!important}
 <div id="guide" class="panel" hidden><div id="guideBody"><div class="gStep" id="guideStep"></div><div id="guideText"></div></div><button id="guideSkip" class="btn">Skip</button></div>
 <div id="skArrow" hidden>▲</div>
 <div id="next" class="panel"><div id="nextText"></div><div id="bar"><div id="barFill"></div></div></div>
-<div id="controls"><button id="skills" class="btn" title="Skill tree (K)">★ Skills<span id="skBadge" hidden></span></button><button id="gfx" class="btn" title="Graphics quality">HD</button><button id="sound" class="btn" title="Sound (M)">🔊</button><button id="reset" class="btn" title="Delete save">Reset</button></div>
+<div id="controls"><button id="ach" class="btn" title="Achievements">🏆 <span id="achCount">0</span></button><button id="skills" class="btn" title="Skill tree (K)">★ Skills<span id="skBadge" hidden></span></button><button id="gfx" class="btn" title="Graphics quality">HD</button><button id="sound" class="btn" title="Sound (M)">🔊</button><button id="reset" class="btn" title="Delete save">Reset</button></div>
 <div id="toasts"></div>
+<div id="achPanel" class="panel" hidden>
+  <div class="skHead"><div><div class="skTitle">🏆 Achievements</div><div id="achSub" class="rbSub"></div></div><button id="achClose" class="btn">Close</button></div>
+  <div id="achList" class="skList"></div>
+  <div class="skFoot">Each achievement pays 30 seconds of your income (at least $25).</div>
+</div>
+<div id="rebirthPanel" class="panel" hidden>
+  <div class="skHead"><div><div class="skTitle">★ Rebirth?</div><div class="rbSub">Start your factory over and come back stronger.</div></div></div>
+  <div class="rbCols">
+    <div class="rbCol lose"><div class="rbH">You lose</div><ul id="rbLose"></ul></div>
+    <div class="rbCol gain"><div class="rbH">You keep forever</div><ul id="rbGain"></ul></div>
+  </div>
+  <div class="rbBtns"><button id="rbNo" class="btn">Not yet</button><button id="rbYes" class="btn gold">Rebirth now</button></div>
+</div>
 <div id="skillsPanel" class="panel" hidden>
   <div class="skHead"><div><div class="skTitle">★ Skill Tree</div><div id="skPoints"></div></div><button id="skClose" class="btn">Close</button></div>
   <div id="skList"></div>
@@ -244,7 +272,8 @@ const money = n => '$' + short(n);
 let resetting = false;
 // tutorial: index of the current tutorial step (TUTORIAL.length when done).
 // floorSeen: highest floor visited. skillsSeen: the skill tree was opened.
-const state = {cash:START_CASH, bank:0, rebirths:0, owned:new Set(), skills:{}, tutorial:0, floorSeen:0, skillsSeen:false, savedAt:Date.now()};
+const state = {cash:START_CASH, bank:0, rebirths:0, owned:new Set(), skills:{}, tutorial:0, floorSeen:0, skillsSeen:false,
+  hints:new Set(), achievements:new Set(), totalEarned:0, bestCollect:0, luckySold:0, savedAt:Date.now()};
 const lvl = id => state.skills[id] || 0;
 const skillPoints = () => state.rebirths - Object.values(state.skills).reduce((a, b) => a + b, 0);
 const floorOpen = f => state.rebirths >= FLOORS[f].unlock;
@@ -282,6 +311,7 @@ function save() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({cash:state.cash, bank:state.bank, rebirths:state.rebirths,
       owned:[...state.owned], skills:state.skills, tutorial:state.tutorial, floorSeen:state.floorSeen, skillsSeen:state.skillsSeen,
+      hints:[...state.hints], achievements:[...state.achievements], totalEarned:state.totalEarned, bestCollect:state.bestCollect, luckySold:state.luckySold,
       savedAt:state.savedAt}));
   } catch {}
 }
@@ -302,6 +332,10 @@ function load() {
   state.tutorial = raw.tutorial === undefined ? (veteran ? 99 : 0) : Math.floor(num(raw.tutorial));
   state.floorSeen = raw.floorSeen === undefined ? FLOORS.length : Math.floor(num(raw.floorSeen));
   state.skillsSeen = raw.skillsSeen === undefined ? veteran : !!raw.skillsSeen;
+  const list = v => new Set(Array.isArray(v) ? v.filter(x => typeof x === 'string') : []);
+  state.hints = list(raw.hints);
+  state.achievements = list(raw.achievements);
+  state.totalEarned = num(raw.totalEarned); state.bestCollect = num(raw.bestCollect); state.luckySold = num(raw.luckySold);
   return Math.max(0, (Date.now() - num(raw.savedAt)) / 1000);
 }
 
@@ -1037,7 +1071,8 @@ function stepSim(dt) {
     }
     if (d.x >= BELT_X1 - 0.2) {
       const earned = d.value * sell, fur = furnaces[d.floor];
-      state.bank += earned; fur.sold += earned; fur.glow = 1;
+      state.bank += earned; state.totalEarned += earned; fur.sold += earned; fur.glow = 1;
+      if (d.lucky) state.luckySold++;
       drops.splice(i, 1);
     }
   }
@@ -1156,12 +1191,13 @@ function stepPlayer(dt) {
 // Pads under the player's feet: buttons buy, the green pad collects, the
 // corner pads change floors.
 let standingOn = null, onPad = false, lastErrorAt = 0, tpLock = false;
-let collectedOnce = false;
+let collectedOnce = false, lastCollectAt = 0;
 function collect(showOff) {
   const amount = Math.floor(state.bank);
   if (amount < 1) return 0;
   state.bank -= amount; state.cash += amount;
-  collectedOnce = true;
+  collectedOnce = true; lastCollectAt = clock;
+  state.bestCollect = Math.max(state.bestCollect, amount);
   if (showOff) {
     toast('+' + money(amount), 'success'); sfx.coin();
     const fy = FY(currentFloor());
@@ -1177,7 +1213,9 @@ function stepPads() {
   if (feet) for (const [id, b] of buttons) if (b.floor === f && Math.hypot(player.x - b.x, player.z - b.z) < 3) here = id;
   if (here) {
     const b = buttons.get(here);
-    if (state.cash >= b.cost) purchase(here);
+    // Rebirth asks first, once per step onto the button.
+    if (b.item.kind === 'rebirth' && state.cash >= b.cost) { if (here !== standingOn) openRebirth(); }
+    else if (state.cash >= b.cost) purchase(here);
     else if (here !== standingOn && performance.now() - lastErrorAt > 800) { lastErrorAt = performance.now(); purchase(here); }
   }
   standingOn = here;
@@ -1252,6 +1290,8 @@ const TUTORIAL = [
     target:() => ({x:PAD.x, z:PAD.z, floor:0}), done:() => collectedOnce},
   {text:() => 'Save up $40, then step on the Copper Dropper button. Buttons turn green when you can afford them.',
     target:() => buttonTarget('dropper2'), done:() => state.owned.has('dropper2')},
+  {text:() => 'Upgraders make every gem that passes through them worth more. Buy the Washer ×1.5 next.',
+    target:() => buttonTarget('upgrader1'), done:() => state.owned.has('upgrader1')},
   {text:() => 'Great start! Keep buying buttons. The arrows show you where to go next, and buying everything unlocks Rebirth.',
     target:() => null, done:() => tutorialTimer > 7},
 ];
@@ -1268,15 +1308,35 @@ function currentGuide() {
   }
   for (let n = 1; n < FLOORS.length; n++) {
     if (floorGroups[n] && state.floorSeen < n) {
-      return {card:true, step:'New floor', text:`${FLOORS[n].name} is open! Follow the arrow to the blue pad in the corner to go up.`, target:{floor:n, x:0, z:0}};
+      return {card:true, id:'floor', step:'New floor', text:`${FLOORS[n].name} is open! Follow the arrow to the blue pad in the corner to go up.`, target:{floor:n, x:0, z:0}};
     }
   }
+  for (let n = 1; n < FLOORS.length; n++) {
+    const first = ITEMS.find(i => i.floor === n);
+    if (f === n && !state.hints.has('arrive' + n) && !state.owned.has(first.id)) {
+      return {card:true, id:'arrive' + n, step:`Welcome to ${FLOORS[n].name}`,
+        text:`This floor has its own conveyor and buttons, and it pays into the same cash pad. Start with the ${first.name}.`, target:buttonTarget(first.id)};
+    }
+  }
+  if (buttons.has('rebirth') && state.rebirths === 0 && !state.hints.has('rebirth')) {
+    return {card:true, id:'rebirth', step:'Rebirth is ready',
+      text:'Rebirth starts your factory over, but you keep +50% income forever, earn a skill point and open a new floor. Step on the gold button when you are ready.',
+      target:buttonTarget('rebirth')};
+  }
   if (skillPoints() > 0 && !state.skillsSeen) {
-    return {card:true, step:'Skill point', text:`You earned a skill point! ${isTouch ? 'Tap' : 'Click'} ★ Skills (or press K) to spend it.`, target:null, skills:true};
+    return {card:true, id:'skills', step:'Skill point', text:`You earned a skill point! ${isTouch ? 'Tap' : 'Click'} ★ Skills (or press K) to spend it.`, target:null, skills:true};
   }
   // Otherwise point at the cheapest button the player can already afford.
-  let best = null;
-  for (const b of buttons.values()) if (state.cash >= b.cost && (!best || b.cost < best.cost)) best = b;
+  let best = null, cheapest = null;
+  for (const b of buttons.values()) {
+    if (state.cash >= b.cost && (!best || b.cost < best.cost)) best = b;
+    if (!cheapest || b.cost < cheapest.cost) cheapest = b;
+  }
+  // Uncollected cash that would pay for the next button sends you to the pad.
+  if (!best && cheapest && !lvl('magnet') && state.cash + state.bank >= cheapest.cost && clock - lastCollectAt > 15 && clock > cashHintMutedUntil) {
+    return {card:true, id:'cash', step:'Cash waiting', text:`You have ${money(state.bank)} waiting. Go to the green $ pad to collect it.`,
+      target:{x:PAD.x, z:PAD.z, floor:f}};
+  }
   return {card:false, target:best && {x:best.x, z:best.z, floor:best.floor}};
 }
 
@@ -1358,11 +1418,78 @@ function updateGuide(dt) {
     footMesh.material.opacity = 0.8 + Math.sin(clock * 6) * 0.15;
   }
 }
+let cashHintMutedUntil = 0;
 $('guideSkip').addEventListener('click', () => {
+  const g = currentGuide();
   if (state.tutorial < TUTORIAL.length) state.tutorial = TUTORIAL.length;
-  else { state.floorSeen = FLOORS.length; state.skillsSeen = true; }
+  else if (g.id === 'floor') state.floorSeen = FLOORS.length;
+  else if (g.id === 'skills') state.skillsSeen = true;
+  else if (g.id === 'cash') cashHintMutedUntil = clock + 180;
+  else if (g.id) state.hints.add(g.id);
   save();
 });
+
+// ------------------------------------------------------------ rebirth UI --
+function openRebirth() {
+  const next = state.rebirths + 1, newFloor = FLOORS.find(F => F.unlock === next);
+  const li = items => items.map(t => `<li>${t}</li>`).join('');
+  $('rbLose').innerHTML = li([`Your ${money(state.cash)} cash`, 'Every dropper, upgrader and wall you bought', 'Any cash still on the pads']);
+  $('rbGain').innerHTML = li([`Income ×${rebirthMult()} → <b>×${1 + next * REBIRTH_BONUS}</b>`, '+1 skill point for the ★ skill tree',
+    ...(newFloor ? [`A new floor: <b>${newFloor.name}</b>`] : []), 'Your skills and achievements']);
+  $('rebirthPanel').hidden = false;
+  $('rbYes').focus();
+}
+$('rbNo').addEventListener('click', () => { $('rebirthPanel').hidden = true; });
+$('rbYes').addEventListener('click', () => { $('rebirthPanel').hidden = true; state.hints.add('rebirth'); purchase('rebirth'); });
+
+// --------------------------------------------------------- achievements --
+const ACHIEVEMENTS = [
+  // No reward lands before the tutorial's "save up $40" step, so nothing here
+  // can be earned with the first dropper alone.
+  {id:'upgrade', icon:'✨', name:'Shiny Gems', desc:'Buy your first upgrader', test:() => ITEMS.some(i => i.kind === 'upgrader' && state.owned.has(i.id))},
+  {id:'earn1k', icon:'💵', name:'Pocket Money', desc:'Earn $1K in total', test:() => state.totalEarned >= 1e3},
+  {id:'overclock', icon:'⚡', name:'Overclocked', desc:'Buy the Overclock', test:() => state.owned.has('overclock')},
+  {id:'haul', icon:'💰', name:'Big Haul', desc:'Collect $10K from the pad in one go', test:() => state.bestCollect >= 1e4},
+  {id:'ground', icon:'🏭', name:'Full Factory', desc:'Own all 7 Ground Factory droppers', test:() => ITEMS.every(i => i.floor || i.kind !== 'dropper' || state.owned.has(i.id))},
+  {id:'earn1m', icon:'💎', name:'Millionaire', desc:'Earn $1M in total', test:() => state.totalEarned >= 1e6},
+  {id:'rebirth1', icon:'★', name:'Born Again', desc:'Rebirth for the first time', test:() => state.rebirths >= 1},
+  {id:'crystal', icon:'🔮', name:'Lab Visitor', desc:'Visit the Crystal Lab', test:() => currentFloor() >= 1},
+  {id:'lucky', icon:'🍀', name:'Lucky Strike', desc:'Sell a golden gem', test:() => state.luckySold > 0},
+  {id:'skillmax', icon:'🎓', name:'Specialist', desc:'Max out a skill with 3 levels', test:() => SKILLS.some(k => k.max === 3 && lvl(k.id) === 3)},
+  {id:'space', icon:'🚀', name:'Astronaut', desc:'Visit the Space Factory', test:() => currentFloor() >= 2},
+  {id:'earn1b', icon:'🏆', name:'Billionaire', desc:'Earn $1B in total', test:() => state.totalEarned >= 1e9},
+  {id:'rebirth5', icon:'🌟', name:'Reborn Tycoon', desc:'Rebirth 5 times', test:() => state.rebirths >= 5},
+];
+const achReward = () => Math.max(25, Math.round(incomePerSecond() * 30));
+function checkAchievements() {
+  for (const a of ACHIEVEMENTS) {
+    if (state.achievements.has(a.id) || !a.test()) continue;
+    state.achievements.add(a.id);
+    const reward = achReward();
+    state.cash += reward;
+    toast(`🏆 ${a.name}! +${money(reward)}`, 'gold'); sfx.skill();
+    confetti.emit(new THREE.Vector3(player.x, player.y + 5, player.z), 60, {colors:CONFETTI, speed:12, up:20, spread:2});
+    recolorButtons(); updateHud(true); save();
+  }
+  $('achCount').textContent = `${state.achievements.size}/${ACHIEVEMENTS.length}`;
+}
+function renderAchievements() {
+  $('achSub').textContent = `${state.achievements.size} of ${ACHIEVEMENTS.length} unlocked`;
+  const list = $('achList');
+  list.textContent = '';
+  for (const a of ACHIEVEMENTS) {
+    const done = state.achievements.has(a.id), row = document.createElement('div');
+    row.className = 'sk' + (done ? ' done' : '');
+    row.innerHTML = `<div class="skIcon">${done ? a.icon : '🔒'}</div><div class="skBody"><div class="skName"></div><div class="skDesc"></div></div><div class="achState">${done ? '✓ Done' : 'Locked'}</div>`;
+    row.querySelector('.skName').textContent = a.name;
+    row.querySelector('.skDesc').textContent = a.desc;
+    list.appendChild(row);
+  }
+}
+function toggleAchievements(open = $('achPanel').hidden) { $('achPanel').hidden = !open; if (open) renderAchievements(); }
+$('ach').addEventListener('click', () => { unlockAudio(); toggleAchievements(); });
+$('achClose').addEventListener('click', () => toggleAchievements(false));
+
 
 // ------------------------------------------------------------------ HUD --
 function $(id) { return document.getElementById(id); }
@@ -1507,12 +1634,13 @@ function render() {
   placeLabels();
 }
 
-let hudTimer = 0, saveTimer = 0, magnetTimer = 0;
+let hudTimer = 0, saveTimer = 0, magnetTimer = 0, achTimer = 0;
 function update(dt) {
   stepSim(dt);
   stepPlayer(dt);
   stepPads();
   updateGuide(dt);
+  if ((achTimer += dt) > 0.5) { achTimer = 0; checkAchievements(); }
   if (lvl('magnet') && (magnetTimer += dt) > 1) { magnetTimer = 0; collect(false); }
   updateVisuals(dt);
   hudTimer += dt; saveTimer += dt;
@@ -1548,7 +1676,7 @@ addEventListener('keydown', e => {
   unlockAudio();
   if (e.code === 'KeyM') { toggleSound(); return; }
   if (e.code === 'KeyK') { toggleSkills(); return; }
-  if (e.code === 'Escape') { toggleSkills(false); return; }
+  if (e.code === 'Escape') { toggleSkills(false); toggleAchievements(false); $('rebirthPanel').hidden = true; return; }
   if (e.code === 'Space' && !e.repeat) jumpQueued = true;
   keys.add(e.code);
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
@@ -1637,7 +1765,7 @@ function creditAway(seconds) {
   if (seconds < 20) return;
   const earned = incomePerSecond() * Math.min(seconds, offlineCap());
   if (earned < 1) return;
-  state.bank += earned;
+  state.bank += earned; state.totalEarned += earned;
   toast(`While you were away: +${money(earned)}. Collect it on the green pad.`, 'gold');
 }
 let hiddenAt = 0;
@@ -1657,6 +1785,7 @@ creditAway(away);
 updateHud();
 updateVisuals(0);
 updateGuide(0);
+checkAchievements();
 $('loading').remove();
 
 let last = performance.now();
@@ -1671,7 +1800,7 @@ if (TEST) render(); else requestAnimationFrame(frame);
 
 // Hooks for tests/tycoon.test.cjs.
 window.tycoon = {state, player, cam, drops, buttons, ITEMS, FLOORS, SKILLS, short, incomePerSecond, update, render, save, load, purchase,
-  buySkill, skillPoints, currentFloor, teleporters, rebirthCost, TUTORIAL, guideArrow, footArrow,
+  buySkill, skillPoints, currentFloor, teleporters, rebirthCost, TUTORIAL, guideArrow, footArrow, ACHIEVEMENTS, checkAchievements, currentGuide,
   teleport(x, z, floor = 0) { player.x = x; player.z = z; player.y = FY(floor); player.vy = 0; },
   buttonPos, PAD, skipSaveOnUnload() { resetting = true; }};
 </script>

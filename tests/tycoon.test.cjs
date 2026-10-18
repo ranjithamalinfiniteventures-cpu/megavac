@@ -146,6 +146,18 @@ function serve() {
     assert.equal(await get(() => tycoon.state.owned.size), 13);
     await run(4);
     if (shotDir) await page.screenshot({path: path.join(shotDir, 'tycoon_full.png')});
+    // The first time it is ready, a card explains rebirth, and stepping on the
+    // button asks before resetting anything.
+    await run(4); // let the tutorial's closing message finish first
+    assert.equal(await get(() => tycoon.currentGuide().id), 'rebirth');
+    const rp = await get(() => tycoon.buttonPos(tycoon.ITEMS.find(i => i.id === 'rebirth').slot));
+    await stand(rp.x, rp.z);
+    await run(0.1);
+    assert.ok(await get(() => !document.getElementById('rebirthPanel').hidden), 'no rebirth confirmation');
+    assert.equal(await get(() => tycoon.state.rebirths), 0);
+    if (shotDir) await page.screenshot({path: path.join(shotDir, 'tycoon_rebirth.png')});
+    await page.click('#rbNo');
+    await stand(0, 40);
     assert.ok(await page.evaluate(() => tycoon.purchase('rebirth')));
     const s = await get(() => ({r: tycoon.state.rebirths, owned: tycoon.state.owned.size, cash: tycoon.state.cash, drops: tycoon.drops.length}));
     assert.deepEqual(s, {r: 1, owned: 0, cash: 0, drops: 0});
@@ -153,6 +165,10 @@ function serve() {
     // Rebirth 1 opens the Crystal Lab, whose first button needs nothing.
     assert.deepEqual(await get(() => [...tycoon.buttons.keys()]), ['dropper1', 'c_dropper1']);
     assert.equal(await get(() => tycoon.skillPoints()), 1);
+    await run(0.6);
+    const ach = await get(() => [...tycoon.state.achievements]);
+    for (const id of ['upgrade', 'overclock', 'ground', 'rebirth1']) assert.ok(ach.includes(id), `missing achievement ${id}`);
+    assert.equal(await get(() => document.getElementById('achCount').textContent), `${ach.length}/13`);
   });
 
   test('the corner pad carries the player up to the new floor and back', async () => {
@@ -164,6 +180,7 @@ function serve() {
     assert.equal(await get(() => tycoon.player.y), 30);
     await run(0.5); // standing still on the arrival pad must not bounce back down
     assert.equal(await get(() => tycoon.currentFloor()), 1);
+    assert.equal(await get(() => tycoon.currentGuide().id), 'arrive1');
     if (shotDir) await page.screenshot({path: path.join(shotDir, 'tycoon_floor2.png')});
     await page.evaluate(([x, z]) => tycoon.teleport(x - 8, z - 8, 1), [tp.x, tp.z]);
     await run(0.2);

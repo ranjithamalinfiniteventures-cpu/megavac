@@ -102,7 +102,8 @@ droppers, cheaper buttons, auto-collect, faster walking, double jump and longer
 away earnings.
 New players get a short tutorial with guide arrows (skippable); afterwards a floating
 arrow and an arrow at your feet point to the next button you can afford, routing through
-the corner pads when it is on another floor. Progress saves to `localStorage`, and time away (up to 2 hours) is paid into the bank.
+the corner pads when it is on another floor. Stepping on Rebirth shows what you lose and keep before anything resets, and 13
+achievements (🏆) each pay 30 seconds of income. Progress saves to `localStorage`, and time away (up to 2 hours) is paid into the bank.
 
 ```sh
 python3 -m http.server 8787 --directory tycoon
