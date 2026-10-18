@@ -61,28 +61,30 @@ setTimeout(function(){if(!window.__ready)__fail('WebGL may be disabled in this b
     <div class="stat"><span>Cargo</span><b id="cargo">0/8</b><div id="cargoBar"><div id="cargoFill"></div></div></div>
     <div class="stat"><span>Stockpile</span><b id="stock">0</b></div>
     <div class="stat"><span>Coins</span><b id="coins">0</b></div>
-    <div class="stat"><span>Record</span><b id="best">0 km</b></div>
+    <div class="stat"><span>Target City</span><b id="best">Lv 1</b></div>
   </div>
   <div id="right">
     <button class="btn" data-up="saw">Saw Blade <small></small></button>
     <button class="btn" data-up="cargo">Cargo Bed <small></small></button>
     <button class="btn" data-up="speed">Motor <small></small></button>
-    <button class="btn" data-up="engine">Rocket Engine <small></small></button>
+    <button class="btn" data-up="engine">Booster Engine <small></small></button>
+    <button class="btn" data-up="warhead">Warhead <small></small></button>
+    <button class="btn" data-up="fins">Guidance Fins <small></small></button>
     <button class="btn" id="muteBtn">Sound: On</button>
   </div>
   <div id="hint" class="panel"></div>
   <button id="launchBtn" class="btn">BUILD &amp; LAUNCH</button>
-  <div id="alt"><span>ALTITUDE</span><b id="altV">0</b><span id="altU">METERS</span><div id="altMsg"></div></div>
+  <div id="alt"><span id="altL">DISTANCE TO TARGET</span><b id="altV">0</b><span id="altU">METERS</span><div id="altMsg"></div></div>
   <div id="count"></div>
   <div id="joy"><div id="knob"></div></div>
   <div id="vig"></div><div id="flash"></div>
   <div id="start" class="modal" style="display:flex"><div class="card panel">
     <h1>TIMBER ROCKET</h1>
-    <p>Drive the harvester up to trees and its crane grabs and saws them. Haul the logs to the depot by the launch pad.<br>Build a rocket from your stockpile, launch it, and see how high it goes. Then do it again, higher.<br><b>WASD / Arrows</b> or <b>drag anywhere</b> to drive in that direction · mouse wheel to zoom</p>
+    <p>Drive the harvester up to trees and its crane grabs and saws them. Haul the logs to the depot by the launch pad.<br>Build a missile from your stockpile and launch it at the city on the horizon. Upgrade the warhead, fins and engine to flatten bigger cities.<br><b>WASD / Arrows</b> or <b>drag anywhere</b> to drive in that direction · mouse wheel to zoom</p>
     <button class="cta" id="startBtn">START</button></div></div>
   <div id="result" class="modal"><div class="card panel">
-    <h1 id="resTitle">APEX REACHED</h1>
-    <p>Your rocket climbed to</p><div class="big" id="resAlt">0 km</div>
+    <h1 id="resTitle">IMPACT</h1>
+    <p>Strike report</p><div class="big" id="resAlt">0 km</div>
     <p id="resInfo"></p>
     <button class="cta" id="againBtn">BACK TO THE FOREST</button></div></div>
 </div>
