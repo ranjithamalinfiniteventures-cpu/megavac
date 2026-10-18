@@ -52,6 +52,15 @@ function serve() {
     assert.equal(await get(() => tycoon.state.cash), 0);
   });
 
+  test('a first-time player gets the tutorial with arrows', async () => {
+    const g = await get(() => ({card: !document.getElementById('guide').hidden, text: document.getElementById('guideText').textContent, step: tycoon.state.tutorial}));
+    assert.ok(g.card, 'no tutorial card');
+    assert.equal(g.step, 0);
+    assert.match(g.text, /first dropper/);
+    await run(0.1);
+    assert.ok(await get(() => tycoon.guideArrow.visible && tycoon.footArrow.visible), 'guide arrows not shown');
+  });
+
   test('stepping on the free button buys the dropper', async () => {
     const p = await get(() => tycoon.buttonPos(0));
     await stand(p.x, p.z);
@@ -83,6 +92,11 @@ function serve() {
     await run(0.1);
     assert.ok(await get(() => tycoon.state.bank) < 1);
     assert.ok(await get(() => tycoon.state.cash) >= Math.floor(before));
+  });
+
+  test('the tutorial follows along: dropper, furnace, collect, then the next button', async () => {
+    assert.equal(await get(() => tycoon.state.tutorial), 3);
+    assert.match(await get(() => document.getElementById('guideText').textContent), /Copper Dropper/);
   });
 
   test('measured earnings match the HUD income rate', async () => {
@@ -209,6 +223,8 @@ function serve() {
     await page.waitForFunction(() => window.tycoon);
     const bank = await get(() => tycoon.state.bank);
     assert.ok(Math.abs(bank - 2 / 1.5 * 600) < 5, `bank ${bank}`);
+    // A save from before the tutorial existed, with progress, skips it.
+    assert.ok(await get(() => document.getElementById('guide').hidden), 'returning player was shown the tutorial');
   });
 
   test('on a phone the joystick walks, JUMP jumps and the HUD does not overlap', async () => {
@@ -236,7 +252,7 @@ function serve() {
     for (const size of [{width: 390, height: 664}, {width: 844, height: 390}]) {
       await phone.setViewportSize(size);
       await phone.waitForTimeout(200);
-      const rects = await phone.evaluate(() => ['money', 'next', 'controls', 'help', 'jump'].map(id => {
+      const rects = await phone.evaluate(() => ['money', 'next', 'guide', 'controls', 'help', 'jump'].map(id => {
         const r = document.getElementById(id).getBoundingClientRect();
         return {id, l: r.left, t: r.top, r: r.right, b: r.bottom};
       }));

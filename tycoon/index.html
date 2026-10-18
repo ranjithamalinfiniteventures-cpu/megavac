@@ -19,7 +19,16 @@ canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
 #rate{font-size:15px;color:#cfe;opacity:.9;margin-top:3px}
 #floorName{font-size:13px;opacity:.75;margin-top:3px}
 [hidden]{display:none!important}
-#money,#next,#help,#toasts,#loading>*{pointer-events:none} /* touches pass through to the joystick and camera */
+#guide{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(460px,calc(100vw - 600px));min-width:300px;padding:10px 14px 12px;display:flex;gap:12px;align-items:center;border-color:rgba(255,212,71,.6)}
+body.guiding #next{display:none!important}
+.gStep{font-size:12px;font-weight:700;color:var(--gold);letter-spacing:.06em;text-transform:uppercase}
+#guideText{font-size:16px;line-height:1.3}
+#guideBody{flex:1;min-width:0}
+#guideSkip{pointer-events:auto;flex:none;font-size:13px;padding:6px 10px}
+#skArrow{position:fixed;left:0;top:0;font-size:30px;color:var(--gold);text-shadow:0 2px 0 rgba(0,0,0,.5);pointer-events:none;animation:nudge .7s ease-in-out infinite alternate}
+@keyframes nudge{to{translate:0 8px}}
+@media (prefers-reduced-motion:reduce){#skArrow,#skills.glow{animation:none}}
+#money,#next,#help,#toasts,#guide,#loading>*{pointer-events:none} /* touches pass through to the joystick and camera */
 #nextText .where{color:#9fe8ff;font-size:14px}
 #skBadge{background:var(--gold);color:#3a2600;border-radius:8px;padding:0 6px;margin-left:6px;font-size:13px}
 #skills.glow{animation:glow 1.2s ease-in-out infinite alternate}
@@ -71,6 +80,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
   .btn{padding:6px 10px;font-size:13px}
   #next{top:auto;bottom:calc(122px + env(safe-area-inset-bottom,0px));min-width:0;width:calc(100vw - 28px);padding:7px 12px 9px}
   #nextText{font-size:13px}
+  #guide{top:auto;bottom:calc(122px + env(safe-area-inset-bottom,0px));width:calc(100vw - 28px);min-width:0;padding:8px 12px 10px}
+  #guideText{font-size:14px}
   #toasts{bottom:calc(190px + env(safe-area-inset-bottom,0px))}
   .toast{font-size:15px;padding:7px 12px}
   #help.touch{left:calc(14px + env(safe-area-inset-left,0px));right:calc(120px + env(safe-area-inset-right,0px));transform:none;bottom:calc(30px + env(safe-area-inset-bottom,0px));font-size:12px}
@@ -78,6 +89,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
 }
 @media (max-height:500px){
   #next{bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100vw - 300px))}
+  #guide{bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(440px,calc(100vw - 300px))}
   #toasts{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
   #jump{width:68px;height:68px}
   #help.touch{top:calc(14px + env(safe-area-inset-top,0px));bottom:auto;left:50%;right:auto;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 480px)}
@@ -89,6 +101,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
 <canvas id="c" tabindex="0"></canvas>
 <div id="labels"></div>
 <div id="money" class="panel"><div class="coin">$</div><div><div id="cash">$0</div><div id="rate">+$0/s</div><div id="rebirths" hidden></div><div id="floorName"></div></div></div>
+<div id="guide" class="panel" hidden><div id="guideBody"><div class="gStep" id="guideStep"></div><div id="guideText"></div></div><button id="guideSkip" class="btn">Skip</button></div>
+<div id="skArrow" hidden>▲</div>
 <div id="next" class="panel"><div id="nextText"></div><div id="bar"><div id="barFill"></div></div></div>
 <div id="controls"><button id="skills" class="btn" title="Skill tree (K)">★ Skills<span id="skBadge" hidden></span></button><button id="gfx" class="btn" title="Graphics quality">HD</button><button id="sound" class="btn" title="Sound (M)">🔊</button><button id="reset" class="btn" title="Delete save">Reset</button></div>
 <div id="toasts"></div>
@@ -228,7 +242,9 @@ function short(n) {
 const money = n => '$' + short(n);
 
 let resetting = false;
-const state = {cash:START_CASH, bank:0, rebirths:0, owned:new Set(), skills:{}, savedAt:Date.now()};
+// tutorial: index of the current tutorial step (TUTORIAL.length when done).
+// floorSeen: highest floor visited. skillsSeen: the skill tree was opened.
+const state = {cash:START_CASH, bank:0, rebirths:0, owned:new Set(), skills:{}, tutorial:0, floorSeen:0, skillsSeen:false, savedAt:Date.now()};
 const lvl = id => state.skills[id] || 0;
 const skillPoints = () => state.rebirths - Object.values(state.skills).reduce((a, b) => a + b, 0);
 const floorOpen = f => state.rebirths >= FLOORS[f].unlock;
@@ -265,7 +281,8 @@ function save() {
   state.savedAt = Date.now();
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({cash:state.cash, bank:state.bank, rebirths:state.rebirths,
-      owned:[...state.owned], skills:state.skills, savedAt:state.savedAt}));
+      owned:[...state.owned], skills:state.skills, tutorial:state.tutorial, floorSeen:state.floorSeen, skillsSeen:state.skillsSeen,
+      savedAt:state.savedAt}));
   } catch {}
 }
 function load() {
@@ -280,6 +297,11 @@ function load() {
     for (const s of SKILLS) { const v = Math.floor(num(raw.skills[s.id])); if (v) state.skills[s.id] = Math.min(s.max, v); }
   }
   if (skillPoints() < 0) state.skills = {}; // more spent than earned: refund them all
+  // Saves from before the tutorial existed skip it once they have progress.
+  const veteran = state.owned.size > 0 || state.rebirths > 0;
+  state.tutorial = raw.tutorial === undefined ? (veteran ? 99 : 0) : Math.floor(num(raw.tutorial));
+  state.floorSeen = raw.floorSeen === undefined ? FLOORS.length : Math.floor(num(raw.floorSeen));
+  state.skillsSeen = raw.skillsSeen === undefined ? veteran : !!raw.skillsSeen;
   return Math.max(0, (Date.now() - num(raw.savedAt)) / 1000);
 }
 
@@ -1134,10 +1156,12 @@ function stepPlayer(dt) {
 // Pads under the player's feet: buttons buy, the green pad collects, the
 // corner pads change floors.
 let standingOn = null, onPad = false, lastErrorAt = 0, tpLock = false;
+let collectedOnce = false;
 function collect(showOff) {
   const amount = Math.floor(state.bank);
   if (amount < 1) return 0;
   state.bank -= amount; state.cash += amount;
+  collectedOnce = true;
   if (showOff) {
     toast('+' + money(amount), 'success'); sfx.coin();
     const fy = FY(currentFloor());
@@ -1211,8 +1235,134 @@ function buySkill(id) {
 }
 function toggleSkills(open = $('skillsPanel').hidden) {
   $('skillsPanel').hidden = !open;
-  if (open) { renderSkills(); $('help').style.opacity = 0; }
+  if (open) { renderSkills(); $('help').style.opacity = 0; state.skillsSeen = true; }
 }
+
+// ---------------------------------------------------------------- guide --
+// A first-run tutorial, then one-time hints, both pointed at with a bouncing
+// arrow over the target and a direction arrow at the player's feet. Once
+// those are done the arrows lead to any button the player can afford.
+const buttonTarget = id => { const b = buttons.get(id); return b && {x:b.x, z:b.z, floor:b.floor}; };
+const TUTORIAL = [
+  {text:() => `Welcome to your factory! ${isTouch ? 'Slide your thumb on the left side of the screen' : 'Use WASD or the arrow keys'} to walk to the glowing button and get your first dropper.`,
+    target:() => buttonTarget('dropper1'), done:() => state.owned.has('dropper1')},
+  {text:() => 'Your dropper makes gems. Watch them ride the belt into the furnace, where they turn into cash.',
+    target:() => ({x:BELT_X1 - 4, z:BELT_Z, floor:0, high:true}), done:() => state.bank >= 1 || collectedOnce},
+  {text:() => 'Walk onto the green $ pad to collect your cash.',
+    target:() => ({x:PAD.x, z:PAD.z, floor:0}), done:() => collectedOnce},
+  {text:() => 'Save up $40, then step on the Copper Dropper button. Buttons turn green when you can afford them.',
+    target:() => buttonTarget('dropper2'), done:() => state.owned.has('dropper2')},
+  {text:() => 'Great start! Keep buying buttons. The arrows show you where to go next, and buying everything unlocks Rebirth.',
+    target:() => null, done:() => tutorialTimer > 7},
+];
+let tutorialTimer = 0;
+
+// The teleporter on floor `from` that heads toward floor `to`.
+const padToward = (from, to) => teleporters.find(t => t.floor === from && t.to === from + Math.sign(to - from));
+
+function currentGuide() {
+  const f = currentFloor();
+  if (state.tutorial < TUTORIAL.length) {
+    const step = TUTORIAL[state.tutorial];
+    return {card:true, step:`Tutorial ${state.tutorial + 1} / ${TUTORIAL.length}`, text:step.text(), target:step.target()};
+  }
+  for (let n = 1; n < FLOORS.length; n++) {
+    if (floorGroups[n] && state.floorSeen < n) {
+      return {card:true, step:'New floor', text:`${FLOORS[n].name} is open! Follow the arrow to the blue pad in the corner to go up.`, target:{floor:n, x:0, z:0}};
+    }
+  }
+  if (skillPoints() > 0 && !state.skillsSeen) {
+    return {card:true, step:'Skill point', text:`You earned a skill point! ${isTouch ? 'Tap' : 'Click'} ★ Skills (or press K) to spend it.`, target:null, skills:true};
+  }
+  // Otherwise point at the cheapest button the player can already afford.
+  let best = null;
+  for (const b of buttons.values()) if (state.cash >= b.cost && (!best || b.cost < best.cost)) best = b;
+  return {card:false, target:best && {x:best.x, z:best.z, floor:best.floor}};
+}
+
+const guideMat = new THREE.MeshStandardMaterial({color:0xffd447, emissive:0xffb300, emissiveIntensity:1.6, roughness:0.4});
+const GUIDE_SCALE = 1.3;
+const guideArrow = new THREE.Group();
+{
+  const head = new THREE.Mesh(new THREE.ConeGeometry(1.3, 2.4, 24), guideMat);
+  head.rotation.x = Math.PI; head.castShadow = true;
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 2.2, 16), guideMat);
+  shaft.position.y = 2.2; shaft.castShadow = true;
+  guideArrow.add(head, shaft);
+}
+guideArrow.scale.setScalar(GUIDE_SCALE);
+guideArrow.visible = false;
+scene.add(guideArrow);
+const arrowShape = new THREE.Shape();
+arrowShape.moveTo(0, 2.2); arrowShape.lineTo(1.5, 0.4); arrowShape.lineTo(0.55, 0.4); arrowShape.lineTo(0.55, -1.4);
+arrowShape.lineTo(-0.55, -1.4); arrowShape.lineTo(-0.55, 0.4); arrowShape.lineTo(-1.5, 0.4); arrowShape.closePath();
+const footArrow = new THREE.Group();
+const footMesh = new THREE.Mesh(new THREE.ShapeGeometry(arrowShape).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({color:0xffb000, transparent:true, opacity:0.95, depthWrite:false}));
+// A dark rim underneath keeps the arrow readable on the pale floor tiles.
+const footRim = new THREE.Mesh(footMesh.geometry, new THREE.MeshBasicMaterial({color:0x3a2600, transparent:true, opacity:0.55, depthWrite:false}));
+footRim.scale.setScalar(1.25); footRim.position.y = -0.02;
+footArrow.add(footRim, footMesh);
+footArrow.visible = false;
+scene.add(footArrow);
+
+let guideKey = '';
+function updateGuide(dt) {
+  if (state.tutorial < TUTORIAL.length) {
+    if (state.tutorial === TUTORIAL.length - 1) tutorialTimer += dt;
+    if (TUTORIAL[state.tutorial].done()) {
+      state.tutorial++;
+      tutorialTimer = 0;
+      if (state.tutorial < TUTORIAL.length) sfx.skill();
+      save();
+    }
+  }
+  const f = currentFloor();
+  if (f > state.floorSeen) { state.floorSeen = f; save(); }
+
+  const g = currentGuide();
+  const key = g.card ? g.step + g.text : '';
+  if (key !== guideKey) {
+    guideKey = key;
+    $('guide').hidden = !g.card;
+    document.body.classList.toggle('guiding', g.card);
+    if (g.card) { $('guideStep').textContent = g.step; $('guideText').textContent = g.text; }
+  }
+  const arrowEl = $('skArrow');
+  arrowEl.hidden = !g.skills;
+  if (g.skills) {
+    const r = $('skills').getBoundingClientRect();
+    arrowEl.style.left = (r.left + r.width / 2 - 10) + 'px';
+    arrowEl.style.top = (r.bottom + 4) + 'px';
+  }
+
+  // A target on another floor routes through the pad toward that floor.
+  let t = g.target;
+  if (t && t.floor !== f) {
+    const pad = padToward(f, t.floor);
+    t = pad ? {x:pad.x, z:pad.z, floor:f} : null;
+  }
+  const dist = t ? Math.hypot(t.x - player.x, t.z - player.z) : 0;
+  guideArrow.visible = !!t && (g.card || dist > 6);
+  if (guideArrow.visible) {
+    // Above the floating name tags, which sit about 4.5 studs up.
+    guideArrow.position.set(t.x, FY(t.floor) + (t.high ? 17 : 9.5) + Math.sin(clock * 4) * 0.8, t.z);
+    guideArrow.rotation.y += dt * 2;
+  }
+  footArrow.visible = !!t && dist > 7 && player.grounded;
+  if (footArrow.visible) {
+    const dx = t.x - player.x, dz = t.z - player.z;
+    footArrow.rotation.y = Math.atan2(dx, dz) + Math.PI;
+    const slide = 3.2 + (clock * 2 % 1) * 1.2;
+    footArrow.position.set(player.x + dx / dist * slide, player.y + 0.12, player.z + dz / dist * slide);
+    footMesh.material.opacity = 0.8 + Math.sin(clock * 6) * 0.15;
+  }
+}
+$('guideSkip').addEventListener('click', () => {
+  if (state.tutorial < TUTORIAL.length) state.tutorial = TUTORIAL.length;
+  else { state.floorSeen = FLOORS.length; state.skillsSeen = true; }
+  save();
+});
 
 // ------------------------------------------------------------------ HUD --
 function $(id) { return document.getElementById(id); }
@@ -1362,6 +1512,7 @@ function update(dt) {
   stepSim(dt);
   stepPlayer(dt);
   stepPads();
+  updateGuide(dt);
   if (lvl('magnet') && (magnetTimer += dt) > 1) { magnetTimer = 0; collect(false); }
   updateVisuals(dt);
   hudTimer += dt; saveTimer += dt;
@@ -1505,6 +1656,7 @@ renderSkills();
 creditAway(away);
 updateHud();
 updateVisuals(0);
+updateGuide(0);
 $('loading').remove();
 
 let last = performance.now();
@@ -1519,7 +1671,7 @@ if (TEST) render(); else requestAnimationFrame(frame);
 
 // Hooks for tests/tycoon.test.cjs.
 window.tycoon = {state, player, cam, drops, buttons, ITEMS, FLOORS, SKILLS, short, incomePerSecond, update, render, save, load, purchase,
-  buySkill, skillPoints, currentFloor, teleporters, rebirthCost,
+  buySkill, skillPoints, currentFloor, teleporters, rebirthCost, TUTORIAL, guideArrow, footArrow,
   teleport(x, z, floor = 0) { player.x = x; player.z = z; player.y = FY(floor); player.vy = 0; },
   buttonPos, PAD, skipSaveOnUnload() { resetting = true; }};
 </script>

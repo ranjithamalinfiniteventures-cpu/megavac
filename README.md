@@ -100,7 +100,9 @@ with its own belt, droppers and upgraders; the corner pads carry you between flo
 Every rebirth also earns a skill point for the skill tree (K): lucky gold gems, faster
 droppers, cheaper buttons, auto-collect, faster walking, double jump and longer
 away earnings.
-Progress saves to `localStorage`, and time away (up to 2 hours) is paid into the bank.
+New players get a short tutorial with guide arrows (skippable); afterwards a floating
+arrow and an arrow at your feet point to the next button you can afford, routing through
+the corner pads when it is on another floor. Progress saves to `localStorage`, and time away (up to 2 hours) is paid into the bank.
 
 ```sh
 python3 -m http.server 8787 --directory tycoon
