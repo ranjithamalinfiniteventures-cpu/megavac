@@ -232,73 +232,215 @@ world.add(sea);
 }
 
 // ---------------------------------------------------------------- character
+// The body is built from a few smooth skinned meshes (torso, arms, legs) instead of
+// separate primitives, so waist, elbows and knees bend without visible joints. Each
+// mesh carries a "fat" morph target; setFat() blends between the slim and heavy shapes.
+const SKIN = 0xf5c4a1, TOP = 0xff4646, PANTS = 0xc93ad6, BELT = 0x3b2a48, HAIR = 0x1e1a22;
+
+// rings: [y, rx, rz, zc, fatRx, fatRz, fatZc, color], ascending y. Front of the body is -z.
+function smoothRings(ctrl, sub) {
+  const cr = (p0, p1, p2, p3, t) => .5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
+  const out = [];
+  for (let i = 0; i < ctrl.length - 1; i++) {
+    const p0 = ctrl[Math.max(i - 1, 0)], p1 = ctrl[i], p2 = ctrl[i + 1], p3 = ctrl[Math.min(i + 2, ctrl.length - 1)];
+    for (let s = 0; s < sub; s++) {
+      const t = s / sub;
+      const r = p1.map((v, k) => k === 7 ? (t < .5 ? p1[7] : p2[7]) : cr(p0[k], v, p2[k], p3[k], t));
+      for (const k of [1, 2, 4, 5]) r[k] = Math.max(0, r[k]);
+      out.push(r);
+    }
+  }
+  out.push(ctrl[ctrl.length - 1]);
+  // split rings where the colour changes so clothing edges stay crisp
+  const rings = [];
+  out.forEach((r, i) => {
+    if (i > 0 && out[i - 1][7] !== r[7]) {
+      const p = out[i - 1], m = p.map((v, k) => k === 7 ? p[7] : (v + r[k]) / 2);
+      rings.push(m, [...m.slice(0, 7), r[7]]);
+    }
+    rings.push(r);
+  });
+  return rings;
+}
+
+function bodyGeometry(rings, joint, blend, seg = 30) {
+  const n = rings.length, N = n * seg;
+  const pos = new Float32Array(N * 3), fat = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  const si = new Uint16Array(N * 4), sw = new Float32Array(N * 4);
+  const c = new THREE.Color();
+  rings.forEach((r, i) => {
+    c.setHex(r[7]);
+    // weight toward bone 1 (the bone above the joint is 1 for torso, below for limbs)
+    const t = joint.up ? clamp((r[0] - joint.y + blend) / (2 * blend), 0, 1) : clamp((joint.y + blend - r[0]) / (2 * blend), 0, 1);
+    for (let j = 0; j < seg; j++) {
+      const a = j / seg * Math.PI * 2, k = i * seg + j;
+      pos.set([Math.sin(a) * r[1], r[0], r[3] + Math.cos(a) * r[2]], k * 3);
+      fat.set([Math.sin(a) * r[4], r[0], r[6] + Math.cos(a) * r[5]], k * 3);
+      col.set([c.r, c.g, c.b], k * 3);
+      si.set([0, 1, 0, 0], k * 4);
+      sw.set([1 - t, t, 0, 0], k * 4);
+    }
+  });
+  const index = [];
+  for (let i = 0; i < n - 1; i++) for (let j = 0; j < seg; j++) {
+    const a = i * seg + j, b = i * seg + (j + 1) % seg, cc = a + seg, d = b + seg;
+    index.push(a, b, cc, b, d, cc);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setIndex(index);
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  geo.computeVertexNormals();
+  const fatGeo = new THREE.BufferGeometry();
+  fatGeo.setIndex(index);
+  fatGeo.setAttribute('position', new THREE.BufferAttribute(fat, 3));
+  fatGeo.computeVertexNormals();
+  geo.morphAttributes.position = [fatGeo.attributes.position];
+  geo.morphAttributes.normal = [fatGeo.attributes.normal];
+  return geo;
+}
+
+// A two-bone skinned mesh. Returns the mesh plus its root and joint bones.
+function skinnedPart(geo, material, jointY) {
+  const mesh = new THREE.SkinnedMesh(geo, material);
+  const b0 = new THREE.Bone(), b1 = new THREE.Bone();
+  b1.position.y = jointY;
+  b0.add(b1);
+  mesh.add(b0);
+  mesh.updateMatrixWorld(true);
+  mesh.bind(new THREE.Skeleton([b0, b1]));
+  mesh.castShadow = true;
+  mesh.frustumCulled = false;
+  mesh.morphTargetInfluences = [0];
+  return { mesh, b0, b1 };
+}
+
 function makeCharacter() {
-  const skin = mat(0xf5c4a1), shirt = mat(0xff4646), pants = mat(0xc93ad6),
-        hairM = mat(0x1e1a22, { roughness: .4 }), shoe = mat(0xf7f7f7), eyeM = mat(0x221a22);
+  const bodyMat = mat(0xffffff, { vertexColors: true, roughness: .62 });
+  const skin = mat(SKIN), hairM = mat(HAIR, { roughness: .45 }), shoeM = mat(0xfafafa),
+        soleM = mat(0xff8fc8), white = mat(0xffffff, { roughness: .3 }), iris = mat(0x3b2416, { roughness: .2 }),
+        lips = mat(0xd9505a);
   const root = new THREE.Group();
   const body = new THREE.Group(); root.add(body);
-  const mk = (geo, m, parent, x = 0, y = 0, z = 0) => {
+  const add = (geo, m, parent, x = 0, y = 0, z = 0) => {
     const mesh = new THREE.Mesh(geo, m);
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
     parent.add(mesh);
     return mesh;
   };
-  const hips = new THREE.Group(); hips.position.y = 0.95; body.add(hips);
-  const pelvis = mk(new THREE.SphereGeometry(.2, 20, 14), pants, hips);
-  const chest = new THREE.Group(); chest.position.y = .1; hips.add(chest);
-  const torso = mk(new THREE.CapsuleGeometry(.17, .3, 6, 16), shirt, chest, 0, .3, 0);
-  const belly = mk(new THREE.SphereGeometry(.2, 20, 14), shirt, chest, 0, .17, -.05);
-  const neck = mk(new THREE.CylinderGeometry(.06, .07, .14, 10), skin, chest, 0, .62, 0);
-  const head = new THREE.Group(); head.position.y = .8; chest.add(head);
-  mk(new THREE.SphereGeometry(.17, 22, 16), skin, head);
-  const hair = mk(new THREE.SphereGeometry(.18, 22, 16), hairM, head, 0, .03, .05);
-  hair.scale.set(1.02, 1, .95);
-  mk(new THREE.SphereGeometry(.085, 14, 10), hairM, head, 0, .13, .17);
-  const tail = new THREE.Group(); tail.position.set(0, .12, .2); head.add(tail);
-  mk(new THREE.CapsuleGeometry(.06, .28, 4, 10), hairM, tail, 0, -.17, .04).rotation.x = .25;
-  mk(new THREE.SphereGeometry(.022, 8, 8), eyeM, head, -.06, .02, -.158);
-  mk(new THREE.SphereGeometry(.022, 8, 8), eyeM, head, .06, .02, -.158);
 
+  // torso: hips (bone 0) and chest (bone 1, joint at the waist)
+  const P = PANTS, S = SKIN, T = TOP, B = BELT;
+  const torsoRings = smoothRings([
+    [-.17, 0, 0, .02, 0, 0, .03, P],
+    [-.15, .09, .08, .02, .16, .15, .04, P],
+    [-.1, .155, .125, .02, .31, .27, .05, P],
+    [-.03, .185, .135, .02, .38, .32, .04, P],
+    [.05, .182, .125, .01, .40, .34, 0, P],
+    [.11, .168, .115, 0, .40, .35, -.04, P],
+    [.135, .162, .112, 0, .40, .36, -.06, B],
+    [.15, .157, .108, 0, .40, .365, -.08, S],
+    [.22, .145, .1, 0, .40, .37, -.1, S],
+    [.28, .152, .104, 0, .39, .35, -.08, T],
+    [.36, .172, .114, -.005, .38, .32, -.05, T],
+    [.44, .188, .114, 0, .37, .29, -.02, T],
+    [.51, .198, .104, .005, .36, .25, 0, T],
+    [.555, .17, .09, .01, .30, .2, .01, T],
+    [.585, .1, .07, .01, .16, .12, .01, S],
+    [.62, .055, .055, .012, .09, .09, .012, S],
+    [.72, .05, .05, .015, .075, .075, .015, S],
+    [.76, 0, 0, .015, 0, 0, .015, S],
+  ], 3);
+  const torso = skinnedPart(bodyGeometry(torsoRings, { y: .2, up: true }, .09), bodyMat, .2);
+  torso.mesh.position.y = .95;
+  body.add(torso.mesh);
+  const hips = torso.b0, chest = torso.b1;
+
+  // head (chest-local: waist joint sits at y .2)
+  const head = new THREE.Group(); head.position.y = .66; chest.add(head);
+  add(new THREE.SphereGeometry(.15, 32, 24), skin, head).scale.set(1, 1.12, 1.05);
+  for (const s of [-1, 1]) {
+    add(new THREE.SphereGeometry(.035, 12, 10), skin, head, s * .148, -.005, .005).scale.set(.45, 1, .8);
+    add(new THREE.SphereGeometry(.028, 16, 12), white, head, s * .054, .012, -.138).scale.set(1, 1, .55);
+    add(new THREE.SphereGeometry(.016, 12, 10), iris, head, s * .054, .012, -.152);
+    const brow = add(new THREE.BoxGeometry(.05, .011, .012), hairM, head, s * .056, .058, -.145);
+    brow.rotation.z = s * -.12;
+    add(new THREE.SphereGeometry(.022, 10, 8), mat(0xffa3a3, { transparent: true, opacity: .35 }), head, s * .085, -.035, -.13).scale.set(1, .6, .4);
+  }
+  add(new THREE.SphereGeometry(.02, 12, 10), skin, head, 0, -.018, -.162).scale.set(.8, 1, 1);
+  const mouth = add(new THREE.TorusGeometry(.024, .006, 6, 16, Math.PI), lips, head, 0, -.058, -.148);
+  mouth.rotation.z = Math.PI;
+  // hair: a cap that clears the forehead plus a back piece down to the nape
+  const cap = add(new THREE.SphereGeometry(.158, 32, 16, 0, Math.PI * 2, 0, Math.PI * .42), hairM, head, 0, .012, .006);
+  cap.scale.set(1.04, 1.13, 1.09);
+  cap.rotation.x = .28;
+  const back = add(new THREE.SphereGeometry(.158, 32, 20, 0, Math.PI, 0, Math.PI * .8), hairM, head, 0, .012, .008);
+  back.scale.set(1.04, 1.13, 1.09);
+  const tail = new THREE.Group(); tail.position.set(0, .1, .16); head.add(tail);
+  add(new THREE.TorusGeometry(.04, .014, 8, 16), mat(0xff4fa3), tail).rotation.x = Math.PI / 2 - .5;
+  const pony = add(new THREE.LatheGeometry([
+    new THREE.Vector2(0, 0), new THREE.Vector2(.045, .02), new THREE.Vector2(.07, .09), new THREE.Vector2(.068, .19),
+    new THREE.Vector2(.045, .29), new THREE.Vector2(.018, .35), new THREE.Vector2(0, .37)], 20), hairM, tail);
+  pony.rotation.x = Math.PI - .55;
+
+  // arms hang from the chest; elbow at -.27
+  const armRings = smoothRings([
+    [-.55, 0, 0, 0, 0, 0, 0, S],
+    [-.52, .032, .027, 0, .05, .045, 0, S],
+    [-.4, .041, .035, 0, .075, .065, 0, S],
+    [-.27, .044, .041, 0, .09, .08, 0, S],
+    [-.15, .054, .054, 0, .12, .115, 0, S],
+    [-.03, .062, .062, 0, .14, .135, 0, S],
+    [.03, .056, .056, 0, .12, .12, 0, S],
+    [.075, 0, 0, 0, 0, 0, 0, S],
+  ], 3);
   const arm = s => {
-    const sh = new THREE.Group(); sh.position.set(s * .27, .5, 0); chest.add(sh);
-    mk(new THREE.SphereGeometry(.085, 12, 10), shirt, sh);
-    const up = mk(new THREE.CapsuleGeometry(.06, .2, 4, 10), skin, sh, 0, -.15, 0);
-    const el = new THREE.Group(); el.position.y = -.3; sh.add(el);
-    const lo = mk(new THREE.CapsuleGeometry(.05, .2, 4, 10), skin, el, 0, -.14, 0);
-    return { sh, up, el, lo, s };
+    const p = skinnedPart(bodyGeometry(armRings, { y: -.27 }, .06, 20), bodyMat, -.27);
+    p.mesh.position.set(s * .17, .29, 0);
+    chest.add(p.mesh);
+    const hand = new THREE.Group(); hand.position.y = -.26; p.b1.add(hand);
+    add(new THREE.SphereGeometry(.05, 14, 10), skin, hand, 0, -.04, 0).scale.set(.75, 1.25, .55);
+    add(new THREE.CapsuleGeometry(.014, .035, 4, 8), skin, hand, -s * .03, -.03, -.02).rotation.z = s * .5;
+    return { mesh: p.mesh, sh: p.b0, el: p.b1, s };
   };
+
+  // legs hang from the hips; knee at -.44
+  const legRings = smoothRings([
+    [-.89, 0, 0, 0, 0, 0, 0, P],
+    [-.86, .042, .042, 0, .065, .065, 0, P],
+    [-.74, .047, .05, .005, .08, .08, .005, P],
+    [-.6, .061, .065, .012, .11, .115, .015, P],
+    [-.46, .056, .057, 0, .105, .105, 0, P],
+    [-.3, .079, .08, 0, .16, .16, 0, P],
+    [-.12, .097, .098, 0, .2, .2, 0, P],
+    [0, .1, .1, 0, .2, .2, 0, P],
+    [.06, .07, .07, 0, .14, .14, 0, P],
+    [.1, 0, 0, 0, 0, 0, 0, P],
+  ], 3);
   const leg = s => {
-    const hp = new THREE.Group(); hp.position.set(s * .11, -.02, 0); hips.add(hp);
-    const th = mk(new THREE.CapsuleGeometry(.09, .28, 4, 12), pants, hp, 0, -.22, 0);
-    const kn = new THREE.Group(); kn.position.y = -.44; hp.add(kn);
-    const sn = mk(new THREE.CapsuleGeometry(.065, .3, 4, 10), pants, kn, 0, -.2, 0);
-    mk(new THREE.BoxGeometry(.13, .08, .26), shoe, kn, 0, -.44, -.05);
-    return { hp, th, kn, sn, s };
+    const p = skinnedPart(bodyGeometry(legRings, { y: -.44 }, .07, 22), bodyMat, -.44);
+    p.mesh.position.set(s * .095, -.04, 0);
+    hips.add(p.mesh);
+    const shoe = new THREE.Group(); shoe.position.set(0, -.46, -.035); p.b1.add(shoe);
+    add(new THREE.SphereGeometry(.07, 18, 12), shoeM, shoe, 0, .015, 0).scale.set(.85, .75, 1.75);
+    add(new THREE.BoxGeometry(.12, .03, .25), soleM, shoe, 0, -.035, -.005);
+    return { mesh: p.mesh, hp: p.b0, kn: p.b1, s };
   };
   const arms = [arm(-1), arm(1)], legs = [leg(-1), leg(1)];
+  const morphed = [torso.mesh, ...arms.map(a => a.mesh), ...legs.map(l => l.mesh)];
 
   const char = {
     root, body, hips, chest, head, tail, arms, legs, f: 0,
     halfWidth: .35,
     setFat(f) {
       char.f = f;
-      pelvis.scale.set(1.15 + 1.7 * f, .9 + .35 * f, .9 + 1.4 * f);
-      torso.scale.set(1 + 1.5 * f, 1 + .08 * f, 1 + 1.3 * f);
-      belly.scale.setScalar(.5 + 1.7 * f);
-      belly.position.z = -.05 - .14 * f;
-      neck.scale.set(1 + .8 * f, 1, 1 + .8 * f);
-      head.scale.setScalar(1 + .15 * f);
-      for (const l of legs) {
-        l.hp.position.x = l.s * (.11 + .18 * f);
-        l.th.scale.set(1 + 1.8 * f, 1, 1 + 1.8 * f);
-        l.sn.scale.set(1 + 1.0 * f, 1, 1 + 1.0 * f);
-      }
-      for (const a of arms) {
-        a.sh.position.x = a.s * (.27 + .27 * f);
-        a.up.scale.set(1 + 1.4 * f, 1, 1 + 1.4 * f);
-        a.lo.scale.set(1 + .8 * f, 1, 1 + .8 * f);
-      }
+      for (const m of morphed) m.morphTargetInfluences[0] = f;
+      head.scale.setScalar(1 + .12 * f);
+      for (const l of legs) l.mesh.position.x = l.s * (.095 + .14 * f);
+      for (const a of arms) a.mesh.position.x = a.s * (.17 + .2 * f);
       char.halfWidth = .35 + .65 * f;
     },
     // phase advances with distance; amp 0 = standing still
@@ -310,28 +452,31 @@ function makeCharacter() {
       legs[1].kn.rotation.x = -(.2 + Math.max(0, -c) * 1.1) * amp;
       arms[0].sh.rotation.x = -s * .75 * amp;
       arms[1].sh.rotation.x = s * .75 * amp;
-      for (const a of arms) { a.el.rotation.x = 1.1 * amp; a.sh.rotation.z = a.s * (.12 + .35 * f); }
+      for (const a of arms) { a.el.rotation.x = 1.1 * amp; a.sh.rotation.z = a.s * (.1 + .4 * f); }
+      for (const l of legs) l.hp.rotation.z = l.s * .05 * f;
       body.position.y = Math.abs(s) * .07 * amp;
       hips.rotation.y = s * .15 * amp;
-      chest.rotation.y = -s * .22 * amp;
+      chest.rotation.y = -s * .25 * amp;
       chest.rotation.x = -.08 * amp;
       root.rotation.z = s * .09 * f * amp;
-      tail.rotation.x = .25 + Math.abs(c) * .4 * amp;
-      tail.rotation.z = s * .3 * amp;
+      tail.rotation.x = -Math.abs(c) * .45 * amp;
+      tail.rotation.z = s * .35 * amp;
     },
     pose(name, t = 0) {
       // non-running poses for the trampoline sequence
       for (const l of legs) { l.hp.rotation.set(0, 0, 0); l.kn.rotation.set(0, 0, 0); }
       for (const a of arms) { a.sh.rotation.set(0, 0, 0); a.el.rotation.set(0, 0, 0); }
-      hips.rotation.set(0, 0, 0); chest.rotation.set(0, 0, 0); root.rotation.z = 0; body.position.y = 0;
+      hips.rotation.set(0, 0, 0); chest.rotation.set(0, 0, 0); tail.rotation.set(0, 0, 0);
+      root.rotation.z = 0; body.position.y = 0;
       if (name === 'crouch') {
         for (const l of legs) { l.hp.rotation.x = .9 * t; l.kn.rotation.x = -1.6 * t; }
-        body.position.y = -.35 * t;
-        for (const a of arms) { a.sh.rotation.x = .9 * t; a.el.rotation.x = .4 * t; }
+        body.position.y = -.3 * t;
+        chest.rotation.x = .25 * t;
+        for (const a of arms) { a.sh.rotation.x = -.9 * t; a.el.rotation.x = .4 * t; }
       } else if (name === 'fly') {
         for (const a of arms) { a.sh.rotation.z = a.s * 2.7; a.sh.rotation.x = Math.sin(t * 9 + a.s) * .2; }
         for (const l of legs) { l.hp.rotation.z = l.s * .25; l.hp.rotation.x = Math.sin(t * 9 + l.s) * .3; l.kn.rotation.x = -.5; }
-        tail.rotation.x = 1.2;
+        tail.rotation.x = -1.0;
       } else if (name === 'cheer') {
         for (const a of arms) { a.sh.rotation.z = a.s * (2.6 + Math.sin(t * 10) * .25); a.el.rotation.z = -a.s * .3; }
         body.position.y = Math.abs(Math.sin(t * 6)) * .15;
@@ -1016,6 +1161,7 @@ function frame() {
     camPos.set(S.x * .5, 4.2, S.z + 7.6);
     camLook.set(S.x * .3, 1.0, S.z - 6);
   }
+  if (window.__freeCam) camPos.copy(window.__freeCam.pos), camLook.copy(window.__freeCam.look);
   camera.position.x = damp(camera.position.x, camPos.x, 5, dt);
   camera.position.y = damp(camera.position.y, camPos.y, 5, dt);
   camera.position.z = damp(camera.position.z, camPos.z, 8, dt);
