@@ -126,7 +126,7 @@ const woodMat=new THREE.MeshLambertMaterial({color:0x9a6a3a});
 const ballMat=new THREE.MeshLambertMaterial({color:0x222222});
 const M=c=>new THREE.MeshLambertMaterial({color:c});
 const white=new THREE.MeshBasicMaterial({color:0xffffff}),black=new THREE.MeshBasicMaterial({color:0});
-let foes=[],ball=null,extent={w:6,h:6};
+let foes=[],balls=[],lastFire=0,extent={w:6,h:6};
 
 let towerId=0;
 function wakeTower(id){if(id===undefined)return;for(const t of things)if(t.body.tower===id)t.body.wakeUp();}
@@ -192,7 +192,7 @@ function addFoe(type,x,y,z){
 }
 function clearAll(){
   for(const t of things){scene.remove(t.mesh);world.removeBody(t.body);}
-  things.length=0;foes=[];ball=null;
+  things.length=0;foes=[];balls=[];
 }
 function pickType(n,top,kingSlot){
   if(kingSlot)return'king';
@@ -297,7 +297,7 @@ function showAim(){
 function hideAim(){reticle.visible=false;dots.forEach(d=>d.visible=false);}
 canvas.addEventListener('pointerdown',e=>{
   initAudio();
-  if(state!=='aim'||ammo<1)return;
+  if(state!=='aim'||ammo<1||performance.now()-lastFire<250)return;
   drag=true;canvas.setPointerCapture(e.pointerId);setTarget(e);$('hint').style.opacity=0;
 });
 canvas.addEventListener('pointermove',e=>{if(drag)setTarget(e);});
@@ -312,8 +312,8 @@ function fire(){
   b.velocity.set(vel.x,vel.y,vel.z);b.linearDamping=0.01;
   b.addEventListener('collide',e=>{const v=Math.abs(e.contact.getImpactVelocityAlongNormal());if(v>3)thud(v*1.5);wakeTower(e.body.tower);});
   world.addBody(b);
-  const t={mesh:m,body:b,age:0};things.push(t);ball=t;
-  ammo--;state='fly';settleT=0;hud();sfx.boom();
+  const t={mesh:m,body:b,age:0};things.push(t);balls.push(t);
+  ammo--;lastFire=performance.now();state=ammo>0?'aim':'fly';settleT=0;hud();sfx.boom();
   burst(b.position,0xdddddd,10,4);
 }
 
@@ -361,15 +361,13 @@ function frame(now){
     if($('foes').textContent!=='👾 '+left)hud();
     if(left===0){state='win';winT=0;}
   }
-  if(state==='fly'&&ball){
-    ball.age+=dt;
-    const b=ball.body,still=b.velocity.length()<0.6;
-    if(b.position.y<-5||b.position.z<-45||ball.age>7||(still&&ball.age>1))settleT+=dt;
-    if(settleT>0.6){
-      scene.remove(ball.mesh);world.removeBody(ball.body);things.splice(things.indexOf(ball),1);ball=null;
-      if(ammo>0)state='aim';else{state='settle';settleT=0;}
+  for(let i=balls.length-1;i>=0;i--){
+    const bl=balls[i],b=bl.body;bl.age+=dt;
+    if(b.position.y<-5||b.position.z<-45||bl.age>7||(b.velocity.length()<0.6&&bl.age>1)){
+      scene.remove(bl.mesh);world.removeBody(b);things.splice(things.indexOf(bl),1);balls.splice(i,1);
     }
   }
+  if(state==='fly'&&!balls.length){state='settle';settleT=0;}
   if(state==='settle'){
     settleT+=dt;
     if(settleT>2.5){
@@ -391,7 +389,7 @@ function frame(now){
 }
 loadLevel(level);state='menu';
 requestAnimationFrame(frame);
-window.__cb={get state(){return state},get foes(){return foes.filter(f=>!f.dead).length},get ammo(){return ammo},setLevel(n){level=n;loadLevel(n);},foeInfo(){return foes.map(f=>[f.type,f.dead,+f.body.position.x.toFixed(1),+f.body.position.y.toFixed(1)])},screen(){return foes.filter(f=>!f.dead).map(f=>{const v=f.mesh.position.clone().project(cam);return [(v.x+1)/2*innerWidth,(1-v.y)/2*innerHeight];});},dbg(){return {foes:foes.map(f=>[f.type,+f.body.position.x.toFixed(2),+f.body.position.y.toFixed(2),+f.body.position.z.toFixed(2),+f.body.velocity.x.toFixed(2),+f.body.velocity.y.toFixed(2),+f.body.velocity.z.toFixed(2)]),sleep:things.filter(t=>t.body.tower&&t.body.tower<4).map(t=>t.body.sleepState).join('')}},blocks(){return things.filter(t=>!t.type&&t.body.mass>0&&t!==ball).map(t=>[+t.body.position.x.toFixed(1),+t.body.position.y.toFixed(1)])}};
+window.__cb={get state(){return state},get foes(){return foes.filter(f=>!f.dead).length},get ammo(){return ammo},setLevel(n){level=n;loadLevel(n);},foeInfo(){return foes.map(f=>[f.type,f.dead,+f.body.position.x.toFixed(1),+f.body.position.y.toFixed(1)])},screen(){return foes.filter(f=>!f.dead).map(f=>{const v=f.mesh.position.clone().project(cam);return [(v.x+1)/2*innerWidth,(1-v.y)/2*innerHeight];});},dbg(){return {foes:foes.map(f=>[f.type,+f.body.position.x.toFixed(2),+f.body.position.y.toFixed(2),+f.body.position.z.toFixed(2),+f.body.velocity.x.toFixed(2),+f.body.velocity.y.toFixed(2),+f.body.velocity.z.toFixed(2)]),sleep:things.filter(t=>t.body.tower&&t.body.tower<4).map(t=>t.body.sleepState).join('')}},blocks(){return things.filter(t=>!t.type&&t.body.mass>0&&!t.age).map(t=>[+t.body.position.x.toFixed(1),+t.body.position.y.toFixed(1)])}};
 })();
 
 </script>
