@@ -50,10 +50,10 @@ ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 const world=new CANNON.World();
 world.gravity.set(0,-18,0);
 world.solver.iterations=30;world.solver.tolerance=0.001;
-world.allowSleep=false; // sleeping bodies froze mid-air at the top of a bounce
+world.allowSleep=true; // castles sleep until hit; monsters sleep only after 1.5s of near-stillness
 const gb=new CANNON.Body({mass:0});gb.addShape(new CANNON.Plane());
 gb.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0),-Math.PI/2);world.addBody(gb);
-world.defaultContactMaterial.friction=0.9;world.defaultContactMaterial.contactEquationStiffness=1e8;world.defaultContactMaterial.contactEquationRelaxation=4;
+world.defaultContactMaterial.friction=0.9;
 world.defaultContactMaterial.restitution=0.1;
 
 // ---------- audio (all synthesized, starts on first tap) ----------
@@ -128,12 +128,14 @@ const M=c=>new THREE.MeshLambertMaterial({color:c});
 const white=new THREE.MeshBasicMaterial({color:0xffffff}),black=new THREE.MeshBasicMaterial({color:0});
 let foes=[],ball=null,extent={w:6,h:6};
 
+let towerId=0;
+function wakeTower(id){if(id===undefined)return;for(const t of things)if(t.body.tower===id)t.body.wakeUp();}
 function addBox(x,y,z,w,h,d,mass,mat){
   const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
   m.castShadow=m.receiveShadow=true;m.position.set(x,y,z);scene.add(m);
-  const b=new CANNON.Body({mass});
+  const b=new CANNON.Body({mass,linearDamping:0.2,angularDamping:0.5,sleepSpeedLimit:0.25,sleepTimeLimit:0.6});b.tower=towerId;
   b.addShape(new CANNON.Box(new CANNON.Vec3(w/2,h/2,d/2)));b.position.set(x,y,z);
-  b.addEventListener('collide',e=>{const v=Math.abs(e.contact.getImpactVelocityAlongNormal());if(v>4)thud(v);});
+  b.addEventListener('collide',e=>{const v=Math.abs(e.contact.getImpactVelocityAlongNormal());if(v>4)thud(v);if(v>1.2){wakeTower(b.tower);wakeTower(e.body.tower);}});
   world.addBody(b);things.push({mesh:m,body:b});return b;
 }
 
@@ -183,9 +185,9 @@ function makeFoeMesh(type){
 function addFoe(type,x,y,z){
   const T=TYPES[type],m=makeFoeMesh(type);m.position.set(x,y+T.r,z);scene.add(m);
   const b=new CANNON.Body({mass:T.mass});
-  b.addShape(new CANNON.Sphere(T.r));b.position.set(x,y+T.r,z);b.linearDamping=0.1;b.angularDamping=0.6;
+  b.addShape(new CANNON.Sphere(T.r));b.position.set(x,y+T.r,z);b.allowSleep=true;b.sleepSpeedLimit=0.15;b.sleepTimeLimit=1.5;b.tower=towerId;b.linearDamping=0.25;b.angularDamping=0.8;
   const t={mesh:m,body:b,type,dead:false,born:0,r:T.r,thr:T.thr};
-  b.addEventListener('collide',e=>{if(t.born>0.8&&Math.abs(e.contact.getImpactVelocityAlongNormal())>T.thr)t.hit=true;});
+  b.addEventListener('collide',e=>{if(Math.abs(e.contact.getImpactVelocityAlongNormal())>1.5)wakeTower(e.body.tower);if(t.born>0.8&&Math.abs(e.contact.getImpactVelocityAlongNormal())>T.thr)t.hit=true;});
   world.addBody(b);things.push(t);foes.push(t);
 }
 function clearAll(){
@@ -202,6 +204,7 @@ function pickType(n,top,kingSlot){
   return pool[Math.floor(Math.random()*pool.length)];
 }
 function buildTower(n,cx,cz,floors,wide,kingSlot){
+  towerId++;
   const pw=0.6,ph=1.5,sw=wide?3.4:2.8,sd=wide?2.6:2.2,sh=0.4;
   let y=0;
   for(let f=0;f<floors;f++){
@@ -209,7 +212,7 @@ function buildTower(n,cx,cz,floors,wide,kingSlot){
     const dx=sw/2-pw/2,dz=sd/2-pw/2;
     for(const sx of[-1,1])for(const sz of[-1,1])addBox(cx+sx*dx,y+ph/2,cz+sz*dz,pw,ph,pw,2,mat);
     y+=ph;
-    addBox(cx,y+sh/2,cz,sw,sh,sd,1.5,stoneMats[(f+1)%3]);
+    addBox(cx,y+sh/2,cz,sw,sh,sd,1,stoneMats[(f+1)%3]);
     y+=sh;
     if(f<floors-1&&f%2===0)addFoe(pickType(n),cx,y,cz);
   }
@@ -228,7 +231,8 @@ function loadLevel(n){
     buildTower(n,x,z,2+((i+n)%3)+(n>4?1:0),towers<3,n%5===0&&i===Math.floor(towers/2));
   }
   extent.w=Math.max(6,(towers-1)*spread+4);
-  ammo=3+Math.min(3,Math.floor(n/2))+(towers>3?1:0);
+  ammo=5+Math.min(3,Math.floor(n/2))+(towers>3?1:0);
+  for(const t of things)if(t.body.tower!==undefined)t.body.sleep();
   state='aim';settleT=0;winT=0;fitCamera();hud();
   const h=$('hint');
   h.style.opacity=n<=2?1:0;h.textContent='👆 Touch where you want to hit, then let go';
@@ -303,10 +307,10 @@ function fire(){
   if(state!=='aim'||ammo<1)return;
   const dir=vel.clone().normalize();
   const m=new THREE.Mesh(new THREE.SphereGeometry(0.4,16,12),ballMat);m.castShadow=true;scene.add(m);
-  const b=new CANNON.Body({mass:4});b.addShape(new CANNON.Sphere(0.4));
+  const b=new CANNON.Body({mass:7});b.addShape(new CANNON.Sphere(0.4));
   b.position.set(cannonPos.x+dir.x*1.2,cannonPos.y+dir.y*1.2,cannonPos.z+dir.z*1.2);
   b.velocity.set(vel.x,vel.y,vel.z);b.linearDamping=0.01;
-  b.addEventListener('collide',e=>{const v=Math.abs(e.contact.getImpactVelocityAlongNormal());if(v>3)thud(v*1.5);});
+  b.addEventListener('collide',e=>{const v=Math.abs(e.contact.getImpactVelocityAlongNormal());if(v>3)thud(v*1.5);wakeTower(e.body.tower);});
   world.addBody(b);
   const t={mesh:m,body:b,age:0};things.push(t);ball=t;
   ammo--;state='fly';settleT=0;hud();sfx.boom();
@@ -387,7 +391,7 @@ function frame(now){
 }
 loadLevel(level);state='menu';
 requestAnimationFrame(frame);
-window.__cb={get state(){return state},get foes(){return foes.filter(f=>!f.dead).length},get ammo(){return ammo},setLevel(n){level=n;loadLevel(n);},foeInfo(){return foes.map(f=>[f.type,f.dead,+f.body.position.y.toFixed(2)])}};
+window.__cb={get state(){return state},get foes(){return foes.filter(f=>!f.dead).length},get ammo(){return ammo},setLevel(n){level=n;loadLevel(n);},foeInfo(){return foes.map(f=>[f.type,f.dead,+f.body.position.x.toFixed(1),+f.body.position.y.toFixed(1)])},screen(){return foes.filter(f=>!f.dead).map(f=>{const v=f.mesh.position.clone().project(cam);return [(v.x+1)/2*innerWidth,(1-v.y)/2*innerHeight];});},dbg(){return {foes:foes.map(f=>[f.type,+f.body.position.x.toFixed(2),+f.body.position.y.toFixed(2),+f.body.position.z.toFixed(2),+f.body.velocity.x.toFixed(2),+f.body.velocity.y.toFixed(2),+f.body.velocity.z.toFixed(2)]),sleep:things.filter(t=>t.body.tower&&t.body.tower<4).map(t=>t.body.sleepState).join('')}},blocks(){return things.filter(t=>!t.type&&t.body.mass>0&&t!==ball).map(t=>[+t.body.position.x.toFixed(1),+t.body.position.y.toFixed(1)])}};
 })();
 
 </script>
