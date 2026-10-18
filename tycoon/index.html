@@ -19,6 +19,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
 #rate{font-size:15px;color:#cfe;opacity:.9;margin-top:3px}
 #floorName{font-size:13px;opacity:.75;margin-top:3px}
 [hidden]{display:none!important}
+#money,#next,#help,#toasts,#loading>*{pointer-events:none} /* touches pass through to the joystick and camera */
 #nextText .where{color:#9fe8ff;font-size:14px}
 #skBadge{background:var(--gold);color:#3a2600;border-radius:8px;padding:0 6px;margin-left:6px;font-size:13px}
 #skills.glow{animation:glow 1.2s ease-in-out infinite alternate}
@@ -60,7 +61,27 @@ canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
 #knob{position:absolute;left:32px;top:32px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.65)}
 #jump{position:fixed;right:calc(24px + env(safe-area-inset-right,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px));width:80px;height:80px;border-radius:50%;font-size:18px;display:none;touch-action:none}
 #loading{position:fixed;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;font-size:30px;font-weight:700;background:linear-gradient(#5aa9f0,#bfe6ff);color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.25)}
-@media (max-width:640px){#cash{font-size:26px}.coin{width:36px;height:36px;font-size:20px}#money{padding:8px 14px 8px 10px}#next{top:auto;bottom:122px;min-width:0;width:calc(100vw - 28px)}#nextText{font-size:14px}.btn{padding:6px 10px;font-size:13px}.label .name{font-size:15px}.label .cost{font-size:19px}}
+/* Phones: compact HUD, buttons stacked down the right edge, goal bar at the
+   bottom, and nothing over the JUMP button. */
+@media (max-width:640px),(max-height:500px){
+  #cash{font-size:24px}#rate,#floorName{font-size:12px}#rebirths{font-size:11px}
+  .coin{width:32px;height:32px;font-size:18px}
+  #money{padding:7px 12px 7px 9px;gap:9px}
+  #controls{flex-direction:column;align-items:flex-end;gap:6px}
+  .btn{padding:6px 10px;font-size:13px}
+  #next{top:auto;bottom:calc(122px + env(safe-area-inset-bottom,0px));min-width:0;width:calc(100vw - 28px);padding:7px 12px 9px}
+  #nextText{font-size:13px}
+  #toasts{bottom:calc(190px + env(safe-area-inset-bottom,0px))}
+  .toast{font-size:15px;padding:7px 12px}
+  #help.touch{left:calc(14px + env(safe-area-inset-left,0px));right:calc(120px + env(safe-area-inset-right,0px));transform:none;bottom:calc(30px + env(safe-area-inset-bottom,0px));font-size:12px}
+  .label .name{font-size:14px}.label .cost{font-size:18px}
+}
+@media (max-height:500px){
+  #next{bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100vw - 300px))}
+  #toasts{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+  #jump{width:68px;height:68px}
+  #help.touch{top:calc(14px + env(safe-area-inset-top,0px));bottom:auto;left:50%;right:auto;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 480px)}
+}
 </style>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
 </head>
@@ -1369,6 +1390,7 @@ applyGraphics();
 // ---------------------------------------------------------------- input --
 if (isTouch) {
   $('jump').style.display = 'block';
+  $('help').classList.add('touch');
   $('help').textContent = 'Left side: move · right side: look · step on buttons to buy';
 }
 addEventListener('keydown', e => {

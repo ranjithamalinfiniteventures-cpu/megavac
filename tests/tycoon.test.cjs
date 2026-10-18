@@ -211,6 +211,45 @@ function serve() {
     assert.ok(Math.abs(bank - 2 / 1.5 * 600) < 5, `bank ${bank}`);
   });
 
+  test('on a phone the joystick walks, JUMP jumps and the HUD does not overlap', async () => {
+    const {devices} = require('playwright');
+    const ctx = await browser.newContext({...devices['iPhone 13']});
+    const phone = await ctx.newPage();
+    phone.on('pageerror', e => errors.push(e.message));
+    await phone.goto(url.replace('?test', ''));
+    await phone.waitForFunction(() => window.tycoon);
+    await phone.waitForTimeout(500);
+    const cdp = await ctx.newCDPSession(phone);
+    const touch = (type, touchPoints) => cdp.send('Input.dispatchTouchEvent', {type, touchPoints});
+    const start = await phone.evaluate(() => ({x: tycoon.player.x, z: tycoon.player.z}));
+    // The thumb lands where the help bar sits, which must not swallow it.
+    await touch('touchStart', [{x: 90, y: 600, id: 1}]);
+    for (let i = 1; i <= 5; i++) { await touch('touchMove', [{x: 90, y: 600 - i * 10, id: 1}]); await phone.waitForTimeout(30); }
+    await phone.waitForTimeout(800);
+    const end = await phone.evaluate(() => ({x: tycoon.player.x, z: tycoon.player.z}));
+    await touch('touchEnd', []);
+    assert.ok(Math.hypot(end.x - start.x, end.z - start.z) > 5, 'the joystick did not move the player');
+    await phone.tap('#jump');
+    let top = 0;
+    for (let i = 0; i < 20; i++) { await phone.waitForTimeout(25); top = Math.max(top, await phone.evaluate(() => tycoon.player.y)); }
+    assert.ok(top > 2, `JUMP reached only ${top}`);
+    for (const size of [{width: 390, height: 664}, {width: 844, height: 390}]) {
+      await phone.setViewportSize(size);
+      await phone.waitForTimeout(200);
+      const rects = await phone.evaluate(() => ['money', 'next', 'controls', 'help', 'jump'].map(id => {
+        const r = document.getElementById(id).getBoundingClientRect();
+        return {id, l: r.left, t: r.top, r: r.right, b: r.bottom};
+      }));
+      for (const a of rects) for (const b of rects) {
+        if (a.id >= b.id) continue;
+        const overlap = a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+        assert.ok(!overlap, `${a.id} overlaps ${b.id} at ${size.width}x${size.height}`);
+      }
+      assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth), size.width);
+    }
+    await ctx.close();
+  });
+
   let failed = 0;
   for (const [name, f] of tests) {
     try { await f(); console.log('PASS ' + name); }
