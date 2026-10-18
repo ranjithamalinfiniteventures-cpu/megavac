@@ -136,19 +136,19 @@ export class Combat {
   // ---------- gangs ----------
   _goons(rand) {
     const spots = [];
-    const tops = this.world.tops.filter(t => t.y > 12 && t.y < 70 && t.w > 10 && t.d > 10).sort(() => rand() - 0.5).slice(0, 9);
+    const tops = this.world.tops.filter(t => t.y > 12 && t.y < 70 && t.w > 10 && t.d > 10).sort(() => rand() - 0.5).slice(0, 13);
     for (const t of tops) spots.push({ x: t.x, z: t.z, y: t.y, roof: true });
-    for (let k = 0; k < 9; k++) { // street corners
+    for (let k = 0; k < 13; k++) { // street corners
       const i = 1 + Math.floor(rand() * (N - 2)), j = 1 + Math.floor(rand() * (N - 2));
       spots.push({ x: roadAt(i) + ROAD / 2 + 2.5, z: roadAt(j) + ROAD / 2 + 2.5, y: 0.25, roof: false });
     }
-    this.goons = [];
-    for (const s of spots) for (let k = 0; k < 3; k++) {
+    this.goons = []; this.spots = spots;
+    spots.forEach((s, si) => { for (let k = 0; k < 3; k++) {
       const a = k / 3 * Math.PI * 2 + rand();
       const home = new THREE.Vector3(s.x + Math.cos(a) * 2.2, s.y, s.z + Math.sin(a) * 2.2);
       this.goons.push({ home, pos: home.clone(), vel: new THREE.Vector3(), yaw: rand() * 6.28, hp: 3, down: 0, spin: 0,
-        alert: 0, cd: 1 + rand() * 2, los: false, losT: rand() * 0.5, phase: rand() * 6 });
-    }
+        alert: 0, cd: 1 + rand() * 2, los: false, losT: rand() * 0.5, phase: rand() * 6, spot: si });
+    } });
     const n = this.goons.length;
     const mat = new THREE.MeshStandardMaterial({ roughness: 0.75, flatShading: true });
     const parts = {

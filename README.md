@@ -127,7 +127,11 @@ landscape works best.
 - **Gangs** — armed gang members (red dots on the minimap) guard street corners and
   rooftops and shoot back. Health regenerates when you stay out of fire; at zero you
   respawn on the nearest street.
-- **Goal** — collect the 30 golden tokens on rooftops (beams of light mark them).
+- **Missions** — glowing beams around the city (coloured dots on the minimap) start
+  side missions for cash: ring races (blue), gang hits (red) and smash sprees (orange).
+  Cash also comes from tokens, gang takedowns and wrecked cars.
+- **Slow motion** — B (touch: SLOW) slows the world to a third for 6 seconds.
+- **Goal** — collect the 40 golden tokens on rooftops (beams of light mark them).
 - T skips time of day (night brings lit windows, street lamps and headlights),
   G toggles graphics quality (it also drops automatically on slow machines), M mutes,
   R returns you to the nearest street.
@@ -139,7 +143,7 @@ procedurally (run, sprint, swing, wall crawl, flips, superhero landing).
 
 Code: `js/world.js` (city generation, collision, sky, day/night), `js/hero.js`
 (rig, animation, traversal physics), `js/vehicles.js` (cars, traffic AI, plane,
-pedestrians), `js/combat.js` (weapons, explosions, gangs), `js/touch.js` (touch controls),
+pedestrians), `js/combat.js` (weapons, explosions, gangs), `js/missions.js` (side missions), `js/touch.js` (touch controls),
 `js/fx.js` (particles, WebAudio), `js/main.js` (loop, camera, input, HUD).
 
 Smoke test (headless Chromium via Playwright, needs network for three.js):

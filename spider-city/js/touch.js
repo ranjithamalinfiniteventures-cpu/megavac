@@ -23,6 +23,7 @@ export function setupTouch(root, { key, look, pause }) {
     <button class="tbtn tiny" id="tTime" aria-label="Skip time">☾</button>
     <button class="tbtn tiny" id="tPause" aria-label="Pause">II</button>
     <button class="tbtn tiny wide" id="tCall">CALL</button>
+    <button class="tbtn tiny" id="tSlow">SLOW</button>
     <div id="tCallMenu" hidden>
       <button class="tbtn pill" id="tCallCar">CAR</button>
       <button class="tbtn pill" id="tCallPlane">PLANE</button>
@@ -47,6 +48,7 @@ export function setupTouch(root, { key, look, pause }) {
   const press = code => { key(code, true); key(code, false); };
   tap('tPause', pause);
   tap('tTime', () => press('KeyT'));
+  tap('tSlow', () => press('KeyB'));
   const menu = $('tCallMenu');
   tap('tCall', () => { menu.hidden = !menu.hidden; });
   tap('tCallCar', () => { press('Digit1'); menu.hidden = true; });

@@ -90,6 +90,20 @@ try {
     const n = __game.combat.projectiles.length; S(60);
     return n >= 2 && __game.plane.pos.y > 150 || `rockets ${n} alt ${__game.plane.pos.y}`;
   });
+  await test('completes a ring race mission for cash', () => {
+    const g = __game, m = g.missions, k = m.markers.find(x => x.type === 'race');
+    if (g.mode !== 'foot') { g.press('KeyF'); S(2); }
+    g.hero.pos.copy(k.pos); g.hero.state = 'ground'; S(3);
+    if (m.current?.type !== 'race') return 'race did not start';
+    const cash = m.cash, c = m.current;
+    for (let i = 0; i < 7; i++) { g.hero.pos.copy(c.pts[c.idx]); g.hero.vel.set(0, 0, 0); g.hero.state = 'air'; S(2); }
+    return !m.current && m.cash > cash || `cash ${cash} -> ${m.cash}`;
+  });
+  await test('slow motion slows the world', () => {
+    const g = __game; g.press('KeyB'); const t0 = g.world.uniforms.uTime.value; S(60);
+    const d = g.world.uniforms.uTime.value - t0;
+    return d > 0.25 && d < 0.5 || `world time ${d}`;
+  });
   await page.evaluate(() => __game.render());
   assert.deepEqual(errors, []);
   console.log('PASS no page errors');

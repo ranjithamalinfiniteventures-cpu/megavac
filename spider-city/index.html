@@ -51,6 +51,12 @@
   #cross.gun::before, #cross.gun::after { background: #ff4d5e; }
   #hp { margin-top: 8px; width: 170px; height: 9px; border-radius: 5px; background: rgba(10,12,20,0.6); border: 1px solid rgba(255,255,255,0.25); overflow: hidden; }
   #hpfill { height: 100%; width: 100%; background: #4cd964; transition: width .15s; }
+  .pill.cash { color: #7dff9a; }
+  #mission { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font: 900 italic 18px system-ui; letter-spacing: 1px;
+             background: rgba(10,12,20,0.6); border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; padding: 6px 18px; white-space: nowrap; }
+  body.touch #mission { top: 60px; font-size: 14px; }
+  body.slowmo #game { filter: saturate(0.55) contrast(1.1) hue-rotate(-12deg); }
+  body.slowmo #hurt { opacity: 0.35 !important; background: radial-gradient(ellipse at center, rgba(0,60,255,0) 50%, rgba(20,60,200,0.55) 100%); }
   #hurt { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,0,0,0) 45%, rgba(220,0,20,0.75) 100%); z-index: 4; }
   #toast { position: absolute; top: 22%; left: 50%; transform: translate(-50%, -10px); font: 900 italic 24px system-ui; text-align: center;
            text-shadow: 0 3px 0 #0a1a55, 0 0 20px rgba(0,0,0,0.6); opacity: 0; transition: opacity .25s, transform .25s; padding: 0 16px; width: 100%; }
@@ -80,6 +86,7 @@
   .tbtn.slot-c { right: calc(110px + env(safe-area-inset-right, 0px)); bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
   .tbtn.slot-d { right: calc(206px + env(safe-area-inset-right, 0px)); bottom: calc(40px + env(safe-area-inset-bottom, 0px)); background: rgba(224,24,45,0.5); }
   .tbtn.act { background: rgba(29,60,156,0.65); }
+  #tSlow { left: calc(50% + 129px); width: 60px; border-radius: 21px; font-size: 12px; }
   #tCall { left: calc(50% + 55px); width: 66px; border-radius: 21px; font-size: 12px; }
   body.touch #toast { font-size: 17px; top: 34%; }
   #tCallMenu { position: absolute; top: calc(62px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: flex; gap: 8px; pointer-events: auto; }
@@ -112,10 +119,11 @@
   <canvas id="map" width="170" height="170"></canvas>
   <div id="topleft">
     <div id="mode">ON FOOT</div>
-    <div id="stats"><span class="pill gold">◆ <span id="tokens">0 / 30</span></span><span class="pill" id="clock">00:00</span><span class="pill" id="kills">☠ 0</span></div>
+    <div id="stats"><span class="pill gold">◆ <span id="tokens">0 / 30</span></span><span class="pill" id="clock">00:00</span><span class="pill" id="kills">☠ 0</span><span class="pill cash" id="cash">$0</span></div>
     <div id="hp"><div id="hpfill"></div></div>
   </div>
   <div id="cross"></div>
+  <div id="mission" hidden></div>
   <div id="toast"></div>
   <div id="hint"></div>
   <div id="touch"></div>
@@ -145,6 +153,10 @@
       <div><h3>CALL A RIDE</h3>
         <kbd>1</kbd> car · <kbd>2</kbd> plane (drops in mid-air)<br>
         <kbd>3</kbd> tank: aim with the mouse, <kbd>Click</kbd> fire</div>
+      <div><h3>MISSIONS &amp; POWERS</h3>
+        Walk into a glowing beam to start a mission for cash:<br>
+        blue ring races, red gang hits, orange smash sprees<br>
+        <kbd>B</kbd> slow motion for 6 seconds</div>
       <div><h3>CAR &amp; PLANE</h3>
         Car: <kbd>W</kbd><kbd>S</kbd> gas/brake · <kbd>Space</kbd> drift<br>
         Plane: <kbd>Shift</kbd>/<kbd>X</kbd> throttle · <kbd>S</kbd> climb<br>
@@ -159,6 +171,7 @@
       <div><h3>WEB</h3>Tap <b>JUMP</b>, then <b>hold</b> it in the air to swing. Let go to fling.<br><b>ZIP</b> shoots a web to the centre of the screen.</div>
       <div><h3>RIDES</h3>Tap <b>CALL</b> at the top for a car, plane or tank, or walk up to any car and tap <b>DRIVE</b>.<br>Cars: the stick steers, <b>GAS</b> and <b>BRAKE</b> drive.</div>
       <div><h3>FIGHT</h3><b>GUN</b> switches to the blaster, <b>FIRE</b> shoots at the crosshair.<br>Plane and tank have <b>FIRE</b> too. Red dots on the map are gangs.</div>
+      <div><h3>MISSIONS</h3>Walk into a glowing beam (coloured dots on the map) to start a mission for cash.<br><b>SLOW</b> at the top turns on slow motion.</div>
     </div>
   </div>
 </div>

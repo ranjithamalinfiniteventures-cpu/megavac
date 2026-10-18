@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-export const N = 10, BLOCK = 60, ROAD = 16, P = BLOCK + ROAD, HALF = N * P / 2;
+export const N = 14, BLOCK = 60, ROAD = 16, P = BLOCK + ROAD, HALF = N * P / 2;
 export const LANE = 4;
 export const roadAt = k => -HALF + k * P;
 export const AIR = { x0: HALF + 90, x1: HALF + 690, z: 0, w: 44 };
@@ -93,7 +93,11 @@ export class Collision {
   raycast(o, d, maxD, ground = true) {
     let best = maxD, ax = -1, sg = 0, box = null;
     const O = [o.x, o.y, o.z], D = [d.x, d.y, d.z];
-    for (const b of this.boxes) {
+    // short rays only test boxes in the grid cells their segment's bounding box covers
+    const list = maxD > 400 ? this.boxes : this.query(
+      Math.min(o.x, o.x + d.x * maxD), Math.min(o.z, o.z + d.z * maxD),
+      Math.max(o.x, o.x + d.x * maxD), Math.max(o.z, o.z + d.z * maxD)).slice();
+    for (const b of list) {
       let t0 = 0, t1 = best, a0 = -1, s0 = 0, ok = true;
       for (let a = 0; a < 3; a++) {
         if (Math.abs(D[a]) < 1e-9) {
@@ -354,7 +358,7 @@ export class World {
     const B = [], T = [], S = [], trees = [], neon = [], lampPos = [], tanks = [], ponds = [];
     const palette = [0xd9cbb3, 0xc4a484, 0xa8b4c0, 0x8c9aa8, 0xe6e0d4, 0xb86f52, 0x9b6a4e, 0x7d8c96, 0xcfd8dc, 0x5e6b78, 0xe8d5b5, 0x6f7f8f, 0xc9b79c, 0x94a3a8];
     const neonCols = [0xff2a6d, 0x05d9e8, 0xffd319, 0x7cff4f, 0xb967ff];
-    const parks = new Set(['4,5', '5,5', '1,2', '8,1', '2,8', '7,7', '0,6', '9,4']);
+    const parks = new Set(['6,7', '7,7', '2,3', '11,2', '3,11', '10,10', '1,8', '12,6', '8,12', '5,1', '13,13']);
     const darker = c => new THREE.Color(c).multiplyScalar(0.62).getHex();
 
     const addTier = (x, z, w, d, y, h, c) => {
@@ -452,7 +456,7 @@ export class World {
       }
     }
     // shoreline parkland trees
-    for (let k = 0; k < 160; k++) {
+    for (let k = 0; k < 240; k++) {
       const side = Math.floor(R() * 4);
       const t = (R() - 0.5) * 2 * (HALF + 40);
       const o = HALF + 18 + R() * 40;
@@ -617,7 +621,7 @@ export class World {
     const beamMat = new THREE.MeshBasicMaterial({ color: 0xffb030, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false });
     const beamG = new THREE.CylinderGeometry(0.35, 0.35, 40, 6, 1, true).translate(0, 20, 0);
     const pool = this.tops.slice().sort(() => R() - 0.5);
-    for (let i = 0; i < 30 && i < pool.length; i++) {
+    for (let i = 0; i < 40 && i < pool.length; i++) {
       const t = pool[i];
       const m = new THREE.Mesh(g, mat); m.position.set(t.x, t.y + 1.8, t.z); m.castShadow = true;
       const beam = new THREE.Mesh(beamG, beamMat); beam.position.copy(m.position);

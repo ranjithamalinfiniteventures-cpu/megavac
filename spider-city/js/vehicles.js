@@ -176,7 +176,7 @@ export class Traffic {
     const types = ['sedan', 'sedan', 'sedan', 'taxi', 'taxi', 'van', 'sports', 'muscle'];
     const colors = [0xc0392b, 0x2e86de, 0xf1c40f, 0xecf0f1, 0x2c3e50, 0x27ae60, 0x8e44ad, 0xe67e22, 0x95a5a6, 0x16a085, 0xd35400, 0x34495e];
     const used = new Set();
-    for (let i = 0; i < 44; i++) {
+    for (let i = 0; i < 64; i++) {
       let k, l, nb, key;
       do { k = Math.floor(rand() * (N + 1)); l = Math.floor(rand() * (N + 1)); nb = neighbors(k, l); nb = nb[Math.floor(rand() * nb.length)]; key = k + ',' + l + '>' + nb; } while (used.has(key));
       used.add(key);
