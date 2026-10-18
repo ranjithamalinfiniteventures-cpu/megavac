@@ -3,6 +3,9 @@
 A procedural vacuum game: clean a kitchen, garage, street, skyline, and orbit.
 Single HTML file, no build step, no image assets. Existing `megavac.v1` saves are preserved.
 
+This repo also holds **Mega Factory Tycoon**, a 3D idle tycoon in Three.js —
+see [`tycoon/`](#mega-factory-tycoon) below.
+
 ## Play locally
 
 ```sh
@@ -84,3 +87,38 @@ python3 tools/package_game.py
 Creates `release/megavac-crazygames.zip` with `index.html`, `music.m4a`, and `music.mp3`
 at its root. It excludes backups, development previews, and tests. See `RELEASE_NOTES.md`
 for scope, verification, and remaining launch work.
+
+## Mega Factory Tycoon
+
+A 3D idle tycoon in a single file, [`tycoon/index.html`](tycoon/index.html), built with
+Three.js (loaded from unpkg, no build step). Walk a blocky avatar around your factory
+plot and step on buttons to buy droppers, upgraders and boosts. Drops ride the
+conveyor through upgraders into the furnace, and you step on the green pad to collect.
+Buying everything unlocks Rebirth, which resets the plot for +50% income each time.
+Rebirth 1 opens Floor 2 (Crystal Lab) and Rebirth 3 opens Floor 3 (Space Factory), each
+with its own belt, droppers and upgraders; the corner pads carry you between floors.
+Every rebirth also earns a skill point for the skill tree (K): lucky gold gems, faster
+droppers, cheaper buttons, auto-collect, faster walking, double jump and longer
+away earnings.
+New players get a short tutorial with guide arrows (skippable); afterwards a floating
+arrow and an arrow at your feet point to the next button you can afford, routing through
+the corner pads when it is on another floor. Stepping on Rebirth shows what you lose and keep before anything resets, and 13
+achievements (🏆) each pay 30 seconds of income. Progress saves to `localStorage`, and time away (up to 2 hours) is paid into the bank.
+
+```sh
+python3 -m http.server 8787 --directory tycoon
+```
+
+Open http://localhost:8787/. Use WASD / arrows to walk, Space to jump, drag to turn the
+camera and scroll to zoom. On touch screens, the left side is a joystick and the right
+side turns the camera. M toggles sound. Costs and drop values are in the `ITEMS` list
+at the top of the script.
+
+**Offline copy:** [`tycoon/mega-factory-tycoon.html`](tycoon/mega-factory-tycoon.html) is the whole game
+in one file, with three.js and the Fredoka font built in. It needs no network: open it
+straight from disk. Rebuild it after changing `tycoon/index.html` with
+`python3 tools/build_tycoon_offline.py` (needs node and npm). Fredoka is under the SIL
+Open Font License, in `tycoon/fonts/OFL.txt`.
+
+`node tests/tycoon.test.cjs` drives the page in headless Chromium (needs network
+access for three.js).
