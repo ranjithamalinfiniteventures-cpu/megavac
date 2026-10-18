@@ -21,25 +21,56 @@
   }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
-  #hud { position: fixed; top: 0; left: 0; right: 0; padding: 12px 16px; display: none;
-         flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+  /* HUD: a level-progress strip and one compact weight meter, kept to the top edge */
+  #hud { position: fixed; top: 0; left: 0; right: 0; display: none; flex-direction: column; align-items: center;
+         gap: 8px; pointer-events: none; z-index: 5;
+         padding-top: calc(10px + env(safe-area-inset-top, 0px));
+         padding-left: max(16px, env(safe-area-inset-left, 0px));
+         padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   #hud.on { display: flex; }
-  .row { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
-  .chip { background: var(--panel); border-radius: 999px; padding: 5px 12px; font-weight: 800;
-          font-size: 14px; box-shadow: 0 3px 0 rgba(0,0,0,.12); white-space: nowrap; }
-  #weightCard { background: var(--panel); border-radius: 16px; padding: 8px 12px 10px;
-                width: min(340px, 100%); box-shadow: 0 4px 0 rgba(0,0,0,.12); }
-  #weightTop { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; }
-  #weightNum { font-size: 26px; }
-  #weightNum small { font-size: 14px; }
-  #status { font-size: 15px; }
-  #bar { position: relative; height: 12px; border-radius: 99px; margin-top: 4px;
-         background: linear-gradient(90deg, #1fbf63, #a6d93a 35%, #ffc93a 60%, #ff3b5c); }
-  #marker { position: absolute; top: -5px; width: 6px; height: 22px; margin-left: -3px;
-            background: var(--ink); border-radius: 4px; border: 2px solid #fff; transition: left .15s; }
-  #predict { font-size: 13px; font-weight: 700; margin-top: 4px; text-align: center; opacity: .8; }
+  #progRow { display: flex; align-items: center; gap: 8px; width: min(300px, 100%); }
+  .lvl { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+         font-weight: 900; font-size: 14px; color: #fff; background: var(--accent);
+         box-shadow: 0 2px 0 #c2307a; font-variant-numeric: tabular-nums; }
+  .lvl.next { background: var(--panel); color: var(--ink); box-shadow: 0 2px 0 rgba(0,0,0,.15); }
+  #prog { flex: 1; height: 10px; border-radius: 99px; background: rgba(255,255,255,.6);
+          box-shadow: inset 0 1px 2px rgba(0,0,0,.12); overflow: hidden; }
+  #progFill { height: 100%; width: 0; border-radius: 99px; background: var(--accent); }
 
-  #muteBtn { position: fixed; right: 12px; bottom: 12px; width: 44px; height: 44px; border-radius: 50%;
+  #weightCard { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+                width: min(380px, 100%); padding: 8px 10px 8px 14px; border-radius: 16px;
+                background: var(--panel); box-shadow: 0 3px 0 rgba(0,0,0,.1); }
+  #wLeft { display: grid; line-height: 1; min-width: 62px; }
+  #weightNum { font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  #weightNum small { font-size: 12px; font-weight: 800; margin-left: 2px; }
+  #status { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; margin-top: 3px; }
+  #wMid { min-width: 0; padding-top: 12px; }
+  #bar { position: relative; height: 10px; border-radius: 99px;
+         background: linear-gradient(90deg, #1fbf63, #a6d93a 35%, #ffc93a 60%, #ff3b5c); }
+  #goalFlag { position: absolute; top: -13px; bottom: -3px; width: 0; border-left: 2px dashed var(--ink); opacity: .55; }
+  #goalFlag::before { content: "🎯"; position: absolute; top: -3px; left: -7px; font-size: 11px; line-height: 1; }
+  #marker { position: absolute; top: -4px; width: 8px; height: 18px; margin-left: -4px; border-radius: 4px;
+            background: var(--ink); border: 2px solid #fff; transition: left .15s; }
+  #barLabels { display: flex; justify-content: space-between; font-size: 10px; font-weight: 800;
+               text-transform: uppercase; letter-spacing: .06em; opacity: .55; margin-top: 3px; }
+  #predict { display: grid; justify-items: center; line-height: 1; padding: 6px 9px; border-radius: 12px;
+             min-width: 58px; background: #ffe3ea; color: #c8143a; transition: background .2s, color .2s; }
+  #predict.ok { background: #d9f7e6; color: #0f8a45; }
+  #predictNum { font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  #predict small { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+
+  /* altimeter replaces the HUD while flying */
+  #altimeter { position: fixed; left: 0; right: 0; top: calc(16px + env(safe-area-inset-top, 0px)); display: none;
+               flex-direction: column; align-items: center; pointer-events: none; z-index: 5; color: #fff;
+               text-shadow: 0 3px 0 var(--accent), 0 6px 16px rgba(0,0,0,.2); }
+  #altimeter.on { display: flex; }
+  #altNum { font-size: clamp(48px, 14vw, 72px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+  #altNum small { font-size: .45em; }
+  #altGoal { margin-top: 6px; padding: 4px 12px; border-radius: 99px; font-size: 14px; font-weight: 900;
+             text-shadow: none; background: var(--panel); color: var(--ink); }
+  #altimeter.passed #altGoal { background: #ffc400; }
+
+  #muteBtn { position: fixed; right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: 44px; height: 44px; border-radius: 50%;
              border: 0; background: var(--panel); font-size: 20px; cursor: pointer; z-index: 20;
              box-shadow: 0 3px 0 rgba(0,0,0,.15); }
 
@@ -86,16 +117,21 @@
 <canvas id="c"></canvas>
 
 <div id="hud">
-  <div class="row">
-    <span class="chip" id="levelChip">LEVEL 1</span>
-    <span class="chip" id="goalChip">🎯 Goal 12 m</span>
+  <div id="progRow" aria-label="Level progress">
+    <span class="lvl" id="lvlNow">1</span>
+    <div id="prog"><div id="progFill"></div></div>
+    <span class="lvl next" id="lvlNext">2</span>
   </div>
   <div id="weightCard">
-    <div id="weightTop"><span id="weightNum">85 <small>kg</small></span><span id="status">Fit</span></div>
-    <div id="bar"><div id="marker"></div></div>
-    <div id="predict">Jump now ≈ 17 m</div>
+    <div id="wLeft"><span id="weightNum">95<small>kg</small></span><span id="status">Fit</span></div>
+    <div id="wMid">
+      <div id="bar"><div id="goalFlag"></div><div id="marker"></div></div>
+      <div id="barLabels"><span>Slim</span><span>Heavy</span></div>
+    </div>
+    <div id="predict"><span id="predictNum">16 m</span><small>jump</small></div>
   </div>
 </div>
+<div id="altimeter"><span id="altNum">0.0<small> m</small></span><span id="altGoal">🎯 Goal 16 m</span></div>
 <div id="pops"></div>
 <div id="banner"></div>
 <button id="muteBtn" aria-label="Toggle sound">🔊</button>
@@ -870,8 +906,10 @@ function resetRun() {
   updateHud(true);
   $('menuLevel').textContent = level;
   $('menuBest').textContent = best.toFixed(1) + ' m';
-  $('levelChip').textContent = 'LEVEL ' + level;
-  $('goalChip').textContent = `🎯 Goal ${goal} m`;
+  $('lvlNow').textContent = level;
+  $('lvlNext').textContent = level + 1;
+  $('altGoal').textContent = `🎯 Goal ${goal} m`;
+  $('altimeter').classList.remove('on', 'passed');
 }
 
 function changeWeight(kg, text) {
@@ -908,19 +946,36 @@ function banner(text, ms = 1100) {
   bannerTimer = setTimeout(() => b.classList.remove('on'), ms);
 }
 
+// weight at which a jump just reaches the goal (inverse of jumpHeight)
+const goalWeight = g => W_MAX - Math.pow(clamp((g - 1) / 39, 0, 1), 1 / 1.6) * (W_MAX - W_MIN);
+
 let lastHud = '';
 function updateHud(force) {
   const w = Math.round(S.shownWeight);
   const [st, col] = statusOf(S.shownWeight);
-  const h = jumpHeight(S.shownWeight).toFixed(0);
-  const key = w + st + h;
+  const h = jumpHeight(S.shownWeight);
+  const prog = Math.round(clamp(S.z / zFinish, 0, 1) * 200);
+  const key = [w, st, h.toFixed(1), prog].join();
   if (!force && key === lastHud) return;
   lastHud = key;
-  $('weightNum').innerHTML = `${w} <small>kg</small>`;
+  $('weightNum').innerHTML = `${w}<small>kg</small>`;
   $('status').textContent = st;
   $('status').style.color = col;
   $('marker').style.left = (fatness(S.shownWeight) * 100) + '%';
-  $('predict').textContent = `Jump now ≈ ${h} m` + (h >= goal ? ' ✅' : '');
+  $('goalFlag').style.left = (fatness(goalWeight(goal)) * 100) + '%';
+  $('predictNum').textContent = h.toFixed(1) + ' m';
+  $('predict').classList.toggle('ok', h >= goal);
+  $('progFill').style.width = (prog / 2) + '%';
+}
+
+let altMax = 0;
+function updateAltimeter() {
+  // shows the highest point reached, so it holds the record while falling to the ledge
+  if (S.mode === 'fly') altMax = Math.max(altMax, Math.min(S.y - .62, S.jumpH));
+  else if (S.mode === 'land') altMax = S.jumpH;
+  const h = Math.max(0, altMax);
+  $('altNum').innerHTML = `${h.toFixed(1)}<small> m</small>`;
+  $('altimeter').classList.toggle('passed', h >= goal);
 }
 
 let ac = null, muted = store.get('muted', false);
@@ -1036,6 +1091,10 @@ function updateRun(dt) {
   if (S.mode === 'toTramp' && S.z <= zTramp) {
     S.z = zTramp; S.x = 0;
     S.mode = 'crouch'; S.t = 0;
+    $('hud').classList.remove('on');
+    $('altimeter').classList.add('on');
+    altMax = 0;
+    updateAltimeter();
     S.jumpH = jumpHeight(S.weight);
   }
   S.phase += S.speed * dt * 1.15;
@@ -1088,6 +1147,7 @@ function finishLevel() {
   beep(passed ? 660 : 300, passed ? 1320 : 200, .5, 'triangle', .14);
   setTimeout(() => {
     S.mode = 'result';
+    $('altimeter').classList.remove('on');
     $('hud').classList.remove('on');
     $('resTitle').textContent = passed ? (newBest ? 'New record!' : 'Level complete!') : 'Too heavy to reach the goal';
     $('resStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < stars ? '' : 'dim'}">⭐</span>`).join('');
@@ -1134,6 +1194,7 @@ function frame() {
   else if (S.mode === 'menu') { hero.run(elapsed * 2.2, .15); hero.body.position.y = 0; }
   hero.root.position.set(S.x, S.y, S.z);
   updateHud(false);
+  if (S.mode === 'fly' || S.mode === 'land') updateAltimeter();
 
   // item idle animation + pickup shrink
   for (const it of items) {
