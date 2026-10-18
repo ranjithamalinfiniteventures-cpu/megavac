@@ -2,7 +2,7 @@
 
 A single-file Three.js + cannon.js cannon-puzzle game in the style of hyper-casual "knock everything off the island" mobile hits.
 
-Open `index.html` in a browser (needs internet for the CDN scripts). Point at a toy (or drag onto it on a touch screen) and click/release to fire.
+Open `index.html` in a browser (needs internet for the CDN scripts). On desktop, point at a toy and click. On touch screens, drag anywhere to move the aim ring (it follows your finger without sitting under it) and let go to fire.
 
 - 100 levels: 8 hand-made, then seeded procedural levels that grow in size and add TNT
 - 10 balls per level; stars drop as you use more shots than the level's par

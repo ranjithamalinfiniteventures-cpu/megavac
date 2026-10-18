@@ -475,9 +475,9 @@ world.defaultContactMaterial.restitution = 0.08;
 world.defaultContactMaterial.contactEquationStiffness = 1e7;
 world.defaultContactMaterial.contactEquationRelaxation = 3;
 world.defaultContactMaterial.frictionEquationStiffness = 1e7;
-world.addContactMaterial(new CANNON.ContactMaterial(toyMat, toyMat, { friction: 0.45, restitution: 0.08, contactEquationStiffness: 1e7, contactEquationRelaxation: 3 }));
+world.addContactMaterial(new CANNON.ContactMaterial(toyMat, toyMat, { friction: 0.38, restitution: 0.08, contactEquationStiffness: 1e7, contactEquationRelaxation: 3 }));
 world.addContactMaterial(new CANNON.ContactMaterial(groundMat, toyMat, { friction: 0.22, restitution: 0.05, contactEquationStiffness: 1e7, contactEquationRelaxation: 3 }));
-world.addContactMaterial(new CANNON.ContactMaterial(ballMat, toyMat, { friction: 0.2, restitution: 0.3, contactEquationStiffness: 1e7, contactEquationRelaxation: 3 }));
+world.addContactMaterial(new CANNON.ContactMaterial(ballMat, toyMat, { friction: 0.2, restitution: 0.12, contactEquationStiffness: 1e7, contactEquationRelaxation: 3 }));
 const FIXED = 1 / 120;
 let acc = 0;
 
@@ -575,7 +575,6 @@ const aimPoint = new THREE.Vector3(0, 2.6, -5);
 const cannonDir = new THREE.Vector3(0, 0.2, -1).normalize();
 const aimVel = new THREE.Vector3();
 let aimT = 0.6;
-let aimVisible = true;
 const stars = (() => { const s = store('smash-fiesta-stars'); return Array.isArray(s) ? s : []; })();
 let unlocked = clamp(+store('smash-fiesta-unlocked') || 1, 1, LEVEL_COUNT);
 for (let i = 0; i < stars.length; i++) if (stars[i]) unlocked = Math.max(unlocked, Math.min(LEVEL_COUNT, i + 2));
@@ -701,7 +700,7 @@ function solveAim() {
   let start = p0.clone();
   for (let k = 0; k < 3; k++) {
     const dist = start.distanceTo(aimPoint);
-    aimT = clamp(dist / 30, 0.36, 0.8);
+    aimT = clamp(dist / 40, 0.3, 0.62);
     aimVel.copy(aimPoint).sub(start).divideScalar(aimT);
     aimVel.y += 0.5 * g * aimT;
     start = p0.clone().addScaledVector(aimVel.clone().normalize(), MUZZLE_LEN);
@@ -710,7 +709,7 @@ function solveAim() {
 }
 
 function updateAimVisuals(start, rdt) {
-  const show = aimVisible && mode === 'play' && ballsLeft > 0;
+  const show = mode === 'play' && ballsLeft > 0;
   const g = -world.gravity.y;
   const tEnd = aimT * 1.3;
   for (let i = 0; i < dots.length; i++) {
@@ -752,7 +751,7 @@ function newBody(mass) {
 const ctx = {
   box(x, y, z, w, h, d, ci) {
     const hex = pal(ci);
-    const b = newBody(Math.max(0.4, w * h * d * 0.6));
+    const b = newBody(Math.max(0.3, w * h * d * 0.38));
     b.addShape(new CANNON.Box(new CANNON.Vec3(w / 2, h / 2, d / 2)));
     b.position.set(x, y + h / 2, z);
     const side = sideMat(hex), face = faceMat(hex, Math.abs(Math.round(ci + x * 3)) & 3);
@@ -760,7 +759,7 @@ const ctx = {
     addThing({ body: b, mesh, target: true, hex });
   },
   tnt(x, y, z, s = 1.3) {
-    const b = newBody(s * s * s * 0.6);
+    const b = newBody(s * s * s * 0.38);
     b.addShape(new CANNON.Box(new CANNON.Vec3(s / 2, s / 2, s / 2)));
     b.position.set(x, y + s / 2, z);
     const mesh = new THREE.Mesh(boxGeo(s, s, s), cached('mtnt', () => physical({ color: col('#ffffff'), map: tntTex() })));
@@ -825,7 +824,7 @@ const HAND = [
     for (const x of [-1.5, 0, 1.5]) tnt(x, 0, cz - 0.3, S);
     for (let i = 0; i < 5; i++) box((i - 2) * SX, 0, cz + 2.4, S, S * 0.8, S, i + 2);
   } },
-  { name: 'Wobbly Stack', par: 2, w: 6.2, d: 5.6, build({ box, tnt, ball }) {
+  { name: 'Wobbly Stack', par: 3, w: 5.2, d: 4.8, build({ box, tnt, ball }) {
     const hh = 0.75, L = 3.9, T = 1.3;
     for (let l = 0; l < 9; l++) {
       const y = l * (hh + 0.006);
@@ -914,7 +913,7 @@ function genLevel(i) {
     const w = MODS[type].width(p);
     if (W + w + (mods.length ? 1 : 0) > 16.5) break;
     W += w + (mods.length ? 1 : 0);
-    mods.push({ type, p, w, dz: (r() - 0.5) * 1.4 });
+    mods.push({ type, p, w, dz: type === 'jenga' || type === 'pins' ? 0 : (r() - 0.5) * 1.2 });
   }
   const tntChance = n < 12 ? 0 : 0.08 + d * 0.16;
   const maxTnt = n < 12 ? 0 : 1 + Math.floor(d * 4);
@@ -922,7 +921,7 @@ function genLevel(i) {
   const seed = n * 104729 + 3;
   return {
     name: ADJ[Math.floor(r() * ADJ.length)] + ' ' + MODS[main.type].noun,
-    w: clamp(W + 1.8, 6.5, 18.5), d: 5.8, par: null,
+    w: clamp(W + 1.6, 5.4, 18.5), d: clamp(Math.max(...mods.map((m) => (m.type === 'jenga' ? 3.9 : m.type === 'pins' ? m.p.rows * 1.05 : S) + Math.abs(m.dz) * 2)) + 1.3, 4.2, 6), par: null,
     build(c) {
       const rr = mulberry32(seed);
       let tnts = 0;
@@ -992,13 +991,14 @@ function loadLevel(i) {
   ballsTotal = ballsLeft = BALLS_PER_LEVEL;
   cooldown = 0; score = 0; combo = 0; comboT = 0; endTimer = 0; endType = ''; settleT = 0; firedAny = false;
   targetScale = 1; timeScale = 1; acc = 0; shake = 0;
-  aimPoint.set(0, 2.2, cz + level.d / 2 - 1);
-  aimVisible = !isTouch;
+  aimLock = false; drag = null;
   camLook.set(0, 1.2, -1.2);
   layoutCamera();
+  centerAim();
+  resolveAim();
   $('#lvlLabel').textContent = 'Level ' + (levelIdx + 1);
   const h = $('#hint');
-  h.textContent = isTouch ? 'Drag onto a toy, let go to fire' : 'Point at a toy, click to fire';
+  h.textContent = isTouch ? 'Drag anywhere to aim, let go to fire' : 'Point at a toy, click to fire';
   h.classList.remove('gone');
   lastStars = 3;
   renderAmmo(); renderLeft();
@@ -1117,32 +1117,73 @@ function syncMute() { $('#muteWaves').style.display = muted ? 'none' : ''; }
 $('#btnMute').addEventListener('click', () => { muted = !muted; store('smash-fiesta-muted', muted); syncMute(); ac(); });
 syncMute();
 
-/* ---------- input: aim at the toy under the pointer ---------- */
-const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+/* ---------- input ----------
+   The reticle lives in screen space and glides toward its target, so aiming never jumps.
+   Mouse: the reticle follows the cursor. Touch: drag anywhere and the reticle moves with
+   your finger (offset, so your finger never hides it); let go to fire. */
+const ray = new THREE.Raycaster();
 const aimPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 5);
-function setAim(ev) {
+const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const MIN_AIM_Y = 0.45;
+const aimNdc = new THREE.Vector2(0, 0), aimNdcSmooth = new THREE.Vector2(0, 0);
+let drag = null, aimLock = false;
+const TOUCH_SENS = 1.2;
+const pointerNdc = (e) => {
   const r = canvas.getBoundingClientRect();
-  ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
-  ray.setFromCamera(ndc, camera);
+  return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+};
+const clampNdc = (v) => v.set(clamp(v.x, -0.97, 0.97), clamp(v.y, -0.85, 0.9));
+function resolveAim() {
+  if (aimLock) return;
+  ray.setFromCamera(aimNdcSmooth, camera);
   const meshes = [];
   for (const t of things) if (!t.fallen) meshes.push(t.mesh);
   const hits = ray.intersectObjects(meshes, false);
   if (hits.length) {
     aimPoint.copy(hits[0].point);
-    aimPoint.y = Math.max(aimPoint.y, BALL_R + 0.15);
-  } else {
-    aimPlane.constant = -cz;
-    const hit = new THREE.Vector3();
-    if (ray.ray.intersectPlane(aimPlane, hit)) {
-      const hw = (level ? level.w / 2 : 6) + 3;
-      aimPoint.set(clamp(hit.x, -hw, hw), clamp(hit.y, BALL_R + 0.15, 11), cz);
-    }
+    aimPoint.y = Math.max(aimPoint.y, MIN_AIM_Y);
+    return;
   }
-  aimVisible = true;
+  const hw = (level ? level.w / 2 : 6) + 3, hit = new THREE.Vector3();
+  aimPlane.constant = -cz;
+  if (ray.ray.intersectPlane(aimPlane, hit) && hit.y >= MIN_AIM_Y) {
+    aimPoint.set(clamp(hit.x, -hw, hw), Math.min(hit.y, 12), cz);
+    return;
+  }
+  floorPlane.constant = -MIN_AIM_Y;
+  if (ray.ray.intersectPlane(floorPlane, hit)) aimPoint.set(clamp(hit.x, -hw, hw), MIN_AIM_Y, clamp(hit.z, cz - level.d / 2, cz + level.d / 2 + 1));
 }
-canvas.addEventListener('pointerdown', (e) => { if (mode !== 'play') return; ac(); canvas.setPointerCapture(e.pointerId); setAim(e); });
-canvas.addEventListener('pointermove', (e) => { if (mode !== 'play') return; if (e.pointerType === 'mouse' || e.buttons) setAim(e); });
-canvas.addEventListener('pointerup', (e) => { if (mode !== 'play') return; setAim(e); fire(); });
+function centerAim() {
+  camera.position.copy(camPos); camera.lookAt(camLook); camera.updateMatrixWorld();
+  const v = new THREE.Vector3(0, 1.0, cz + 0.6).project(camera);
+  aimNdc.set(v.x, v.y); aimNdcSmooth.copy(aimNdc);
+}
+canvas.addEventListener('pointerdown', (e) => {
+  if (mode !== 'play') return;
+  ac(); aimLock = false;
+  canvas.setPointerCapture(e.pointerId);
+  if (e.pointerType === 'mouse') aimNdc.copy(pointerNdc(e));
+  else drag = { x: e.clientX, y: e.clientY };
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (mode !== 'play') return;
+  if (e.pointerType === 'mouse') { aimLock = false; aimNdc.copy(pointerNdc(e)); return; }
+  if (!drag) return;
+  const r = canvas.getBoundingClientRect();
+  aimNdc.x += ((e.clientX - drag.x) / r.width) * 2 * TOUCH_SENS;
+  aimNdc.y -= ((e.clientY - drag.y) / r.height) * 2 * TOUCH_SENS;
+  clampNdc(aimNdc);
+  drag.x = e.clientX; drag.y = e.clientY;
+});
+canvas.addEventListener('pointerup', (e) => {
+  if (mode !== 'play') return;
+  if (e.pointerType === 'mouse') aimNdc.copy(pointerNdc(e));
+  drag = null;
+  aimNdcSmooth.copy(aimNdc);
+  resolveAim();
+  fire();
+});
+canvas.addEventListener('pointercancel', () => { drag = null; });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('keydown', (e) => { if (mode === 'play' && (e.code === 'Space' || e.code === 'Enter') && document.activeElement === document.body) { e.preventDefault(); fire(); } });
 
@@ -1153,7 +1194,7 @@ function fire() {
   ballsLeft--; cooldown = 0.45; firedAny = true; settleT = 0;
   $('#hint').classList.add('gone');
   renderAmmo();
-  const body = new CANNON.Body({ mass: 14, material: ballMat, linearDamping: 0.01, allowSleep: false });
+  const body = new CANNON.Body({ mass: 24, material: ballMat, linearDamping: 0.01, allowSleep: false });
   body.addShape(new CANNON.Sphere(BALL_R));
   body.position.set(start.x, start.y, start.z);
   body.velocity.set(aimVel.x, aimVel.y, aimVel.z);
@@ -1329,6 +1370,8 @@ function frame(now) {
   updateFx(dt);
   updateCamera(rdt, now);
   updateScenery(rdt, now);
+  aimNdcSmooth.lerp(aimNdc, 1 - Math.exp(-rdt * 22));
+  resolveAim();
   const start = solveAim();
   updateAimVisuals(start, rdt);
   renderer.render(scene, camera);
@@ -1341,7 +1384,7 @@ menuPage = Math.floor(levelIdx / PAGE);
 loadLevel(levelIdx);
 showOverlay('menu');
 requestAnimationFrame(frame);
-window.__fiesta = { fire, startPlay, loadLevel, unlockAll() { unlocked = LEVEL_COUNT; }, get mode() { return mode; }, get left() { return remainingTargets(); }, get par() { return level.par; }, aim(x, y, z) { aimPoint.set(x, y, z == null ? cz : z); aimVisible = true; }, get things() { return things.length; }, targets() { return things.filter((t) => t.target && !t.fallen).map((t) => [t.body.position.x, t.body.position.y, t.body.position.z]); } };
+window.__fiesta = { fire, startPlay, loadLevel, unlockAll() { unlocked = LEVEL_COUNT; }, get mode() { return mode; }, get left() { return remainingTargets(); }, get par() { return level.par; }, aim(x, y, z) { aimLock = true; aimPoint.set(x, y, z == null ? cz : z); }, get things() { return things.length; }, targets() { return things.filter((t) => t.target && !t.fallen).map((t) => [t.body.position.x, t.body.position.y, t.body.position.z]); } };
 })();
 </script>
 
