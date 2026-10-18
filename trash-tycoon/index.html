@@ -357,19 +357,13 @@ const UP = {
   park: { name: 'Expand Park', max: 2, cost: l => [500, 2500][l] },
 };
 const MACH = [
-  { name: 'Brick Press', good: 'brick', price: 0, use: 1, cycle: 1.1, value: 3, color: 0xe76f51 },
+  { name: 'Paper Mill', good: 'paper', price: 0, use: 1, cycle: 1.1, value: 3, color: 0xe76f51 },
   { name: 'Bottle Factory', good: 'bottle', price: 150, use: 1, cycle: 1.4, value: 7, color: 0x2a9df4 },
   { name: 'Furniture Shop', good: 'bench', price: 700, use: 2, cycle: 2.2, value: 18, color: 0x9c6644 },
-  { name: 'Gadget Lab', good: 'gadget', price: 2500, use: 3, cycle: 3.0, value: 45, color: 0x9b5de5 },
+  { name: 'Robot Factory', good: 'robot', price: 2500, use: 3, cycle: 3.0, value: 45, color: 0x9b5de5 },
 ];
 const MACH_MAX_LVL = 5;
 const machUpCost = (i, l) => Math.round(40 * (i + 1) * Math.pow(1.85, l));
-const GOODS = {
-  brick: { c: 0xd9653b, s: [0.82, 0.42, 0.5] },
-  bottle: { c: 0x3fa7f5, s: [0.74, 0.5, 0.74] },
-  bench: { c: 0x8a5a36, s: [0.88, 0.38, 0.62] },
-  gadget: { c: 0xa970ff, s: [0.62, 0.46, 0.62], e: 0x3a1670 },
-};
 const GOOD_VALUE = Object.fromEntries(MACH.map(m => [m.good, m.value]));
 const stat = {
   truckCap: () => 12 + 6 * S.up.truckCap,
@@ -488,23 +482,86 @@ function updateFlyers(dt) {
 }
 
 // ---------- goods & stacks ----------
+// Each product is modelled from parts once, then baked into one vertex-coloured
+// mesh (plus one for glowing parts) so big stacks stay cheap to draw.
+const GOOD_BUILD = {
+  paper(g) { // shrink-wrapped 4-pack of toilet paper
+    for (const x of [-0.21, 0.21]) for (const z of [-0.21, 0.21]) {
+      mesh('cyl', 0xfaf8f2, x, 0, z, 0.42, 0.46, 0.42, g);
+      mesh('cyl', 0xb3ab9c, x, 0.232, z, 0.13, 0.01, 0.13, g);
+    }
+    RB(g, 0.9, 0.17, 0.9, 0x3fae5a, 0, 0, 0, 0.06);
+    RB(g, 0.36, 0.1, 0.02, 0xffffff, 0, 0, 0.455, 0.01);
+    RB(g, 0.02, 0.1, 0.36, 0xffffff, 0.455, 0, 0, 0.01);
+  },
+  bottle(g) { // crate of green glass bottles
+    const crate = 0x2a7fd4;
+    RB(g, 0.9, 0.08, 0.9, crate, 0, -0.21, 0, 0.03);
+    for (const s of [-1, 1]) for (const y of [-0.12, 0.0]) { RB(g, 0.9, 0.07, 0.06, crate, 0, y, s * 0.42, 0.02); RB(g, 0.06, 0.07, 0.9, crate, s * 0.42, y, 0, 0.02); }
+    for (const x of [-0.42, 0.42]) for (const z of [-0.42, 0.42]) RB(g, 0.09, 0.3, 0.09, 0x1f63a8, x, -0.08, z, 0.02);
+    const caps = [0xe63946, 0xffd23f, 0xffffff];
+    let k = 0;
+    for (const x of [-0.26, 0, 0.26]) for (const z of [-0.26, 0, 0.26]) {
+      mesh('cyl', 0x2fa36b, x, -0.06, z, 0.2, 0.26, 0.2, g);
+      mesh('sph', 0x2fa36b, x, 0.07, z, 0.2, 0.12, 0.2, g);
+      mesh('cyl', 0x2fa36b, x, 0.15, z, 0.08, 0.12, 0.08, g);
+      mesh('cyl', caps[k++ % 3], x, 0.22, z, 0.1, 0.05, 0.1, g);
+    }
+  },
+  bench(g) { // park bench: wooden slats on green metal frames
+    const wood = 0xc98b4f, iron = 0x2f5d3a;
+    for (const z of [-0.1, 0.04, 0.18]) RB(g, 0.9, 0.05, 0.12, wood, 0, -0.03, z, 0.02);
+    for (const y of [0.09, 0.19]) RB(g, 0.9, 0.08, 0.04, wood, 0, y, -0.22, 0.02);
+    for (const x of [-0.38, 0.38]) {
+      RB(g, 0.06, 0.22, 0.06, iron, x, -0.15, 0.17, 0.02);
+      RB(g, 0.06, 0.48, 0.06, iron, x, -0.01, -0.2, 0.02);
+      RB(g, 0.06, 0.05, 0.42, iron, x, 0.08, -0.01, 0.02);
+      RB(g, 0.06, 0.05, 0.42, iron, x, -0.08, -0.01, 0.02);
+    }
+  },
+  robot(g) { // toy robot with glowing eyes
+    for (const x of [-0.12, 0.12]) RB(g, 0.14, 0.08, 0.2, 0x3d4450, x, -0.21, 0.02, 0.03);
+    RB(g, 0.4, 0.26, 0.3, 0x7b4fd6, 0, -0.04, 0, 0.07);
+    RB(g, 0.16, 0.1, 0.02, 0xffd23f, 0, -0.02, 0.155, 0.01);
+    for (const x of [-0.25, 0.25]) RB(g, 0.08, 0.2, 0.1, 0x7b4fd6, x, -0.05, 0, 0.03);
+    RB(g, 0.32, 0.2, 0.26, 0xdfe4ea, 0, 0.16, 0, 0.07);
+    for (const x of [-0.07, 0.07]) mesh('sph', 0x5ff3ff, x, 0.17, 0.13, 0.08, 0.08, 0.04, g, { emissive: 0x33dddd });
+    mesh('cyl', 0x9aa0a6, 0, 0.29, 0, 0.03, 0.08, 0.03, g);
+    mesh('sph', 0xff4d4d, 0, 0.34, 0, 0.08, 0.08, 0.08, g, { emissive: 0xff2020 });
+  },
+};
+const GOOD_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.05 });
+const GOOD_GLOW = new THREE.MeshBasicMaterial({ vertexColors: true });
+function bakeParts(root) {
+  root.updateMatrixWorld(true);
+  const buckets = [[], []];
+  root.traverse(o => { if (o.isMesh) buckets[o.material.emissive && o.material.emissive.getHex() ? 1 : 0].push(o); });
+  return buckets.map(list => {
+    if (!list.length) return null;
+    const parts = list.map(o => { const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); g.applyMatrix4(o.matrixWorld); return { g, c: o.material.color }; });
+    const n = parts.reduce((t, p) => t + p.g.attributes.position.count, 0);
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3);
+    let k = 0;
+    for (const { g, c } of parts) {
+      pos.set(g.attributes.position.array, k * 3); nor.set(g.attributes.normal.array, k * 3);
+      for (let i = 0; i < g.attributes.position.count; i++) col.set([c.r, c.g, c.b], (k + i) * 3);
+      k += g.attributes.position.count; g.dispose();
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    out.computeBoundingSphere();
+    return out;
+  });
+}
+const goodGeo = {};
 function goodMesh(type) {
+  if (!goodGeo[type]) { const root = new THREE.Group(); GOOD_BUILD[type](root); goodGeo[type] = bakeParts(root); }
+  const [body, glow] = goodGeo[type];
   const g = new THREE.Group();
-  if (type === 'brick') {
-    RB(g, 0.82, 0.42, 0.5, 0xd9653b, 0, 0, 0, 0.07);
-    RB(g, 0.7, 0.04, 0.38, 0xb84f2b, 0, 0.21, 0, 0.02);
-  } else if (type === 'bottle') {
-    RB(g, 0.78, 0.34, 0.78, 0x2a7fd4, 0, -0.08, 0, 0.08);
-    for (const x of [-0.18, 0.18]) for (const z of [-0.18, 0.18]) mesh('cyl', 0xa8e4ff, x, 0.15, z, 0.2, 0.26, 0.2, g, { roughness: 0.15, transparent: true, opacity: 0.85 });
-  } else if (type === 'bench') {
-    RB(g, 0.9, 0.12, 0.5, 0xb07a4e, 0, -0.02, 0.04, 0.04);
-    RB(g, 0.9, 0.3, 0.09, 0xb07a4e, 0, 0.17, -0.2, 0.04);
-    for (const x of [-0.36, 0.36]) RB(g, 0.08, 0.22, 0.44, 0x3d4450, x, -0.16, 0.02, 0.03);
-  } else {
-    RB(g, 0.62, 0.44, 0.62, 0x7b4fd6, 0, 0, 0, 0.1);
-    RB(g, 0.44, 0.22, 0.04, 0x55f0f0, 0, 0.04, 0.31, 0.02, { emissive: 0x22c8c8, emissiveIntensity: 0.9 });
-    mesh('cyl', 0xffd23f, 0.2, 0.28, -0.15, 0.06, 0.16, 0.06, g);
-  }
+  const m = new THREE.Mesh(body, GOOD_MAT); m.castShadow = m.receiveShadow = true; g.add(m);
+  if (glow) g.add(new THREE.Mesh(glow, GOOD_GLOW));
   return g;
 }
 class Stack {
@@ -784,17 +841,19 @@ const machines = MACH.map((def, i) => {
   const tray = new THREE.Group(); tray.position.set(TRAY_X, 0.33, z); scene.add(tray);
   const out = new Stack(tray, i2 => { const l = Math.floor(i2 / 6), j = i2 % 6; return new THREE.Vector3(((j % 2) - 0.5) * 1.0, 0.25 + l * 0.52, (Math.floor(j / 2) - 1) * 1.0); }, 24);
   const label = makeLabel(7.5, def.name); label.position.set(MX, 9.6, z);
+  const show = goodMesh(def.good); show.scale.setScalar(1.9); show.position.set(TRAY_X, 5.2, z); scene.add(show);
+  const showRing = mesh('torus', 0xffd23f, TRAY_X, 4.5, z, 1.1, 1, 1.1, scene, { emissive: 0x7a5a00 }); showRing.castShadow = false;
   const inZone = floorSign(6.4, 6.4, 'TRASH IN', '#ffb703', IN_X, z);
   const outZone = floorSign(4.6, 4.6, 'PICK UP', '#2f9e57', OUT_X, z);
   const lockedSign = floorSign(9, 9, '', '#ffffff', MX, z); lockedSign.position.y = 0.07;
   const box = { x0: MX - 4, x1: MX + 4, z0: z - 4, z1: z + 4, on: () => S.mach[i] >= 0 };
   boxes.push(box);
-  return { i, def, z, g, hopper, fill, piston, gear, screen, lamp, out, label, inZone, outZone, lockedSign, inn: 0, maxIn: 40, t: 0, work: 0, pop: 1 };
+  return { i, def, z, g, hopper, fill, piston, gear, screen, lamp, show, showRing, out, label, inZone, outZone, lockedSign, inn: 0, maxIn: 40, t: 0, work: 0, pop: 1 };
 });
 function refreshMachines() {
   for (const m of machines) {
     const on = S.mach[m.i] >= 0;
-    m.g.visible = m.label.visible = m.inZone.visible = m.outZone.visible = on;
+    m.g.visible = m.label.visible = m.inZone.visible = m.outZone.visible = m.show.visible = m.showRing.visible = on;
     m.lockedSign.visible = !on;
     m.label.position.y = on ? 9.4 : 4;
   }
@@ -1195,6 +1254,7 @@ function updateMachines(dt) {
     }
     m.piston.position.y = 5.8 + (working ? Math.abs(Math.sin(m.work * 7)) * 0.7 : 0);
     if (working) m.gear.rotation.z -= dt * 2.5;
+    m.show.rotation.y += dt * 1.2; m.show.position.y = 5.2 + Math.sin(clock * 2 + m.i) * 0.2;
     m.lamp.material.emissive.setHex(m.out.full ? 0xff2a2a : working ? 0x2aff6a : 0x3a3a3a);
     m.screen.material.emissiveIntensity = working ? 0.8 + Math.sin(clock * 9) * 0.2 : 0.25;
     m.fill.visible = m.inn > 0;
@@ -1370,9 +1430,9 @@ function updateAction() {
 // ---------- tutorial ----------
 const TUT = [
   { text: () => driving ? 'Drive over trash in the park to collect it' : 'Tap DRIVE (or press E) to get back in the truck', target: () => driving ? nearestTrash() : truck, done: () => truck.load >= Math.min(8, stat.truckCap()) },
-  { text: () => 'Drive into the TRASH IN zone of the Brick Press', target: () => ({ x: IN_X, z: machines[0].z }), done: () => (S.unloaded || 0) >= 6 && truck.load === 0 },
+  { text: () => 'Drive into the TRASH IN zone of the Paper Mill', target: () => ({ x: IN_X, z: machines[0].z }), done: () => (S.unloaded || 0) >= 6 && truck.load === 0 },
   { text: () => 'Tap GET OUT (or press E) to step out of the truck', target: () => null, done: () => !driving },
-  { text: () => machines[0].out.n ? 'Pick up bricks at the machine\'s PICK UP zone' : 'The machine is making bricks…', target: () => ({ x: OUT_X, z: machines[0].z }), done: () => carry.n >= 3 || (carry.n > 0 && machines[0].out.n === 0) },
+  { text: () => machines[0].out.n ? 'Pick up the toilet paper packs at the PICK UP zone' : 'The Paper Mill is making toilet paper…', target: () => ({ x: OUT_X, z: machines[0].z }), done: () => carry.n >= 3 || (carry.n > 0 && machines[0].out.n === 0) },
   { text: () => 'Follow the footpath to the SELL dock at the port', target: () => DOCK, done: () => dock.n > 0 || buyer.state !== 'wait' },
   { text: () => cash.amount > 0 ? 'Collect your CASH!' : 'A cargo truck is buying your goods…', target: () => CASHPAD, done: () => S.cashCollected },
   { text: () => 'Stand on pads to buy upgrades and new machines!', target: () => ({ x: 22, z: -50 }), done: () => S.tutT > 7 },

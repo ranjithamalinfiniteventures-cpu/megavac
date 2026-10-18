@@ -28,12 +28,12 @@ Then open http://localhost:8790/.
    them and leaves. Your money appears on the **CASH** pad.
 6. **Grow.** Stand on a pad to pay into it. Pads buy new machines and upgrades.
 
-| Machine        | Price  | Trash per item | Sells for |
-|----------------|--------|----------------|-----------|
-| Brick Press    | free   | 1              | $3        |
-| Bottle Factory | $150   | 1              | $7        |
-| Furniture Shop | $700   | 2              | $18       |
-| Gadget Lab     | $2,500 | 3              | $45       |
+| Machine        | Makes                     | Price  | Trash per item | Sells for |
+|----------------|---------------------------|--------|----------------|-----------|
+| Paper Mill     | Toilet paper 4-packs      | free   | 1              | $3        |
+| Bottle Factory | Crates of glass bottles   | $150   | 1              | $7        |
+| Furniture Shop | Park benches              | $700   | 2              | $18       |
+| Robot Factory  | Toy robots                | $2,500 | 3              | $45       |
 
 Each machine has a **Faster Machine** pad with 5 levels. The upgrade yard behind the
 factory sells:
@@ -65,6 +65,6 @@ NODE_PATH=$(npm root -g) node tests/trash-tycoon.smoke.cjs
 ```
 
 The test opens the game in headless Chromium and plays one full loop: fill the truck,
-unload into the Brick Press, collect the bricks, sell them, and collect the cash. Then it
+unload into the Paper Mill, collect the paper packs, sell them, and collect the cash. Then it
 builds a machine, buys an upgrade, hires a worker, and checks that the save survives a
 reload. It fails on any page error. Set `SHOT_DIR=/some/dir` to save screenshots.

@@ -58,7 +58,7 @@ function check(cond, msg) {
     check(st.load === 12, `truck filled with trash (${st.load})`);
     if (OUT) await page.screenshot({ path: path.join(OUT, 'park.png') });
 
-    // 3. Unload into the Brick Press.
+    // 3. Unload into the Paper Mill.
     await page.evaluate(() => { TT.place(3, TT.machines[0].z); TT.step(1 / 30, 60); });
     st = await s();
     check(st.load === 0 && st.inn + st.out === 12, `trash unloaded into machine (in ${st.inn}, out ${st.out})`);
@@ -81,7 +81,7 @@ function check(cond, msg) {
     if (OUT) await page.screenshot({ path: path.join(OUT, 'port.png') });
     await page.evaluate(() => { TT.place(50, 0); for (let k = 0; k < 900 && TT.cash.amount === 0; k++) TT.step(1 / 30, 1); });
     st = await s();
-    check(st.pad === 18, `buyer paid for 6 bricks ($${st.pad})`);
+    check(st.pad === 18, `buyer paid for 6 paper packs ($${st.pad})`);
 
     // 6. Collect cash.
     await page.evaluate(() => { TT.place(58, 11); TT.step(1 / 30, 10); });
