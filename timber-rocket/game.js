@@ -195,25 +195,65 @@ const logEndMat = new THREE.MeshStandardMaterial({ color: 0xe0b77a, roughness: 0
 const trunkGeo = new THREE.CylinderGeometry(0.28, 0.42, 3, 8); trunkGeo.translate(0, 1.5, 0);
 const pineGeo = new THREE.ConeGeometry(1.8, 3.2, 8);
 const roundGeo = new THREE.IcosahedronGeometry(1.7, 1);
+const blobGeo = new THREE.DodecahedronGeometry(1, 0);
+const LM = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, flatShading: true });
+const TM = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 });
+const TREE_M = {
+  birchBark: TM(0xe9e4da), birchMark: TM(0x2b2622), redBark: TM(0x8a3f24), darkBark: TM(0x4a3020),
+  autumn: [0xe0662a, 0xf0a030, 0xc8402a, 0xf2c23a].map(LM), cherry: [0xf7b7cf, 0xf29abb, 0xfbd3e0].map(LM),
+  birchLeaf: [0x9fc24a, 0xb7d158, 0x8ab43c].map(LM), spruce: [0x2f5d4a, 0x2a5545, 0x3a6a52].map(LM), cypress: [0x24502c, 0x2c5e30].map(LM),
+  gold: new THREE.MeshStandardMaterial({ color: 0xffc83a, emissive: 0xb07000, emissiveIntensity: 0.6, metalness: 0.6, roughness: 0.3, flatShading: true })
+};
+const pick = a => a[(Math.random() * a.length) | 0];
+// [type, weight, logs]
+const TREE_TYPES = [['pine', 26, 3], ['oak', 18, 4], ['birch', 12, 2], ['spruce', 12, 3], ['cypress', 8, 3], ['maple', 10, 3], ['cherry', 7, 3], ['redwood', 4, 6], ['gold', 2, 3]];
+const TREE_W = TREE_TYPES.reduce((a, t) => a + t[1], 0);
 const trees = [];
+function addPart(pivot, geo, mat, x, y, z, sx, sy = sx, sz = sx) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.rotation.y = rand(0, 6); m.castShadow = true; pivot.add(m); return m; }
 function makeTree(x, z) {
   const t = new THREE.Group();
   const pivot = new THREE.Group(); t.add(pivot);
-  const tr = new THREE.Mesh(trunkGeo, trunkMat); tr.castShadow = true; pivot.add(tr);
-  const lm = leafMats[(Math.random() * leafMats.length) | 0];
-  if (Math.random() < 0.65) {
-    for (let i = 0; i < 3; i++) {
-      const c = new THREE.Mesh(pineGeo, lm); c.position.y = 3 + i * 1.5; c.scale.setScalar(1 - i * 0.25);
-      c.castShadow = true; pivot.add(c);
-    }
-  } else {
-    const c = new THREE.Mesh(roundGeo, lm); c.position.y = 4.2; c.scale.set(1, 1.15, 1); c.castShadow = true; pivot.add(c);
-    const c2 = new THREE.Mesh(roundGeo, lm); c2.position.set(0.8, 3.6, 0.3); c2.scale.setScalar(0.7); c2.castShadow = true; pivot.add(c2);
+  let r = Math.random() * TREE_W, ty = TREE_TYPES[0];
+  for (const tt of TREE_TYPES) { if ((r -= tt[1]) < 0) { ty = tt; break; } }
+  const type = ty[0];
+  const trunk = (mat, sx, sy) => { const m = new THREE.Mesh(trunkGeo, mat); m.scale.set(sx, sy, sx); m.castShadow = true; pivot.add(m); return m; };
+  let s = rand(0.85, 1.3);
+  if (type === 'pine') {
+    trunk(trunkMat, 1, 1); const lm = pick(leafMats);
+    for (let i = 0; i < 3; i++) addPart(pivot, pineGeo, lm, 0, 3 + i * 1.5, 0, 1 - i * 0.25);
+  } else if (type === 'oak') {
+    trunk(trunkMat, 1.25, 1); const lm = pick(leafMats);
+    addPart(pivot, roundGeo, lm, 0, 4.4, 0, 1.1, 1.0, 1.1);
+    for (let k = 0; k < 3; k++) { const a = k * 2.1 + rand(0, 1); addPart(pivot, roundGeo, lm, Math.cos(a) * 1.3, 3.8 + rand(0, .6), Math.sin(a) * 1.3, rand(0.6, 0.8)); }
+  } else if (type === 'birch') {
+    trunk(TREE_M.birchBark, 0.6, 1.5);
+    for (let k = 0; k < 5; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.05), TREE_M.birchMark); b.position.set(0, 0.6 + k * 0.75, 0.2); b.rotation.y = rand(0, 6); pivot.add(b); }
+    const lm = pick(TREE_M.birchLeaf);
+    for (let k = 0; k < 5; k++) addPart(pivot, blobGeo, lm, rand(-0.7, 0.7), 4 + k * 0.55, rand(-0.7, 0.7), rand(0.8, 1.2));
+  } else if (type === 'spruce') {
+    trunk(TREE_M.darkBark, 0.8, 0.9); const lm = pick(TREE_M.spruce);
+    for (let i = 0; i < 5; i++) addPart(pivot, pineGeo, lm, 0, 2.2 + i * 1.05, 0, 0.9 - i * 0.15, 0.75, 0.9 - i * 0.15);
+  } else if (type === 'cypress') {
+    trunk(trunkMat, 0.7, 0.6); const lm = pick(TREE_M.cypress);
+    addPart(pivot, pineGeo, lm, 0, 4.6, 0, 0.55, 2.2, 0.55);
+  } else if (type === 'maple') {
+    trunk(TREE_M.darkBark, 1.0, 1.05); const lm = pick(TREE_M.autumn);
+    addPart(pivot, roundGeo, lm, 0, 4.5, 0, 1.0, 0.9, 1.0);
+    addPart(pivot, roundGeo, pick(TREE_M.autumn), 0.9, 4.0, 0.4, 0.65); addPart(pivot, roundGeo, lm, -0.8, 4.1, -0.3, 0.6);
+  } else if (type === 'cherry') {
+    trunk(TREE_M.darkBark, 0.9, 0.85); const lm = pick(TREE_M.cherry);
+    for (let k = 0; k < 6; k++) { const a = k * 1.05; addPart(pivot, blobGeo, k % 2 ? lm : pick(TREE_M.cherry), Math.cos(a) * 1.1, 3.6 + rand(0, 0.9), Math.sin(a) * 1.1, rand(0.9, 1.3)); }
+  } else if (type === 'redwood') {
+    s = rand(1.35, 1.6); trunk(TREE_M.redBark, 1.6, 2.2); const lm = pick(TREE_M.spruce);
+    for (let i = 0; i < 4; i++) addPart(pivot, pineGeo, lm, 0, 6.2 + i * 1.3, 0, 0.85 - i * 0.16, 0.8, 0.85 - i * 0.16);
+  } else if (type === 'gold') {
+    trunk(TREE_M.darkBark, 1, 1);
+    addPart(pivot, roundGeo, TREE_M.gold, 0, 4.3, 0, 1.0, 1.1, 1.0); addPart(pivot, roundGeo, TREE_M.gold, 0.7, 3.7, 0.3, 0.6);
   }
-  const s = rand(0.85, 1.3); t.scale.setScalar(s);
+  t.scale.setScalar(s);
   t.position.set(x, heightAt(x, z) - 0.05, z); t.rotation.y = rand(0, 6.28);
   scene.add(t);
-  const tree = { g: t, pivot, x, z, ph: rand(0, 6.28), state: 'alive', cut: 0, fall: 0, fallDir: 0, regrow: 0, logs: 2 + Math.round(s * 1.5), s };
+  const tree = { g: t, pivot, x, z, type, ph: rand(0, 6.28), state: 'alive', cut: 0, fall: 0, fallDir: 0, regrow: 0, logs: Math.max(2, Math.round(ty[2] * s * 0.9)), s };
   trees.push(tree); return tree;
 }
 for (let i = 0; i < 340; i++) {
@@ -692,26 +732,114 @@ const game = { phase: 'menu', t: 0, shake: 0 };
 const flyingLogs = [];
 const camPos = new THREE.Vector3(0, 12, 30), camLook = new THREE.Vector3();
 let hintTimer = 0;
-function hint(txt, d = 2.5) { $('hint').textContent = txt; $('hint').style.opacity = 1; hintTimer = d; }
+function hint(txt, d = 2.5) { $('hint').textContent = txt; $('hint').classList.add('show'); hintTimer = d; }
+const SVG = {
+  saw: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2l1.6 2.6 3-.8.2 3 2.9 1-1.5 2.6 1.5 2.6-2.9 1-.2 3-3-.8L12 22l-1.6-2.6-3 .8-.2-3-2.9-1L5.8 13.6 4.3 11l2.9-1 .2-3 3 .8z"/><circle cx="12" cy="12" r="3" fill="#2a3442"/></svg>',
+  cargo: '<svg viewBox="0 0 24 24" fill="#fff"><rect x="3" y="7" width="18" height="12" rx="2"/><rect x="3" y="7" width="18" height="3" fill="#2a3442"/><rect x="10" y="12" width="4" height="3" rx="1" fill="#2a3442"/></svg>',
+  speed: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
+  engine: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2c2 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-4 2-5 0 2 1 3 2 3 0-3-1-5 1-8z"/></svg>',
+  warhead: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5" fill="#fff"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5"/></svg>',
+  fins: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2l3 7v8l4 4H5l4-4V9z"/></svg>',
+  coin: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#8a5a00"/><circle cx="12" cy="12" r="6" fill="#ffd34d"/></svg>'
+};
+const UPMETA = {
+  saw: { grp: 'HARVESTER', col: '#3aa86b', fx: l => `Cut time ${(0.9 / (1 + l * 0.35)).toFixed(2)}s → ${(0.9 / (1 + (l + 1) * 0.35)).toFixed(2)}s` },
+  cargo: { grp: 'HARVESTER', col: '#3aa86b', fx: l => `Carry ${8 + l * 4} → ${12 + l * 4} logs` },
+  speed: { grp: 'HARVESTER', col: '#3aa86b', fx: l => `Top speed ${14 + l * 3} → ${17 + l * 3}` },
+  engine: { grp: 'MISSILE', col: '#e0612e', fx: l => l < 1 ? 'Adds 2 side boosters · +2 m blast' : l < 3 ? `${l >= 2 ? 'Steel boosters' : 'Booster casing'} · +2 m blast` : l < 4 ? 'Blue plasma flame · +2 m blast' : '+2 m blast radius' },
+  warhead: { grp: 'MISSILE', col: '#e0612e', fx: l => `Blast radius +5 m (${Math.round(8 + l * 5 + S.up.engine * 2)} base)` },
+  fins: { grp: 'MISSILE', col: '#e0612e', fx: l => `Accuracy ±${Math.round(26 / (1 + l * 0.8))} → ±${Math.round(26 / (1 + (l + 1) * 0.8))} m` }
+};
+{ let html = '', g = '';
+  for (const k of Object.keys(UPMETA)) {
+    if (UPMETA[k].grp !== g) { g = UPMETA[k].grp; html += `<h3>${g}</h3>`; }
+    html += `<div class="upc" id="uc_${k}"><div class="ui" style="background:linear-gradient(145deg,${UPMETA[k].col},${UPMETA[k].col}55)">${SVG[k]}</div>
+      <div><div class="un">${UP[k].name} <small style="color:var(--acc)" id="ul_${k}"></small></div><div class="ue" id="ue_${k}"></div><div class="pips" id="up_${k}"></div></div>
+      <button class="buy" data-up="${k}">${SVG.coin}<span id="ub_${k}"></span></button></div>`;
+  }
+  $('shopList').innerHTML = html;
+  const seg = $('cargoSeg'); seg.innerHTML = '<i></i>'.repeat(40);
+}
+let shopOpen = innerWidth > 760;
+function setShop(o) { shopOpen = o; $('shop').classList.toggle('closed', !o); $('shopBtn').classList.toggle('on', o); }
+setShop(shopOpen);
+$('shopBtn').addEventListener('click', () => setShop(!shopOpen));
+const prevVals = {};
+function bump(id, v) { const e = $(id); if (prevVals[id] !== undefined && prevVals[id] !== v) { e.classList.remove('pop'); void e.offsetWidth; e.classList.add('pop'); } prevVals[id] = v; }
 function updateHUD() {
-  $('cargo').textContent = `${car.cargo}/${capacity()}`;
-  $('cargoFill').style.width = (car.cargo / capacity() * 100) + '%';
-  $('stock').textContent = S.stock; $('coins').textContent = S.coins;
-  $('best').textContent = 'Lv ' + S.city;
-  document.querySelectorAll('[data-up]').forEach(b => { const k = b.dataset.up; b.querySelector('small').textContent = `Lv${S.up[k] + 1} · ${upCost(k)}c`; b.disabled = S.coins < upCost(k); });
-  $('launchBtn').style.display = game.phase === 'harvest' && S.stock >= 10 ? 'block' : 'none';
-  $('launchBtn').textContent = `BUILD & LAUNCH MISSILE (${S.stock} logs)`;
+  const cap = capacity();
+  $('cargo').textContent = `${car.cargo}/${cap}`; bump('cargo', car.cargo);
+  const segs = $('cargoSeg').children, shown = Math.min(cap, 20);
+  for (let i = 0; i < segs.length; i++) { segs[i].style.display = i < shown ? '' : 'none'; segs[i].classList.toggle('on', i < Math.round(car.cargo / cap * shown)); }
+  $('cargoSeg').classList.toggle('full', car.cargo >= cap);
+  $('stock').textContent = S.stock; bump('stock', S.stock);
+  $('coins').textContent = S.coins; bump('coins', S.coins);
+  $('best').textContent = 'CITY ' + S.city;
+  let afford = 0;
+  for (const k of Object.keys(UPMETA)) {
+    const c = upCost(k), l = S.up[k], can = S.coins >= c; if (can) afford++;
+    $('ul_' + k).textContent = 'Lv ' + (l + 1); $('ue_' + k).textContent = UPMETA[k].fx(l); $('ub_' + k).textContent = c;
+    $('up_' + k).innerHTML = Array.from({ length: 8 }, (_, i) => `<i class="${i < l ? 'on' : ''}"></i>`).join('');
+    $('uc_' + k).classList.toggle('can', can); document.querySelector(`.buy[data-up="${k}"]`).disabled = !can;
+  }
+  const b = $('shopBadge'); b.textContent = afford; b.style.display = afford ? 'flex' : 'none';
+  const ready = S.stock >= 10;
+  $('launchBtn').disabled = !ready;
+  $('launchTxt').textContent = ready ? `LAUNCH MISSILE · ${S.stock} LOGS` : `MISSILE NEEDS ${10 - S.stock} MORE LOGS`;
+  $('readyFill').style.width = Math.min(100, S.stock / 10 * 100) + '%';
+  // objective
+  let txt, prog;
+  if (car.cargo >= cap) { txt = 'Cargo full! Unload at the green depot'; prog = 1; }
+  else if (!ready) { txt = `Collect logs for a missile (${Math.min(10, S.stock + car.cargo)}/10)`; prog = (S.stock + car.cargo) / 10; }
+  else if (car.cargo > 0) { txt = 'Unload, then launch, or keep cutting for a bigger missile'; prog = 1; }
+  else { txt = `Missile ready! Launch it at City ${S.city}`; prog = 1; }
+  $('objText').textContent = txt; $('objFill').style.width = Math.min(100, prog * 100) + '%';
 }
 function fmtAlt(m) { return m >= 1000 ? (m / 1000).toFixed(m >= 100000 ? 0 : 1) + ' km' : Math.round(m) + ' m'; }
-document.querySelectorAll('[data-up]').forEach(b => b.addEventListener('click', () => {
+// floating text anchored to a world position
+function popup(text, wp, color = '#fff') {
+  const v = wp.clone().project(camera); if (v.z > 1) return;
+  const e = document.createElement('div'); e.className = 'fp'; e.textContent = text; e.style.color = color;
+  e.style.left = ((v.x + 1) / 2 * innerWidth) + 'px'; e.style.top = ((1 - v.y) / 2 * innerHeight) + 'px';
+  $('popups').appendChild(e); setTimeout(() => e.remove(), 1150);
+}
+document.querySelectorAll('.buy[data-up]').forEach(b => b.addEventListener('click', () => {
   const k = b.dataset.up, c = upCost(k);
   if (S.coins < c) { sfx.denied(); return; }
-  S.coins -= c; S.up[k]++; save(); sfx.buy(); hint(`${UP[k].name} upgraded to Lv${S.up[k] + 1}!`); updateHUD();
+  S.coins -= c; S.up[k]++; save(); sfx.buy(); hint(`${UP[k].name} upgraded to Lv ${S.up[k] + 1}!`); updateHUD();
+  const card = $('uc_' + k); card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
 }));
-$('muteBtn').addEventListener('click', () => { A.muted = !A.muted; $('muteBtn').textContent = 'Sound: ' + (A.muted ? 'Off' : 'On'); if (A.ctx) A.master.gain.setTargetAtTime(A.muted ? 0 : 0.8, now(), 0.05); });
-$('startBtn').addEventListener('click', () => { initAudio(); A.ctx.resume(); $('start').style.display = 'none'; game.phase = 'harvest'; updateHUD(); hint('Drag anywhere or use WASD to drive. Pull up next to a tree and the crane cuts it.', 6); renderer.domElement.focus(); });
+$('muteBtn').addEventListener('click', () => { A.muted = !A.muted; $('muteBtn').style.opacity = A.muted ? 0.5 : 1; document.getElementById('sndW').style.display = A.muted ? 'none' : ''; if (A.ctx) A.master.gain.setTargetAtTime(A.muted ? 0 : 0.8, now(), 0.05); });
+$('startBtn').addEventListener('click', () => { initAudio(); A.ctx.resume(); $('start').style.display = 'none'; document.body.classList.remove('flying'); game.phase = 'harvest'; updateHUD(); hint('Drag anywhere or use WASD to drive. Pull up next to a tree and the crane cuts it.', 6); renderer.domElement.focus(); });
 $('launchBtn').addEventListener('click', () => { if (game.phase === 'harvest' && S.stock >= 10) startBuild(); });
 $('againBtn').addEventListener('click', backToForest);
+// minimap
+const mm = $('minimap'), mx = mm.getContext('2d');
+function drawMinimap() {
+  const W = mm.width, c = W / 2, sc = W / 150;
+  mx.clearRect(0, 0, W, W);
+  const g = mx.createRadialGradient(c, c, 10, c, c, c); g.addColorStop(0, 'rgba(60,110,50,.85)'); g.addColorStop(1, 'rgba(20,40,25,.9)');
+  mx.fillStyle = g; mx.beginPath(); mx.arc(c, c, c, 0, 7); mx.fill();
+  mx.save(); mx.beginPath(); mx.arc(c, c, c - 2, 0, 7); mx.clip();
+  const P = (x, z) => [c + (x - car.x) * sc, c + (z - car.z) * sc];
+  for (const t of trees) {
+    if (t.state !== 'alive' && t.state !== 'growing') continue;
+    const [px, py] = P(t.x, t.z); if (px < -5 || py < -5 || px > W + 5 || py > W + 5) continue;
+    mx.fillStyle = t.type === 'gold' ? '#ffd34d' : t.type === 'maple' ? '#e88a3a' : t.type === 'cherry' ? '#f4a8c6' : t === target ? '#fff' : '#9fdc6a';
+    mx.beginPath(); mx.arc(px, py, (t.type === 'redwood' ? 5 : 3.2) * (W / 324) * 1.6, 0, 7); mx.fill();
+  }
+  let [dx, dy] = P(DEPOT.x, DEPOT.z); mx.fillStyle = '#7dff9a'; mx.strokeStyle = '#0a2a14'; mx.lineWidth = 3;
+  mx.fillRect(dx - 9, dy - 9, 18, 18); mx.strokeRect(dx - 9, dy - 9, 18, 18);
+  const [px, py] = P(PAD.x, PAD.z); mx.fillStyle = '#ffb547'; mx.beginPath(); mx.arc(px, py, 13, 0, 7); mx.fill(); mx.stroke();
+  mx.restore();
+  // edge marker for depot when off-map
+  const ddx = dx - c, ddy = dy - c, dd = Math.hypot(ddx, ddy);
+  if (dd > c - 14) { const a = Math.atan2(ddy, ddx); mx.fillStyle = '#7dff9a'; mx.save(); mx.translate(c + Math.cos(a) * (c - 14), c + Math.sin(a) * (c - 14)); mx.rotate(a); mx.beginPath(); mx.moveTo(10, 0); mx.lineTo(-7, -8); mx.lineTo(-7, 8); mx.fill(); mx.restore(); }
+  // player
+  mx.save(); mx.translate(c, c); mx.rotate(Math.atan2(Math.sin(car.yaw), Math.cos(car.yaw)) * -1 + Math.PI);
+  mx.fillStyle = '#fff'; mx.strokeStyle = '#000'; mx.lineWidth = 3; mx.beginPath(); mx.moveTo(0, -16); mx.lineTo(11, 12); mx.lineTo(0, 6); mx.lineTo(-11, 12); mx.closePath(); mx.stroke(); mx.fill(); mx.restore();
+  mx.strokeStyle = 'rgba(255,255,255,.25)'; mx.lineWidth = 3; mx.beginPath(); mx.arc(c, c, c - 2, 0, 7); mx.stroke();
+}
 
 // ---------- Harvest update ----------
 let target = null;
@@ -769,7 +897,7 @@ function updateHarvest(dt) {
       if (l.z > -0.5 && d < best && d > 1.0) { best = d; target = t; }
     }
   }
-  if (full && hintTimer <= 0) hint('Cargo full! Follow the arrow to the green depot.', 2);
+  if (full && hintTimer <= 0 && game.t % 8 < 0.05) hint('Cargo full! Follow the arrow to the green depot.', 3);
   let gripped = false;
   if (target) {
     const l = toLocal(target.x, heightAt(target.x, target.z) + 1.9, target.z);
@@ -805,8 +933,8 @@ function updateHarvest(dt) {
   if (dd < 4 && car.cargo > 0) {
     game.unloadT = (game.unloadT || 0) + dt;
     if (game.unloadT > 0.09) {
-      game.unloadT = 0; car.cargo--; S.stock++; sfx.unload(S.stock % 10); refreshCargoVisual(); refreshPile(); save(); updateHUD();
-      if (car.cargo === 0) hint(S.stock >= 10 ? 'Stockpile ready! Hit BUILD & LAUNCH.' : `Need ${10 - S.stock} more logs for a rocket.`);
+      game.unloadT = 0; car.cargo--; S.stock++; sfx.unload(S.stock % 10); refreshCargoVisual(); refreshPile(); save(); updateHUD(); if (S.stock % 2 === 0) popup('+1 STOCK', new THREE.Vector3(pileG.position.x, pileG.position.y + 3, pileG.position.z), '#ffd27a');
+      if (car.cargo === 0) hint(S.stock >= 10 ? 'Missile ready! Hit LAUNCH MISSILE, or keep cutting for a bigger boom.' : `Need ${10 - S.stock} more logs for a missile.`, 3.5);
     }
   }
   depotG.userData.mark.material.opacity = 0.5 + Math.sin(game.t * 4) * 0.3;
@@ -836,6 +964,8 @@ function updateTrees(dt) {
       t.pivot.rotation.set(0, 0, 0); t.pivot.rotateOnAxis(new THREE.Vector3(Math.cos(t.fallDir), 0, -Math.sin(t.fallDir)), ang);
       if (t.fall >= 1) {
         t.state = 'down'; sfx.thud(); game.shake = 0.35;
+        popup('TIMBER!', new THREE.Vector3(t.x, heightAt(t.x, t.z) + 3, t.z), '#ffe7a0');
+        if (t.type === 'gold') { S.coins += 30; save(); updateHUD(); popup('+30 GOLDEN TREE', new THREE.Vector3(t.x, heightAt(t.x, t.z) + 5, t.z), '#ffd34d'); sfx.buy(); }
         for (let i = 0; i < 25; i++) emit({ x: t.x + rand(-3, 3), y: heightAt(t.x, t.z) + 0.5, z: t.z + rand(-3, 3), vx: rand(-3, 3), vy: rand(1, 4), vz: rand(-3, 3), life: 1.5, max: 1.5, size: 1, grow: 2, c0: [0.55, 0.48, 0.35], c1: [0.7, 0.66, 0.58], a: 0.4 });
         for (let i = 0; i < 12; i++) emit({ x: t.x + rand(-3, 3), y: heightAt(t.x, t.z) + 2, z: t.z + rand(-3, 3), vx: rand(-2, 2), vy: rand(2, 5), vz: rand(-2, 2), g: 5, drag: 0.95, life: 2, max: 2, size: 0.3, c0: [0.25, 0.5, 0.2], c1: [0.3, 0.45, 0.15] });
         const n = Math.min(t.logs, capacity() - car.cargo - flyingLogs.length);
@@ -863,7 +993,7 @@ function updateTrees(dt) {
     f.m.rotation.x += dt * f.spin; f.m.rotation.y += dt * f.spin * 0.5;
     if (f.t >= 1) {
       scene.remove(f.m); flyingLogs.splice(i, 1);
-      if (car.cargo < capacity()) { car.cargo++; sfx.pick(car.cargo); refreshCargoVisual(); updateHUD(); if (car.cargo >= capacity()) hint('Cargo full! Head to the depot by the launch pad.', 3); }
+      if (car.cargo < capacity()) { car.cargo++; sfx.pick(car.cargo); refreshCargoVisual(); updateHUD(); popup('+1', new THREE.Vector3(car.x, harv.position.y + 4, car.z), '#b6ff7a'); if (car.cargo >= capacity()) hint('Cargo full! Head to the depot by the launch pad.', 3); }
     }
   }
 }
@@ -871,7 +1001,7 @@ function updateTrees(dt) {
 // ---------- Build & launch ----------
 const L = {};
 function startBuild() {
-  game.phase = 'build'; $('launchBtn').style.display = 'none'; $('right').style.display = 'none';
+  game.phase = 'build'; document.body.classList.add('flying');
   setLoop(A.eng.g, 0); setLoop(A.saw.g, 0); setLoop(A.sawN.g, 0);
   L.logs = S.stock; S.stock = 0; save(); refreshPile(); updateHUD();
   rocket = buildRocket(L.logs); rocket.position.set(PAD.x, 0.8, PAD.z); scene.add(rocket);
@@ -1023,13 +1153,15 @@ function showResult() {
   S.coins += earned; S.launches++; S.best = Math.max(S.best, pct); if (lvUp) S.city++; save();
   $('resTitle').textContent = lvUp ? 'CITY FLATTENED!' : pct >= 30 ? 'HEAVY DAMAGE' : 'TARGET SURVIVED';
   $('resAlt').textContent = pct + '% DESTROYED';
-  $('resInfo').innerHTML = `${L.destroyed} of ${buildings.length} buildings · ${L.logs}-log missile · blast radius ${Math.round(L.R)} m<br>+<b>${earned}</b> coins.` +
-    (lvUp ? ` <b>City level ${S.city} unlocked</b>: it's bigger and taller!` : ' Destroy 75% to unlock the next city. Upgrade your <b>Warhead</b>, <b>Fins</b> and <b>Engine</b>!');
-  $('result').style.display = 'flex'; game.phase = 'result';
+  const nStars = pct >= 90 ? 3 : pct >= 75 ? 2 : pct >= 30 ? 1 : 0;
+  [...$('resStars').children].forEach((st, i) => { st.classList.remove('on'); if (i < nStars) setTimeout(() => { st.classList.add('on'); tone(660 + i * 220, 0.3, 'triangle', 0.12); }, 400 + i * 300); });
+  $('resGrid').innerHTML = `<div><b>${L.destroyed}/${buildings.length}</b><span>BUILDINGS</span></div><div><b>${Math.round(L.R)} m</b><span>BLAST</span></div><div><b style="color:var(--gold)">+${earned}</b><span>COINS</span></div>`;
+  $('resInfo').innerHTML = lvUp ? `<b>City level ${S.city} unlocked</b>: bigger, taller, and worth more coins!` : 'Destroy <b>75%</b> to unlock the next city. Spend coins in the <b>Workshop</b>: Warhead, Fins and Engine.';
+  $('result').style.display = 'flex'; $('alt').style.display = 'none'; game.phase = 'result';
   if (lvUp) [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.5, 'triangle', 0.12, 0.2 + i * 0.1));
 }
 function backToForest() {
-  $('result').style.display = 'none'; $('alt').style.display = 'none'; $('right').style.display = 'flex';
+  $('result').style.display = 'none'; $('alt').style.display = 'none'; document.body.classList.remove('flying');
   rocket = null; boom.visible = false; buildCity(S.city);
   scene.fog.color.set(0xcfe0ee); scene.fog.density = FOG_D;
   sc.left = sc.bottom = -70; sc.right = sc.top = 70; sc.far = 300; sc.updateProjectionMatrix();
@@ -1057,7 +1189,8 @@ function frame() {
     pollen.geometry.attributes.position.needsUpdate = true; pollen.visible = game.phase === 'harvest' || game.phase === 'menu' || game.phase === 'build' || game.phase === 'count'; }
   padG.userData.beacon.material.emissiveIntensity = (Math.sin(game.t * 5) > 0) ? 5 : 0.3;
   if (game.shake > 0) { camera.position.x += rand(-1, 1) * game.shake; camera.position.y += rand(-1, 1) * game.shake; if (game.phase === 'harvest') game.shake = Math.max(0, game.shake - dt); }
-  if (hintTimer > 0) { hintTimer -= dt; if (hintTimer <= 0) $('hint').style.opacity = 0; }
+  if (hintTimer > 0) { hintTimer -= dt; if (hintTimer <= 0) $('hint').classList.remove('show'); }
+  if (game.phase === 'harvest' && (game.frameN = (game.frameN || 0) + 1) % 3 === 0) drawMinimap();
   composer.render();
   requestAnimationFrame(frame);
 }

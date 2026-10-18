@@ -6,38 +6,109 @@
 <title>Timber Rocket</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 <style>
-:root{--acc:#ffb547;--acc2:#5fe3ff;--glass:rgba(12,18,28,.55);--line:rgba(255,255,255,.14)}
+:root{--acc:#ffb547;--acc2:#5fe3ff;--gold:#ffd34d;--green:#7dff9a;--red:#ff6a4d;--glass:rgba(10,16,26,.62);--glass2:rgba(22,32,48,.78);--line:rgba(255,255,255,.12);--txt:#f4f7fb;--mut:rgba(244,247,251,.62)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-user-select:none;user-select:none}
-html,body{width:100%;height:100%;overflow:hidden;background:#05070c;font-family:Rajdhani,sans-serif;color:#fff}
+html,body{width:100%;height:100%;overflow:hidden;background:#05070c;font-family:Rajdhani,system-ui,sans-serif;color:var(--txt)}
 canvas{display:block}
 .hud{position:fixed;inset:0;pointer-events:none}
-.panel{background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
-#stats{position:absolute;top:14px;left:14px;padding:10px 16px;display:flex;gap:22px}
-.stat b{display:block;font:900 22px Orbitron;letter-spacing:1px}
-.stat span{font-size:12px;opacity:.7;letter-spacing:2px;text-transform:uppercase}
-#cargoBar{width:120px;height:6px;background:rgba(255,255,255,.12);border-radius:3px;margin-top:4px;overflow:hidden}
-#cargoFill{height:100%;width:0;background:linear-gradient(90deg,#7dff9a,var(--acc));transition:width .2s}
-#right{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:8px;pointer-events:auto;width:210px}
-.btn{pointer-events:auto;cursor:pointer;border:1px solid var(--line);background:var(--glass);backdrop-filter:blur(10px);color:#fff;font:700 15px Rajdhani;letter-spacing:1px;padding:9px 12px;border-radius:12px;text-align:left;transition:transform .12s,background .2s}
-.btn:hover{transform:translateY(-1px);background:rgba(40,52,70,.7)}
-.btn:disabled{opacity:.4;cursor:default;transform:none}
-.btn small{float:right;color:var(--acc)}
-#launchBtn{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);font:900 20px Orbitron;padding:16px 34px;border-radius:40px;text-align:center;background:linear-gradient(135deg,#ff7a2d,#ffb547);color:#1a0d00;border:none;box-shadow:0 0 30px rgba(255,140,40,.55);display:none}
-#launchBtn:hover{transform:translateX(-50%) scale(1.04)}
-#hint{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);font-size:17px;letter-spacing:1px;padding:8px 18px;opacity:0;transition:opacity .3s;white-space:nowrap}
-#alt{position:absolute;top:50%;right:40px;transform:translateY(-50%);text-align:right;display:none}
-#alt b{font:900 54px Orbitron;display:block;text-shadow:0 0 24px rgba(95,227,255,.6)}
-#alt span{font-size:16px;letter-spacing:3px;opacity:.8}
-#altMsg{font:700 20px Orbitron;color:var(--acc);margin-top:8px;min-height:26px}
-#count{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);font:900 120px Orbitron;text-shadow:0 0 40px var(--acc);display:none}
-.modal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:auto;background:radial-gradient(ellipse at center,rgba(0,0,0,.25),rgba(0,0,0,.7))}
-.card{padding:30px 38px;text-align:center;max-width:92vw}
-.card h1{font:900 clamp(30px,6vw,58px) Orbitron;letter-spacing:3px;background:linear-gradient(180deg,#fff,var(--acc));-webkit-background-clip:text;background-clip:text;color:transparent}
-.card p{font-size:18px;opacity:.85;margin:12px 0 22px;line-height:1.4}
-.card .big{font:900 46px Orbitron;color:var(--acc2)}
-.cta{font:900 18px Orbitron;padding:14px 34px;border-radius:40px;border:none;cursor:pointer;background:linear-gradient(135deg,#ff7a2d,#ffb547);color:#1a0d00;box-shadow:0 0 30px rgba(255,140,40,.5)}
-#joy{position:fixed;left:0;top:0;pointer-events:none;width:130px;height:130px;border-radius:50%;border:2px solid var(--line);background:rgba(0,0,0,.2);pointer-events:auto;display:none;touch-action:none}
-#knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.35)}
+.glass,.panel{background:var(--glass);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 34px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)}
+.fade{transition:opacity .4s,transform .4s}
+body.flying .fade{opacity:0;transform:translateY(-8px);pointer-events:none!important}
+/* resource bar */
+#topbar{position:absolute;top:14px;left:14px;display:flex;gap:8px;flex-wrap:wrap;max-width:calc(100vw - 120px)}
+.res{display:flex;align-items:center;gap:10px;padding:8px 14px 8px 8px;min-width:118px}
+.res .ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.03));flex:none}
+.res .ic svg{width:22px;height:22px}
+.res span{display:block;font-size:10.5px;font-weight:700;letter-spacing:2px;color:var(--mut)}
+.res b{display:block;font:900 20px Orbitron,sans-serif;letter-spacing:.5px;line-height:1.05}
+.res.gold b{color:var(--gold);text-shadow:0 0 14px rgba(255,211,77,.35)}
+.res.red b{color:#ff9a7a}
+.seg{display:flex;gap:2px;margin-top:5px}
+.seg i{width:8px;height:5px;border-radius:2px;background:rgba(255,255,255,.14);transition:background .2s}
+.seg i.on{background:linear-gradient(180deg,#b6ff7a,#4fd96a);box-shadow:0 0 6px rgba(125,255,154,.5)}
+.seg.full i.on{background:linear-gradient(180deg,#ffd27a,#ff8a2d);box-shadow:0 0 6px rgba(255,160,60,.6)}
+.pop{animation:pop .35s cubic-bezier(.3,1.8,.5,1)}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.28)}100%{transform:scale(1)}}
+/* objective */
+#objective{position:absolute;top:80px;left:14px;padding:10px 14px;width:290px}
+#objective .ot{font-size:10.5px;letter-spacing:2.5px;font-weight:700;color:var(--acc);display:flex;align-items:center;gap:6px}
+#objective .ot::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc);animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+#objText{font-size:16px;font-weight:700;margin:3px 0 7px}
+.obar{height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
+.obar i{display:block;height:100%;width:0;border-radius:3px;background:linear-gradient(90deg,#5fe3ff,#7dff9a);transition:width .35s}
+/* side buttons */
+#sideBtns{position:absolute;top:14px;right:14px;display:flex;gap:8px;pointer-events:auto}
+.ibtn{pointer-events:auto;cursor:pointer;height:46px;min-width:46px;padding:0 14px;display:flex;align-items:center;gap:8px;color:var(--txt);font:700 14px Rajdhani;letter-spacing:2px;background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;position:relative;transition:transform .12s,background .2s}
+.ibtn:hover{transform:translateY(-1px);background:var(--glass2)}
+.ibtn svg{width:20px;height:20px}
+.ibtn em{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--red);color:#fff;font:900 11px Orbitron;font-style:normal;display:none;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(255,90,60,.7)}
+.ibtn.on{background:linear-gradient(135deg,rgba(255,181,71,.3),rgba(255,122,45,.2));border-color:rgba(255,181,71,.5)}
+/* workshop */
+#shop{position:absolute;top:70px;right:14px;width:320px;max-height:calc(100vh - 300px);overflow:auto;padding:12px;pointer-events:auto;transition:opacity .25s,transform .25s}
+#shop.closed{opacity:0;transform:translateX(20px);pointer-events:none!important}
+#shop h3{font:900 14px Orbitron;letter-spacing:3px;color:var(--mut);margin:4px 4px 8px;display:flex;align-items:center;gap:8px}
+#shop h3::after{content:"";flex:1;height:1px;background:var(--line)}
+.upc{display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:center;padding:9px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid transparent;margin-bottom:6px;transition:background .2s,border-color .2s}
+.upc:hover{background:rgba(255,255,255,.08)}
+.upc.can{border-color:rgba(255,211,77,.28)}
+.upc .ui{width:40px;height:40px;border-radius:11px;display:grid;place-items:center}
+.upc .ui svg{width:22px;height:22px}
+.upc .un{font-weight:700;font-size:15px;letter-spacing:.5px}
+.upc .ue{font-size:12.5px;color:var(--mut);margin-top:1px}
+.pips{display:flex;gap:3px;margin-top:4px}.pips i{width:12px;height:4px;border-radius:2px;background:rgba(255,255,255,.14)}.pips i.on{background:var(--acc)}
+.buy{pointer-events:auto;cursor:pointer;border:none;border-radius:10px;padding:8px 10px;min-width:72px;font:900 13px Orbitron;color:#2a1a00;background:linear-gradient(180deg,#ffe07a,#ffb42d);box-shadow:0 3px 0 #b8741a,0 0 16px rgba(255,190,60,.25);display:flex;align-items:center;justify-content:center;gap:5px;transition:transform .1s,filter .2s}
+.buy:active{transform:translateY(2px);box-shadow:0 1px 0 #b8741a}
+.buy:disabled{filter:grayscale(1) brightness(.6);cursor:default;box-shadow:none}
+.buy svg{width:13px;height:13px}
+/* minimap */
+#mmWrap{position:absolute;right:16px;bottom:16px;width:172px;height:172px;border-radius:50%;padding:5px}
+#minimap{width:100%;height:100%;border-radius:50%}
+#mmWrap .n{position:absolute;top:2px;left:50%;transform:translateX(-50%);font:900 11px Orbitron;color:var(--acc)}
+/* launch */
+#launchWrap{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:auto}
+#launchBtn{pointer-events:auto;cursor:pointer;font:900 18px Orbitron;letter-spacing:1.5px;padding:15px 30px;border-radius:40px;border:none;color:#1a0d00;background:linear-gradient(135deg,#ff6a2d,#ffb547);box-shadow:0 5px 0 #a8461a,0 0 34px rgba(255,120,40,.55);display:flex;align-items:center;gap:10px;animation:pulse 1.6s infinite}
+#launchBtn svg{width:22px;height:22px}
+#launchBtn:active{transform:translateY(3px);box-shadow:0 2px 0 #a8461a}
+@keyframes pulse{50%{box-shadow:0 5px 0 #a8461a,0 0 54px rgba(255,140,40,.85)}}
+#launchBtn:disabled{animation:none;cursor:default;color:var(--mut);background:var(--glass2);box-shadow:none;border:1px solid var(--line);font-size:14px;padding:11px 22px}
+#readyBar{width:240px;height:6px;border-radius:3px;background:rgba(0,0,0,.35);overflow:hidden;border:1px solid var(--line)}
+#readyBar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff6a2d,#ffd34d);transition:width .3s}
+#hint{position:absolute;bottom:120px;left:50%;transform:translate(-50%,10px);font-size:16px;font-weight:700;letter-spacing:.5px;padding:10px 18px;opacity:0;transition:opacity .3s,transform .3s;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;border-left:3px solid var(--acc)}
+#hint.show{opacity:1;transform:translate(-50%,0)}
+/* floating popups */
+.fp{position:absolute;font:900 18px Orbitron;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.6);pointer-events:none;white-space:nowrap;animation:fp 1.1s ease-out forwards}
+@keyframes fp{0%{opacity:0;transform:translate(-50%,0) scale(.6)}15%{opacity:1;transform:translate(-50%,-10px) scale(1.15)}100%{opacity:0;transform:translate(-50%,-60px) scale(1)}}
+/* flight hud */
+#alt{position:absolute;top:22px;left:50%;transform:translateX(-50%);text-align:center;display:none;padding:12px 30px 14px;min-width:300px}
+#alt::before,#alt::after{content:"";position:absolute;top:50%;width:40px;height:2px;background:linear-gradient(90deg,transparent,var(--red))}
+#alt::before{left:-48px}#alt::after{right:-48px;transform:scaleX(-1)}
+#altL{display:block;font-size:12px;font-weight:700;letter-spacing:3px;color:var(--red)}
+#altV{display:block;font:900 52px Orbitron;line-height:1.05;text-shadow:0 0 22px rgba(255,120,80,.5)}
+#altU{display:block;font-size:13px;letter-spacing:3px;color:var(--mut)}
+#altMsg{font:900 18px Orbitron;color:var(--acc);margin-top:6px;min-height:22px;letter-spacing:2px}
+#count{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);font:900 130px Orbitron;text-shadow:0 0 40px var(--acc),0 6px 0 rgba(0,0,0,.3);display:none}
+/* modals */
+.modal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:auto;background:radial-gradient(ellipse at center,rgba(0,0,0,.25),rgba(0,0,0,.72))}
+.card{padding:30px 36px;text-align:center;max-width:min(560px,92vw);animation:cardIn .5s cubic-bezier(.2,1.4,.4,1)}
+@keyframes cardIn{from{opacity:0;transform:scale(.85) translateY(20px)}}
+.card h1{font:900 clamp(28px,6vw,52px) Orbitron;letter-spacing:3px;background:linear-gradient(180deg,#fff,var(--acc));-webkit-background-clip:text;background-clip:text;color:transparent}
+.card p{font-size:17px;color:var(--mut);margin:10px 0 18px;line-height:1.45}
+.card .big{font:900 42px Orbitron;color:var(--acc2);text-shadow:0 0 24px rgba(95,227,255,.4)}
+.stars{display:flex;gap:10px;justify-content:center;margin:14px 0 4px}
+.stars svg{width:46px;height:46px;fill:rgba(255,255,255,.12);transition:fill .3s}
+.stars svg.on{fill:var(--gold);filter:drop-shadow(0 0 10px rgba(255,211,77,.7));animation:pop .5s cubic-bezier(.3,1.8,.5,1) both}
+.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 20px}
+.sgrid div{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:10px 6px}
+.sgrid b{display:block;font:900 20px Orbitron}.sgrid span{font-size:11px;letter-spacing:2px;color:var(--mut)}
+.note{font-size:15px;color:var(--txt);margin-bottom:18px}
+.keys{display:flex;gap:18px;justify-content:center;margin:6px 0 22px;flex-wrap:wrap}
+.keys>div{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;color:var(--mut);letter-spacing:1px}
+.kc{display:flex;gap:4px}.kc kbd{font:700 14px Rajdhani;min-width:30px;height:30px;padding:0 6px;display:grid;place-items:center;border-radius:7px;background:rgba(255,255,255,.1);border:1px solid var(--line);border-bottom-width:3px;color:#fff}
+.cta{pointer-events:auto;font:900 18px Orbitron;letter-spacing:1.5px;padding:15px 38px;border-radius:40px;border:none;cursor:pointer;background:linear-gradient(135deg,#ff6a2d,#ffb547);color:#1a0d00;box-shadow:0 5px 0 #a8461a,0 0 30px rgba(255,140,40,.5)}
+.cta:active{transform:translateY(3px);box-shadow:0 2px 0 #a8461a}
+#joy{position:fixed;left:0;top:0;width:130px;height:130px;border-radius:50%;border:2px solid rgba(255,255,255,.25);background:radial-gradient(circle,rgba(255,255,255,.08),rgba(0,0,0,.25));pointer-events:none;display:none}
+#knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,rgba(255,255,255,.5));box-shadow:0 0 18px rgba(255,255,255,.4)}
 #loader{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(ellipse at 50% 30%,#1d3350,#05070c 70%);transition:opacity .8s}
 #loader .lt{font:900 clamp(28px,6vw,54px) Orbitron;letter-spacing:4px;background:linear-gradient(180deg,#fff,#ffb547);-webkit-background-clip:text;background-clip:text;color:transparent}
 .lbar{width:220px;height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}.lbar i{display:block;height:100%;width:40%;background:#ffb547;animation:lb 1.1s ease-in-out infinite}
@@ -45,10 +116,23 @@ canvas{display:block}
 #lmsg{font-size:15px;letter-spacing:2px;opacity:.8;max-width:80vw;text-align:center}
 #vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.45))}
 #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
-@media (max-width:640px){#stats{gap:12px;padding:8px 10px}.stat b{font-size:17px}#right{width:160px}.btn{font-size:13px;padding:7px 9px}#alt{right:14px}#alt b{font-size:34px}}
+@media (max-width:760px){
+ #topbar{top:8px;left:8px;gap:5px;max-width:calc(100vw - 70px)}
+ .res{min-width:0;padding:5px 9px 5px 5px;gap:6px;border-radius:12px}.res .ic{width:28px;height:28px;border-radius:8px}.res .ic svg{width:16px;height:16px}
+ .res b{font-size:14px}.res span{font-size:8.5px;letter-spacing:1.2px}.seg i{width:5px;height:4px}
+ #objective{top:auto;bottom:118px;left:8px;width:auto;right:96px;padding:7px 10px}#objText{font-size:13px;margin:2px 0 5px}
+ #sideBtns{top:8px;right:8px;flex-direction:column}.ibtn{height:40px;min-width:40px;padding:0 10px}.ibtn span{display:none}
+ #shop{top:auto;bottom:0;right:0;left:0;width:auto;max-height:62vh;border-radius:18px 18px 0 0}
+ #shop.closed{transform:translateY(30px)}
+ #mmWrap{width:100px;height:100px;right:8px;bottom:110px}
+ #launchBtn{font-size:15px;padding:12px 22px}#launchBtn:disabled{font-size:12px;padding:9px 16px}#readyBar{width:180px}
+ #hint{bottom:auto;top:96px;font-size:13px;white-space:normal;text-align:center}
+ #alt{min-width:220px;padding:8px 18px}#altV{font-size:34px}#alt::before,#alt::after{display:none}
+ .sgrid b{font-size:15px}.card{padding:22px 18px}
+}
 </style>
 </head>
-<body>
+<body class="flying">
 <div id="loader"><div class="lt">TIMBER ROCKET</div><div class="lbar"><i></i></div><div id="lmsg">Loading engine…</div></div>
 <script>
 window.__fail=function(m){var e=document.getElementById('lmsg');if(e){e.textContent='Could not start: '+m;e.style.color='#ff8a7a'}};
@@ -57,35 +141,34 @@ addEventListener('unhandledrejection',function(e){__fail(String(e.reason))});
 setTimeout(function(){if(!window.__ready)__fail('WebGL may be disabled in this browser. Try Chrome/Edge with hardware acceleration on.')},15000);
 </script>
 <div class="hud">
-  <div id="stats" class="panel">
-    <div class="stat"><span>Cargo</span><b id="cargo">0/8</b><div id="cargoBar"><div id="cargoFill"></div></div></div>
-    <div class="stat"><span>Stockpile</span><b id="stock">0</b></div>
-    <div class="stat"><span>Coins</span><b id="coins">0</b></div>
-    <div class="stat"><span>Target City</span><b id="best">Lv 1</b></div>
+  <div id="topbar" class="fade">
+    <div class="res glass"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="15" height="8" rx="4" fill="#a0673a"/><ellipse cx="18" cy="12" rx="3" ry="4" fill="#f0c58a"/><ellipse cx="18" cy="12" rx="1.3" ry="1.8" fill="#c8945a"/></svg></div><div><span>CARGO</span><b id="cargo">0/8</b><div class="seg" id="cargoSeg"></div></div></div>
+    <div class="res glass"><div class="ic"><svg viewBox="0 0 24 24"><g fill="#a0673a"><rect x="2" y="14" width="20" height="5" rx="2.5"/><rect x="5" y="8.5" width="14" height="5" rx="2.5"/></g><g fill="#f0c58a"><circle cx="20" cy="16.5" r="2.2"/><circle cx="17" cy="11" r="2.2"/></g></svg></div><div><span>STOCKPILE</span><b id="stock">0</b></div></div>
+    <div class="res glass gold"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#ffc93a"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#b77d10" stroke-width="1.6"/><path d="M12 8v8M9.5 10.2c0-1 1.1-1.6 2.5-1.6s2.5.6 2.5 1.6-1 1.4-2.5 1.8-2.5.8-2.5 1.8 1.1 1.6 2.5 1.6 2.5-.6 2.5-1.6" stroke="#8a5a00" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg></div><div><span>COINS</span><b id="coins">0</b></div></div>
+    <div class="res glass red"><div class="ic"><svg viewBox="0 0 24 24" fill="#ff9a7a"><rect x="3" y="10" width="5" height="11"/><rect x="9" y="4" width="6" height="17"/><rect x="16" y="8" width="5" height="13"/><g fill="#2a1a14"><rect x="10.5" y="7" width="1.2" height="1.6"/><rect x="12.5" y="7" width="1.2" height="1.6"/><rect x="10.5" y="11" width="1.2" height="1.6"/><rect x="12.5" y="11" width="1.2" height="1.6"/></g></svg></div><div><span>TARGET</span><b id="best">CITY 1</b></div></div>
   </div>
-  <div id="right">
-    <button class="btn" data-up="saw">Saw Blade <small></small></button>
-    <button class="btn" data-up="cargo">Cargo Bed <small></small></button>
-    <button class="btn" data-up="speed">Motor <small></small></button>
-    <button class="btn" data-up="engine">Booster Engine <small></small></button>
-    <button class="btn" data-up="warhead">Warhead <small></small></button>
-    <button class="btn" data-up="fins">Guidance Fins <small></small></button>
-    <button class="btn" id="muteBtn">Sound: On</button>
-  </div>
-  <div id="hint" class="panel"></div>
-  <button id="launchBtn" class="btn">BUILD &amp; LAUNCH</button>
-  <div id="alt"><span id="altL">DISTANCE TO TARGET</span><b id="altV">0</b><span id="altU">METERS</span><div id="altMsg"></div></div>
+  <div id="objective" class="glass fade"><div class="ot">OBJECTIVE</div><div id="objText">Cut trees with the crane</div><div class="obar"><i id="objFill"></i></div></div>
+  <div id="sideBtns" class="fade"><button class="ibtn" id="shopBtn"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M14.5 5.5a4 4 0 0 0 5 5L12 18a2.1 2.1 0 0 1-3-3l7.5-7.5a4 4 0 0 0-2-2z"/></svg><span>WORKSHOP</span><em id="shopBadge"></em></button><button class="ibtn" id="muteBtn"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z" fill="#fff"/><path id="sndW" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg></button></div>
+  <div id="shop" class="glass fade"><div id="shopList"></div></div>
+  <div id="mmWrap" class="glass fade"><canvas id="minimap" width="324" height="324"></canvas><div class="n">N</div></div>
+  <div id="hint" class="glass"></div>
+  <div id="launchWrap" class="fade"><button id="launchBtn"><svg viewBox="0 0 24 24" fill="#1a0d00"><path d="M12 2c3 2.5 4.5 6 4.5 10l-2 3h-5l-2-3C7.5 8 9 4.5 12 2z"/><path d="M9.5 15l-3 3 1-5zM14.5 15l3 3-1-5zM10.5 16h3l-1.5 5z"/></svg><span id="launchTxt">BUILD &amp; LAUNCH</span></button><div id="readyBar"><i id="readyFill"></i></div></div>
+  <div id="popups"></div>
+  <div id="alt" class="glass"><span id="altL">DISTANCE TO TARGET</span><b id="altV">0</b><span id="altU">METERS</span><div id="altMsg"></div></div>
   <div id="count"></div>
   <div id="joy"><div id="knob"></div></div>
   <div id="vig"></div><div id="flash"></div>
-  <div id="start" class="modal" style="display:flex"><div class="card panel">
+  <div id="start" class="modal" style="display:flex"><div class="card glass">
     <h1>TIMBER ROCKET</h1>
-    <p>Drive the harvester up to trees and its crane grabs and saws them. Haul the logs to the depot by the launch pad.<br>Build a missile from your stockpile and launch it at the city on the horizon. Upgrade the warhead, fins and engine to flatten bigger cities.<br><b>WASD / Arrows</b> or <b>drag anywhere</b> to drive in that direction · mouse wheel to zoom</p>
+    <p>Fell trees with your harvester, haul the logs to the depot, then build a missile and launch it at the city on the horizon. Upgrade in the Workshop to flatten bigger cities.</p>
+    <div class="keys"><div><div class="kc"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>Drive</div><div><div class="kc"><kbd>Drag</kbd></div>Mouse / touch</div><div><div class="kc"><kbd>Wheel</kbd></div>Zoom</div></div>
     <button class="cta" id="startBtn">START</button></div></div>
-  <div id="result" class="modal"><div class="card panel">
+  <div id="result" class="modal"><div class="card glass">
     <h1 id="resTitle">IMPACT</h1>
-    <p>Strike report</p><div class="big" id="resAlt">0 km</div>
-    <p id="resInfo"></p>
+    <div class="stars" id="resStars"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z"/></svg></div>
+    <div class="big" id="resAlt">0%</div>
+    <div class="sgrid" id="resGrid"></div>
+    <div class="note" id="resInfo"></div>
     <button class="cta" id="againBtn">BACK TO THE FOREST</button></div></div>
 </div>
 
