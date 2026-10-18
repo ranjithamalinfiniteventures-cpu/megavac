@@ -58,6 +58,17 @@
   #play:active{transform:translateY(3px);box-shadow:0 3px 0 #1f6e3c}
   #reset{background:none;color:#99a5b3;font-size:13px;margin-top:14px;text-decoration:underline}
   .keys{font-size:13px;color:#7a8899;margin-top:10px}
+  /* Narrow screens: money moves to the right, next to the sound button, so it never meets the load panel. */
+  @media (max-width:620px){
+    #cash{left:auto;right:calc(66px + env(safe-area-inset-right, 0px));transform:none;font-size:24px;padding:4px 16px 4px 8px}
+    #cash .coin{width:24px;height:24px}
+    @keyframes bump{50%{transform:scale(1.12)}}
+    #load{min-width:0;width:min(150px,38vw);font-size:14px;padding:8px 12px 10px}
+    #toasts{top:calc(78px + env(safe-area-inset-top, 0px));max-width:calc(100vw - 32px)}
+    .toast{white-space:normal;text-align:center}
+    #tip{left:max(16px, env(safe-area-inset-left, 0px));right:max(16px, env(safe-area-inset-right, 0px));transform:none;max-width:none;
+      bottom:calc(150px + env(safe-area-inset-bottom, 0px));font-size:17px}
+  }
 </style>
 </head>
 <body>

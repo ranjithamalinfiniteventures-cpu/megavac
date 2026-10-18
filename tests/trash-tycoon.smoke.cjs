@@ -116,6 +116,20 @@ function check(cond, msg) {
     await page.waitForFunction(() => window.TT);
     check(await page.evaluate(() => TT.S.mach[1] === 0 && TT.S.up.carry === 1 && TT.helpers.length === 1), 'progress survives reload');
 
+    // 9. HUD pieces never overlap, on a phone and on a desktop.
+    for (const [w, h] of [[360, 780], [412, 915], [1280, 720]]) {
+      await page.setViewportSize({ width: w, height: h });
+      const hit = await page.evaluate(() => {
+        const tip = document.getElementById('tip'), act = document.getElementById('act');
+        tip.style.display = 'block'; tip.textContent = 'Tap DRIVE (or press E) to get back in the truck'; act.style.display = 'flex';
+        const r = ['cash', 'load', 'mute', 'tip', 'act'].map(id => document.getElementById(id).getBoundingClientRect());
+        const ov = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+        for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) if (ov(r[i], r[j])) return true;
+        return r.some(x => x.left < 0 || x.right > innerWidth);
+      });
+      check(!hit, `HUD fits without overlap at ${w}x${h}`);
+    }
+
     check(errors.length === 0, 'no page errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
     console.log('\nALL PASSED');
   } catch (e) {
