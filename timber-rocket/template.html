@@ -46,6 +46,10 @@ body.flying .fade{opacity:0;transform:translateY(-8px);pointer-events:none!impor
 .ibtn.on{background:linear-gradient(135deg,rgba(255,181,71,.3),rgba(255,122,45,.2));border-color:rgba(255,181,71,.5)}
 /* workshop */
 #shop{position:absolute;top:70px;right:14px;width:320px;max-height:calc(100vh - 300px);overflow:auto;padding:12px;pointer-events:auto;transition:opacity .25s,transform .25s}
+#shop{z-index:6}
+.shopHead{position:sticky;top:-12px;z-index:2;display:flex;align-items:center;justify-content:space-between;margin:-12px -12px 8px;padding:12px 14px 10px;background:rgba(14,22,34,.92);border-bottom:1px solid var(--line);border-radius:16px 16px 0 0}
+.shopHead b{font:900 15px Orbitron;letter-spacing:3px;color:var(--acc)}
+#shopClose{pointer-events:auto;cursor:pointer;width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:#fff;font-size:16px}
 #shop.closed{opacity:0;transform:translateX(20px);pointer-events:none!important}
 #shop h3{font:900 14px Orbitron;letter-spacing:3px;color:var(--mut);margin:4px 4px 8px;display:flex;align-items:center;gap:8px}
 #shop h3::after{content:"";flex:1;height:1px;background:var(--line)}
@@ -124,6 +128,8 @@ body.flying .fade{opacity:0;transform:translateY(-8px);pointer-events:none!impor
  #sideBtns{top:8px;right:8px;flex-direction:column}.ibtn{height:40px;min-width:40px;padding:0 10px}.ibtn span{display:none}
  #shop{top:auto;bottom:0;right:0;left:0;width:auto;max-height:62vh;border-radius:18px 18px 0 0}
  #shop.closed{transform:translateY(30px)}
+ #shop{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+ body.shop-open #mmWrap,body.shop-open #launchWrap,body.shop-open #objective,body.shop-open #hint{opacity:0;pointer-events:none!important}
  #mmWrap{width:100px;height:100px;right:8px;bottom:110px}
  #launchBtn{font-size:15px;padding:12px 22px}#launchBtn:disabled{font-size:12px;padding:9px 16px}#readyBar{width:180px}
  #hint{bottom:auto;top:96px;font-size:13px;white-space:normal;text-align:center}
@@ -149,7 +155,7 @@ setTimeout(function(){if(!window.__ready)__fail('WebGL may be disabled in this b
   </div>
   <div id="objective" class="glass fade"><div class="ot">OBJECTIVE</div><div id="objText">Cut trees with the crane</div><div class="obar"><i id="objFill"></i></div></div>
   <div id="sideBtns" class="fade"><button class="ibtn" id="shopBtn"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M14.5 5.5a4 4 0 0 0 5 5L12 18a2.1 2.1 0 0 1-3-3l7.5-7.5a4 4 0 0 0-2-2z"/></svg><span>WORKSHOP</span><em id="shopBadge"></em></button><button class="ibtn" id="muteBtn"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z" fill="#fff"/><path id="sndW" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg></button></div>
-  <div id="shop" class="glass fade"><div id="shopList"></div></div>
+  <div id="shop" class="glass fade"><div class="shopHead"><b>WORKSHOP</b><button id="shopClose" aria-label="Close workshop">&#10005;</button></div><div id="shopList"></div></div>
   <div id="mmWrap" class="glass fade"><canvas id="minimap" width="324" height="324"></canvas><div class="n">N</div></div>
   <div id="hint" class="glass"></div>
   <div id="launchWrap" class="fade"><button id="launchBtn"><svg viewBox="0 0 24 24" fill="#1a0d00"><path d="M12 2c3 2.5 4.5 6 4.5 10l-2 3h-5l-2-3C7.5 8 9 4.5 12 2z"/><path d="M9.5 15l-3 3 1-5zM14.5 15l3 3-1-5zM10.5 16h3l-1.5 5z"/></svg><span id="launchTxt">BUILD &amp; LAUNCH</span></button><div id="readyBar"><i id="readyFill"></i></div></div>

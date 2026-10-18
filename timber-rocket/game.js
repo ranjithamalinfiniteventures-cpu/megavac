@@ -761,9 +761,11 @@ const UPMETA = {
   const seg = $('cargoSeg'); seg.innerHTML = '<i></i>'.repeat(40);
 }
 let shopOpen = innerWidth > 760;
-function setShop(o) { shopOpen = o; $('shop').classList.toggle('closed', !o); $('shopBtn').classList.toggle('on', o); }
+function setShop(o) { shopOpen = o; $('shop').classList.toggle('closed', !o); $('shopBtn').classList.toggle('on', o); document.body.classList.toggle('shop-open', o); }
 setShop(shopOpen);
 $('shopBtn').addEventListener('click', () => setShop(!shopOpen));
+$('shopClose').addEventListener('click', () => setShop(false));
+renderer.domElement.addEventListener('pointerdown', () => { if (shopOpen && innerWidth <= 760) setShop(false); });
 const prevVals = {};
 function bump(id, v) { const e = $(id); if (prevVals[id] !== undefined && prevVals[id] !== v) { e.classList.remove('pop'); void e.offsetWidth; e.classList.add('pop'); } prevVals[id] = v; }
 function updateHUD() {
