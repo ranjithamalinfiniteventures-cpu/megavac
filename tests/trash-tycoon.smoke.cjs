@@ -1,6 +1,8 @@
 // Browser smoke test for Trash Tycoon 3D: plays one full loop
 // (trash -> machine -> goods -> port -> cash -> purchase) in headless Chromium.
 // Run: node tests/trash-tycoon.smoke.cjs   (needs the `playwright` package)
+// Set OFFLINE_FILE=trash-tycoon/dist/TrashTycoon3D.html to test the single-file
+// build from file:// with all network access blocked.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -8,6 +10,7 @@ const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..', 'trash-tycoon');
 const OUT = process.env.SHOT_DIR || null;
+const OFFLINE = process.env.OFFLINE_FILE ? path.resolve(process.env.OFFLINE_FILE) : null;
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript' };
 
 function serve() {
@@ -28,12 +31,21 @@ function check(cond, msg) {
 
 (async () => {
   const srv = await serve();
-  const url = `http://localhost:${srv.address().port}/index.html?test=1`;
+  const url = OFFLINE ? `file://${OFFLINE}?test=1` : `http://localhost:${srv.address().port}/index.html?test=1`;
   const browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  const external = [];
+  if (OFFLINE) {
+    console.log('offline mode:', url);
+    await page.route('**/*', route => {
+      const u = route.request().url();
+      if (/^(file|data|blob):/.test(u)) return route.continue();
+      external.push(u); return route.abort();
+    });
+  }
   try {
     await page.goto(url);
     await page.waitForFunction(() => window.TT);
@@ -137,6 +149,7 @@ function check(cond, msg) {
       check(!hit, `HUD fits without overlap at ${w}x${h}`);
     }
 
+    if (OFFLINE) check(external.length === 0, 'no network requests' + (external.length ? ': ' + external.join(' ') : ''));
     check(errors.length === 0, 'no page errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
     console.log('\nALL PASSED');
   } catch (e) {

@@ -17,6 +17,16 @@ python3 -m http.server 8790 --directory trash-tycoon
 
 Then open http://localhost:8790/.
 
+## Offline single file
+
+`dist/TrashTycoon3D.html` is the whole game in one file: three.js and the Fredoka
+font are inlined, and it makes no network requests. Double-click it to play, or upload
+it anywhere that hosts a single HTML page. Rebuild it after changing `index.html`:
+
+```sh
+python3 tools/build_trash_tycoon_offline.py
+```
+
 ## The loop
 
 1. **Collect.** Drive the truck over trash in the park. Its capacity is shown top-left.
@@ -68,3 +78,5 @@ The test opens the game in headless Chromium and plays one full loop: fill the t
 unload into the Paper Mill, collect the paper packs, sell them, and collect the cash. Then it
 builds a machine, buys an upgrade, hires a worker, and checks that the save survives a
 reload. It fails on any page error. Set `SHOT_DIR=/some/dir` to save screenshots.
+Set `OFFLINE_FILE=trash-tycoon/dist/TrashTycoon3D.html` to run the same test on the offline
+file from `file://` with all network access blocked.
