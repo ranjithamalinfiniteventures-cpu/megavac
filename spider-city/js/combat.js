@@ -232,6 +232,8 @@ export class Combat {
         p.m.position.copy(p.pos); p.m.rotation.x += dt * 8;
         if (p.life <= 0 || p.pos.y < -2) { this.explode(p.pos.clone(), p.radius, p.power); this.scene.remove(p.m); return false; }
         if (Math.random() < 0.3) this.fx.spawn(true, p.pos, v1.set(0, 0.5, 0), 0.15, 0.08, new THREE.Color(4, 0.3, 0.2));
+        const tick = Math.floor(p.life * (p.life < 0.8 ? 8 : 3)); // beeps speed up before the blast
+        if (tick !== p.tick) { p.tick = tick; this.sound.beep(); }
         return true;
       }
       if (p.kind === 'rocket') {

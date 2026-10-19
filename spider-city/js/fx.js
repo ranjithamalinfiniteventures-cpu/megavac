@@ -67,13 +67,20 @@ export class FX {
 }
 
 export class Sound {
-  constructor() { this.ctx = null; this.muted = false; }
+  constructor() { this.ctx = null; this.muted = false; this.musicOn = true; }
+  // phones only let audio start inside a tap, so this is called from every touch
   init() {
-    if (this.ctx) { this.ctx.resume(); return; }
+    if (this.ctx) { if (this.ctx.state !== 'running') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const c = this.ctx = new AC();
-    this.master = c.createGain(); this.master.gain.value = 0.6; this.master.connect(c.destination);
+    // a compressor keeps everything loud on small phone speakers without clipping
+    this.comp = c.createDynamicsCompressor(); this.comp.threshold.value = -18; this.comp.ratio.value = 4;
+    this.comp.connect(c.destination);
+    this.master = c.createGain(); this.master.gain.value = 1; this.master.connect(this.comp);
+    // iOS needs a sound played inside the gesture to unlock output
+    const unlock = c.createBufferSource(); unlock.buffer = c.createBuffer(1, 1, 22050); unlock.connect(c.destination); unlock.start();
+    document.addEventListener('visibilitychange', () => { if (document.hidden) c.suspend(); else c.resume(); });
     const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     this.noise = buf;
@@ -86,6 +93,52 @@ export class Sound {
     o1.connect(ef); o2.connect(ef); ef.connect(eg); eg.connect(this.master);
     o1.start(); o2.start();
     this.engine = { g: eg, f: ef, o1, o2 };
+    if (this.musicOn) this.startMusic();
+  }
+
+  // ---------- soundtrack: a four-bar loop (Am F C G) of drums, bass and arpeggio ----------
+  startMusic() {
+    if (!this.ctx || this.musicTimer) return;
+    const c = this.ctx;
+    this.mbus = c.createGain(); this.mbus.gain.value = 0.22; this.mbus.connect(this.master);
+    const step = 60 / 104 / 4;
+    let next = c.currentTime + 0.1, i = 0;
+    this.musicTimer = setInterval(() => {
+      while (next < c.currentTime + 0.3) { this._beat(i++, next); next += step; }
+    }, 60);
+  }
+  stopMusic() {
+    clearInterval(this.musicTimer); this.musicTimer = null;
+    if (this.mbus) { const g = this.mbus; g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1); setTimeout(() => g.disconnect(), 600); this.mbus = null; }
+  }
+  toggleMusic() { this.musicOn = !this.musicOn; if (this.musicOn) this.startMusic(); else this.stopMusic(); return this.musicOn; }
+  _beat(i, t) {
+    const c = this.ctx, bus = this.mbus, s = i % 16, bar = (i >> 4) % 4;
+    const roots = [57, 53, 48, 55], minor = [true, false, false, false];
+    const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+    const tone = (type, f, vol, dur, f1 = f, cutoff = 0) => {
+      const o = c.createOscillator(), g = c.createGain(); o.type = type;
+      o.frequency.setValueAtTime(f, t); if (f1 !== f) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+      if (cutoff) { const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = cutoff; o.connect(lp); lp.connect(g); } else o.connect(g);
+      g.connect(bus); o.start(t); o.stop(t + dur + 0.05);
+    };
+    const hit = (type, freq, vol, dur) => {
+      const n = c.createBufferSource(); n.buffer = this.noise;
+      const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+      const g = c.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+      n.connect(f); f.connect(g); g.connect(bus); n.start(t, Math.random()); n.stop(t + dur + 0.05);
+    };
+    if (s % 4 === 0) tone('sine', 140, 0.9, 0.28, 42);                       // kick
+    if (s === 4 || s === 12) hit('bandpass', 1900, 0.55, 0.16);             // snare
+    if (s % 2 === 1) hit('highpass', 7500, 0.18, 0.05);                      // hi-hat
+    const r = roots[bar];
+    if ([0, 3, 6, 8, 11, 14].includes(s)) tone('sawtooth', mtof(r - 24 + (s === 14 ? 12 : 0)), 0.32, step16(0.9), undefined, 420);
+    if (s % 2 === 0) {                                                      // arpeggio
+      const chord = [0, minor[bar] ? 3 : 4, 7, 12];
+      tone('triangle', mtof(r + 12 + chord[(s / 2) % 4]), 0.12, 0.22);
+    }
+    function step16(k) { return 60 / 104 / 4 * 4 * k; }
   }
   _loopNoise(type, freq, gain) {
     const c = this.ctx, s = c.createBufferSource(); s.buffer = this.noise; s.loop = true;
@@ -121,6 +174,12 @@ export class Sound {
   rocket() { this._burst(0.6, 'bandpass', 900, 2600, 0.35, 1.5); }
   cannon() { this._burst(0.9, 'lowpass', 900, 50, 0.9); this._tone(0.5, 'sine', 70, 30, 0.5); }
   hurt() { this._tone(0.15, 'sawtooth', 220, 110, 0.12); }
+  click() { this._tone(0.05, 'square', 900, 600, 0.06); }
+  step(k = 1) { this._burst(0.07, 'lowpass', 700, 200, 0.12 * k); }
+  beep() { this._tone(0.06, 'square', 1500, 1500, 0.07); }
+  jingle() { [0, 4, 7, 12].forEach((n, i) => setTimeout(() => this._tone(0.22, 'triangle', 523 * Math.pow(2, n / 12), 523 * Math.pow(2, n / 12), 0.22), i * 90)); }
+  alarm() { [0, 1, 2].forEach(i => setTimeout(() => this._tone(0.14, 'square', i % 2 ? 660 : 880, i % 2 ? 660 : 880, 0.1), i * 150)); }
+  wasted() { this._tone(1.4, 'sawtooth', 300, 60, 0.25); this._burst(1.2, 'lowpass', 600, 60, 0.4); }
   door() { this._burst(0.12, 'lowpass', 700, 150, 0.35); }
   // police siren: a two-tone wail whose volume follows the nearest cruiser
   siren(vol) {

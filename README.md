@@ -132,6 +132,9 @@ works in portrait and landscape.
   side missions for cash: ring races (blue), gang hits (red) and smash sprees (orange).
   Cash also comes from tokens, gang takedowns and wrecked cars.
 - **Slow motion** — SLOW slows the world to a third for 6 seconds.
+- **Sound** — procedural soundtrack (a drum, bass and arpeggio loop; switch it off on
+  the title/pause screen), button taps, footsteps, web thwips, engines, sirens, guns,
+  explosions, mission jingles and alarms. Audio unlocks on the first tap.
 - **Goal** — collect the 40 golden tokens on rooftops (beams of light mark them).
 
 The keyboard still drives the game for the automated test (see `window.__game`), but

@@ -26,15 +26,15 @@ const LAYOUT = {
 };
 const ACT = { DRIVE: '🚗', FLY: '✈️', TANK: '🪖', EXIT: '🚪' };
 
-export function setupTouch(root, { key, look, pause }) {
+export function setupTouch(root, { key, look, pause, onTap }) {
   const st = { f: 0, r: 0, sprint: false, run: false };
   const btn = id => `<button class="tbtn" id="${id}" hidden><i></i><b></b></button>`;
   root.innerHTML = `
     <div id="tStick"><div id="tKnob"></div></div>
     ${Object.keys(BUTTONS).map(btn).join('')}
-    <button class="tbtn util slot-l1" id="tCall" style="--c:#27b34a"><i>📱</i><b>PHONE</b></button>
-    <button class="tbtn util slot-l2" id="tRun" style="--c:#f0a01a"><i>⚡</i><b>RUN</b></button>
-    <button class="tbtn util slot-l4" id="tSlow" style="--c:#3fa7e8"><i>⏳</i><b>SLOW</b></button>
+    <button class="tbtn util slot-l4" id="tCall" style="--c:#27b34a"><i>📱</i><b>PHONE</b></button>
+    <button class="tbtn util slot-l1" id="tRun" style="--c:#f0a01a"><i>⚡</i><b>RUN</b></button>
+    <button class="tbtn util slot-l2" id="tSlow" style="--c:#3fa7e8"><i>⏳</i><b>SLOW</b></button>
     <button class="tbtn tiny" id="tTime" aria-label="Skip time">☾</button>
     <button class="tbtn tiny" id="tPause" aria-label="Pause">II</button>
     <div id="tPhone" hidden>
@@ -61,13 +61,13 @@ export function setupTouch(root, { key, look, pause }) {
     const b = $(id);
     const up = e => { e.preventDefault(); key(code, false); b.classList.remove('on'); };
     b.addEventListener('pointerdown', e => {
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault(); e.stopPropagation(); onTap?.();
       key(code, true); b.classList.add('on');
       try { b.setPointerCapture(e.pointerId); } catch (err) { /* capture is only a convenience */ }
     });
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
   }
-  const tap = (id, fn) => $(id).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); });
+  const tap = (id, fn) => $(id).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); onTap?.(); fn(); });
   const press = code => { key(code, true); key(code, false); };
   tap('tPause', pause);
   tap('tTime', () => press('KeyT'));

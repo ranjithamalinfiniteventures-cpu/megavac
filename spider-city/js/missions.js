@@ -94,8 +94,8 @@ export class Missions {
 
   _finish(ok, reward = 0) {
     const t = TYPES[this.current.type];
-    if (ok) { this.cash += reward; this.done++; this.toast(`${t.name} COMPLETE  +$${reward}`); this.sound.pickup(); }
-    else this.toast(`${t.name} FAILED`);
+    if (ok) { this.cash += reward; this.done++; this.toast(`${t.name} COMPLETE  +$${reward}`); this.sound.jingle(); }
+    else { this.toast(`${t.name} FAILED`); this.sound.hurt(); }
     for (const r of this.rings) this.scene.remove(r);
     this.rings = [];
     const type = this.current.marker;

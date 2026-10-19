@@ -51,7 +51,7 @@ const headlight = new THREE.SpotLight(0xfff0d0, 0, 90, 0.55, 0.6, 1);
 scene.add(headlight, headlight.target);
 
 let mode = 'foot', car = null, playing = false, started = false, tokens = 0, quality = 'high';
-let hp = 100, hurtT = 10, deadT = 0, slowT = 0, slowCD = 0, nadeCD = 0, lastStars = 0, gunCD = 0, rocketCD = 0, rocketSide = 1, calledCar = null;
+let stepT = 0, hp = 100, hurtT = 10, deadT = 0, slowT = 0, slowCD = 0, nadeCD = 0, lastStars = 0, gunCD = 0, rocketCD = 0, rocketSide = 1, calledCar = null;
 const focusPos = () => mode === 'car' ? car.pos : mode === 'plane' ? plane.pos : mode === 'tank' ? tank.pos : hero.pos;
 const damp = (k, dt) => 1 - Math.exp(-k * dt);
 const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
@@ -85,10 +85,21 @@ function pause() {
   $('play').textContent = 'RESUME';
 }
 $('play').addEventListener('click', start);
+$('music').addEventListener('click', () => {
+  sound.init();
+  const on = sound.toggleMusic();
+  $('music').textContent = on ? '🎵 Music: ON' : '🔇 Music: OFF';
+  $('music').setAttribute('aria-pressed', String(on));
+});
 
 // touch controls press the same virtual keys as the keyboard
 function vkey(code, down) { if (down && !keys[code]) pressed.add(code); keys[code] = down; }
-const touch = setupTouch($('touch'), { key: vkey, look: (dx, dy) => { mdx += dx; mdy += dy; }, pause });
+const touch = setupTouch($('touch'), {
+  key: vkey, look: (dx, dy) => { mdx += dx; mdy += dy; }, pause,
+  onTap: () => { sound.init(); sound.click(); },
+});
+// phones only start audio from inside a touch: (re)unlock it on every touch
+addEventListener('pointerdown', () => sound.init(), { capture: true });
 document.body.classList.add('touch');
 
 // ---------- camera ----------
@@ -268,7 +279,7 @@ function damagePlayer(d) {
   hp -= d; hurtT = 0; sound.hurt();
   $('hurt').style.opacity = Math.min(0.7, 0.25 + d / 40);
   if (hp <= 0) {
-    hp = 0; deadT = 3; toast('WASTED'); police.clear();
+    hp = 0; deadT = 3; toast('WASTED'); police.clear(); sound.wasted();
     if (mode !== 'foot') exitVehicle();
     hero.vel.set(0, 6, 0); hero.state = 'air';
   }
@@ -470,6 +481,9 @@ function update(dt) {
   $('hurt').style.opacity = Math.max(0, parseFloat($('hurt').style.opacity || 0) - dt * 1.5);
 
   if (mode === 'foot') hero.update(dt, inp);
+  if (mode === 'foot' && hero.state === 'ground' && hero.speed > 1.5) { // footsteps
+    if ((stepT -= dt * (hero.speed / 3.2 + 1.2)) <= 0) { stepT = 1; sound.step(Math.min(1.5, 0.6 + hero.speed / 20)); }
+  }
   if (mode === 'foot' && hero.gun && deadT <= 0 && hero.state !== 'zip' && hero.state !== 'wall') {
     if (fireHeld) {
       hero.aimT = 0.6; hero.aimYaw = cam.yaw + Math.PI;
@@ -562,7 +576,7 @@ function update(dt) {
     },
   };
   police.update(dt, playerInfo);
-  if (police.stars > lastStars) toast('★'.repeat(police.stars) + ' WANTED');
+  if (police.stars > lastStars) { toast('★'.repeat(police.stars) + ' WANTED'); sound.alarm(); }
   lastStars = police.stars;
   combat.update(dt, playerInfo);
 
