@@ -98,33 +98,28 @@ every model, texture and sound is generated in code.
 python3 -m http.server 8788 --directory spider-city
 ```
 
-Open http://localhost:8788/ and click **PLAY** (keyboard and mouse; the mouse is
-captured for camera look, Esc releases it and pauses).
+Open http://localhost:8788/ on a phone and tap **PLAY**. The game is built for phones
+only: it always shows touch controls and starts on the lighter graphics setting. It
+works in portrait and landscape.
 
-On phones and tablets touch controls appear automatically: drag on the left half for
-a floating joystick (push it all the way to sprint), drag on the right half to look,
-and use the big round action buttons (each mode has its own set; PHONE calls a ride, RUN
-toggles sprint) (JUMP/WEB — hold in the air to swing, ZIP, GUN/FIRE,
-DRIVE/FLY/EXIT, GAS/BRAKE/DRIFT in cars, THR +/− and FIRE in the plane, CALL for a ride). Phones start on the lighter graphics setting and
-landscape works best.
-
-- **On foot** — WASD, Shift sprint, Space jump. Run into any building to climb it;
-  climbing over the top vaults you onto the roof.
-- **Web** — in the air hold Space or the left mouse button to swing, release to fling
-  (fast releases flip). E / right mouse zips to whatever the crosshair points at.
-- **Cars** — F next to any car (parked or in traffic) to take it. W/S gas and brake,
-  A/D steer, Space handbrake drift. Traffic follows lanes and turns at junctions;
-  pedestrians walk the sidewalks and dive out of the way.
-- **Plane** — at the airfield east of the city. Shift / X throttle (W also throttles
-  up on the runway), S pulls up, W dives, A/D roll, Q/E rudder. F bails out mid-air.
-  Crash it and it respawns on the runway.
-- **Call a ride** — 1 delivers a car next to you, 2 drops the plane in mid-air with you
-  in it, 3 delivers a tank (touch: the CALL button at the top).
-- **Tank** — W/S drive, A/D turn the hull, the turret follows the camera, click or Space
-  fires explosive shells. It flattens cars in its way.
-- **Weapons** — Q switches the hero to a blaster (click to fire at the crosshair; Space
-  still swings). The plane fires homing rockets (click / Space). Cars can be shot up
-  and explode.
+- **Moving** — drag on the left half for a floating joystick (push it all the way, or
+  toggle RUN, to sprint); drag on the right half to look. Run into any building to
+  climb it; climbing over the top vaults you onto the roof.
+- **Buttons** — big round action buttons cluster around a main button at the bottom
+  right, with a different set for each mode. On foot: SWING (hold to swing, release to
+  fling), JUMP, WEB (zip to the centre of the screen), GUN / FIRE and BOMB. Car: GAS,
+  BRAKE, DRIFT, NITRO. Plane: ROCKET, THR + / THR −, LEFT / RIGHT rudder. Tank: FIRE,
+  GAS, BACK. PHONE (call a car, plane or tank), RUN and SLOW sit on the left, and
+  DRIVE / FLY / TANK / EXIT appears when it applies. The moon button skips time of day.
+- **Cars** — walk up to any car (parked or in traffic) and tap DRIVE. Traffic follows
+  lanes and turns at junctions; pedestrians walk the sidewalks and dive out of the way.
+- **Plane** — at the airfield east of the city, or dropped in mid-air by PHONE. Pull
+  the stick down to climb, push it up to dive, left/right to roll. EXIT bails out
+  mid-air. Crash it and it respawns on the runway.
+- **Tank** — the stick steers, the turret follows where you look, FIRE shoots
+  explosive shells. It flattens cars in its way.
+- **Weapons** — the hero's blaster (GUN, then FIRE), grenades (BOMB), homing rockets
+  from the plane. Cars can be shot up and explode.
 - **Gangs** — armed gang members (red dots on the minimap) guard street corners and
   rooftops and shoot back. Health regenerates when you stay out of fire; at zero you
   respawn on the nearest street.
@@ -132,19 +127,18 @@ landscape works best.
   officers) raise a five-star wanted level. Cruisers hunt you through the streets,
   ram you and shoot from the window; officers bail out when you are on foot. Destroy
   them or stay out of sight for a while to lose the stars.
-- **Grenades** — G (touch: BOMB) throws a bouncing grenade. **Nitro** — Shift in a car.
 - **Missions** — glowing beams around the city (coloured dots on the minimap) start
   side missions for cash: ring races (blue), gang hits (red) and smash sprees (orange).
   Cash also comes from tokens, gang takedowns and wrecked cars.
-- **Slow motion** — B (touch: SLOW) slows the world to a third for 6 seconds.
+- **Slow motion** — SLOW slows the world to a third for 6 seconds.
 - **Goal** — collect the 40 golden tokens on rooftops (beams of light mark them).
-- T skips time of day (night brings lit windows, street lamps and headlights),
-  V toggles graphics quality (it also drops automatically on slow machines), M mutes,
-  R returns you to the nearest street.
+
+The keyboard still drives the game for the automated test (see `window.__game`), but
+there is no mouse or keyboard play.
 
 Rendering: instanced buildings with a procedural window shader (glass reflects a
 sky-generated environment map, windows light up at night), soft shadows following the
-player, ACES tone mapping, MSAA and bloom. The hero is a primitive-built rig animated
+player, ACES tone mapping and bloom. The hero is a primitive-built rig animated
 procedurally (run, sprint, swing, wall crawl, flips, superhero landing).
 
 Code: `js/world.js` (city generation, collision, sky, day/night), `js/hero.js`

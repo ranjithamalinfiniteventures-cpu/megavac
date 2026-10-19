@@ -2,7 +2,8 @@
 // cluster of big round action buttons around a main button (bottom right), with
 // utility buttons stacked above the joystick (bottom left). Buttons press the same
 // virtual keys as the keyboard.
-export const isTouch = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+// The game is built for phones only: touch controls are always on.
+export const isTouch = true;
 
 // id -> [virtual key, colour]
 const BUTTONS = {
@@ -71,7 +72,6 @@ export function setupTouch(root, { key, look, pause }) {
 
   const canvas = document.getElementById('game');
   canvas.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'mouse') return;
     e.preventDefault();
     menu.hidden = true;
     if (e.clientX < innerWidth * 0.45 && !joy) {

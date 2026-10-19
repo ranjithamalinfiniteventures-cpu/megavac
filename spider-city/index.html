@@ -30,7 +30,6 @@
   .controls { margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; text-align: left; }
   .controls div { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.75; backdrop-filter: blur(6px); }
   .controls h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: 2px; color: #ff6b78; }
-  kbd { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: 5px; background: #fff; color: var(--ink); font: 700 11px system-ui; text-align: center; box-shadow: 0 2px 0 #9aa; margin-right: 2px; }
 
   #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
   #map { position: absolute; top: 16px; right: 16px; width: 170px; height: 170px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); }
@@ -42,10 +41,6 @@
   #speedo { position: absolute; right: 24px; bottom: 22px; text-align: right; text-shadow: 0 3px 0 rgba(0,0,0,0.45); }
   #speed { font: 900 italic 54px system-ui; line-height: 1; }
   #speedo small { font: 700 12px system-ui; letter-spacing: 2px; opacity: 0.8; }
-  #hint { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); max-width: calc(100% - 220px); text-align: center; font-size: 13px;
-          background: rgba(10,12,20,0.55); border-radius: 10px; padding: 7px 14px; backdrop-filter: blur(4px); }
-  #hint:empty { display: none; }
-  #hint b { color: #ff6b78; }
   #cross { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); }
   #cross::before, #cross::after { content: ""; position: absolute; background: rgba(255,255,255,0.85); box-shadow: 0 0 3px #000; }
   #cross::before { left: 10px; top: 3px; width: 2px; height: 16px; }
@@ -71,10 +66,6 @@
   html, body, #game, #touch { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   #touch { position: absolute; inset: 0; pointer-events: none; display: none; }
   body.touch #touch { display: block; }
-  body.touch #hint, body.touch .desk-only { display: none !important; }
-  .touch-only { display: none; }
-  body.touch .touch-only { display: block; }
-  body.touch .controls.desk-only + .controls.touch-only { display: grid; }
   #tStick { position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%; left: 18%; top: 72%;
             background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.28); opacity: 0.55; transition: opacity .15s; }
   #tStick.on { opacity: 1; }
@@ -135,8 +126,6 @@
   body.touch #speedo { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); text-align: center; }
   body.touch #speed { font-size: 32px; }
   body.touch #cross { opacity: 0.6; }
-  .rotate { display: none; margin-top: 14px; font-size: 13px; color: #ffc23d; }
-  @media (orientation: portrait) { body.touch .rotate { display: block; } }
   @media (max-height: 500px) {
     h1 { font-size: 44px; } .tag { margin: 6px 0 12px; } .controls { margin-top: 14px; }
     body.touch #map { width: 120px; height: 120px; }
@@ -144,7 +133,6 @@
   @media (max-width: 640px) {
     #map { width: 120px; height: 120px; }
     #speed { font-size: 38px; }
-    #hint { max-width: calc(100% - 32px); bottom: 90px; }
   }
 </style>
 </head>
@@ -163,7 +151,6 @@
   <div id="cross"></div>
   <div id="mission" hidden></div>
   <div id="toast"></div>
-  <div id="hint"></div>
   <div id="touch"></div>
   <div id="speedo"><div id="speed">0</div><small>KM/H</small></div>
 </div>
@@ -174,43 +161,12 @@
     <div class="tag">Swing · Drive · Fly</div>
     <button id="play" disabled>PLAY</button>
     <div id="loading">Building the city…</div>
-    <div class="rotate">Turn your phone sideways for the best view</div>
-    <div class="controls desk-only">
-      <div><h3>ON FOOT</h3>
-        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Mouse</kbd> look<br>
-        <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump<br>
-        Run into a wall to <b>climb</b> it</div>
-      <div><h3>WEB</h3>
-        In the air hold <kbd>Space</kbd> or <kbd>LMB</kbd> to <b>swing</b><br>
-        Release to fling · <kbd>E</kbd>/<kbd>RMB</kbd> zip to crosshair<br>
-        <kbd>F</kbd> jack a car, board the plane or tank</div>
-      <div><h3>FIGHT</h3>
-        <kbd>Q</kbd> switch to the blaster · <kbd>Click</kbd> fire · <kbd>G</kbd> grenade<br>
-        Crimes bring the police: lose them or fight back<br>
-        Red dots on the map are gangs: they shoot back<br>
-        Plane fires rockets, tank fires shells</div>
-      <div><h3>CALL A RIDE</h3>
-        <kbd>1</kbd> car · <kbd>2</kbd> plane (drops in mid-air)<br>
-        <kbd>3</kbd> tank: aim with the mouse, <kbd>Click</kbd> fire</div>
-      <div><h3>MISSIONS &amp; POWERS</h3>
-        Walk into a glowing beam to start a mission for cash:<br>
-        blue ring races, red gang hits, orange smash sprees<br>
-        <kbd>B</kbd> slow motion for 6 seconds</div>
-      <div><h3>CAR &amp; PLANE</h3>
-        Car: <kbd>W</kbd><kbd>S</kbd> gas/brake · <kbd>Space</kbd> drift · <kbd>Shift</kbd> nitro<br>
-        Plane: <kbd>Shift</kbd>/<kbd>X</kbd> throttle · <kbd>S</kbd> climb<br>
-        <kbd>A</kbd><kbd>D</kbd> roll · <kbd>Q</kbd><kbd>E</kbd> rudder · <kbd>F</kbd> bail out</div>
-      <div><h3>MORE</h3>
-        <kbd>T</kbd> skip time (try night!) · <kbd>V</kbd> graphics<br>
-        <kbd>M</kbd> mute · <kbd>R</kbd> back to street<br>
-        <kbd>Esc</kbd> pause</div>
-    </div>
-    <div class="controls touch-only">
-      <div><h3>MOVE</h3>Drag on the <b>left</b> side to walk. Push the stick all the way to sprint.<br>Drag on the <b>right</b> side to look around.</div>
-      <div><h3>WEB</h3>Tap <b>JUMP</b>, then <b>hold</b> it in the air to swing. Let go to fling.<br><b>ZIP</b> shoots a web to the centre of the screen.</div>
-      <div><h3>RIDES</h3>Tap <b>CALL</b> at the top for a car, plane or tank, or walk up to any car and tap <b>DRIVE</b>.<br>Cars: the stick steers, <b>GAS</b> and <b>BRAKE</b> drive.</div>
+    <div class="controls">
+      <div><h3>MOVE</h3>Drag on the <b>left</b> side to walk, push the stick all the way to sprint (or tap <b>RUN</b>).<br>Drag on the <b>right</b> side to look around.</div>
+      <div><h3>WEB</h3>Hold <b>SWING</b> to swing from buildings, let go to fling. <b>JUMP</b> jumps.<br><b>WEB</b> zips you to the centre of the screen. Run into walls to climb.</div>
+      <div><h3>RIDES</h3><b>PHONE</b> calls a car, plane or tank, or walk up to any car and tap <b>DRIVE</b>.<br>Cars: the stick steers, <b>GAS</b>, <b>BRAKE</b> and <b>NITRO</b> drive.</div>
       <div><h3>FIGHT</h3><b>GUN</b> switches to the blaster, <b>FIRE</b> shoots, <b>BOMB</b> throws a grenade.<br>Crimes bring the police (stars at the top): lose them or take them down.</div>
-      <div><h3>MISSIONS</h3>Walk into a glowing beam (coloured dots on the map) to start a mission for cash.<br><b>SLOW</b> at the top turns on slow motion.</div>
+      <div><h3>MISSIONS</h3>Walk into a glowing beam (coloured dots on the map) to start a mission for cash.<br><b>SLOW</b> turns on slow motion.</div>
     </div>
   </div>
 </div>

@@ -11,12 +11,12 @@ import { Combat } from './combat.js';
 import { Missions } from './missions.js';
 import { Police } from './police.js';
 import { FX, Sound } from './fx.js';
-import { isTouch, setupTouch } from './touch.js';
+import { setupTouch } from './touch.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-let pixelRatio = isTouch ? 1 : Math.min(devicePixelRatio, 1.5);
+let pixelRatio = 1;
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
@@ -25,7 +25,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 6000);
-const rt = new THREE.WebGLRenderTarget(innerWidth * pixelRatio, innerHeight * pixelRatio, { type: THREE.HalfFloatType, samples: isTouch ? 0 : 4 });
+const rt = new THREE.WebGLRenderTarget(innerWidth * pixelRatio, innerHeight * pixelRatio, { type: THREE.HalfFloatType, samples: 0 });
 const composer = new EffectComposer(renderer, rt);
 composer.setPixelRatio(pixelRatio);
 composer.addPass(new RenderPass(scene, camera));
@@ -68,21 +68,7 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; lmb = rmb = false; });
-canvas.addEventListener('mousedown', e => {
-  if (!playing) return;
-  if (e.button === 0) { lmb = true; lmbHit = true; }
-  if (e.button === 2) { rmb = true; rmbHit = true; }
-  if (!document.pointerLockElement) dragging = true;
-});
-addEventListener('mouseup', e => { if (e.button === 0) lmb = false; if (e.button === 2) rmb = false; dragging = false; });
-addEventListener('mousemove', e => { if (document.pointerLockElement === canvas || dragging) { mdx += e.movementX; mdy += e.movementY; } });
 addEventListener('contextmenu', e => e.preventDefault());
-let hadLock = false;
-document.addEventListener('pointerlockchange', () => {
-  if (document.pointerLockElement) hadLock = true;
-  else if (playing && hadLock) pause();
-});
-addEventListener('keydown', e => { if (e.code === 'Escape' && playing && !document.pointerLockElement) pause(); });
 
 function start() {
   sound.init();
@@ -90,14 +76,8 @@ function start() {
   $('hud').classList.remove('hidden');
   playing = true;
   if (!started) { started = true; cam.yaw = 0; cam.pitch = 0.22; toast('Find the 30 golden tokens across the city'); }
-  try { // pointer lock is optional: without it, drag with the mouse to look around
-    const p = canvas.requestPointerLock?.();
-    if (p && p.catch) p.catch(() => {});
-  } catch (e) { /* not allowed in this frame */ }
-  canvas.focus?.();
-  if (isTouch) { // phones: go fullscreen and landscape where the browser allows it
-    try { document.documentElement.requestFullscreen?.()?.then(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {}); } catch (e) { /* refused */ }
-  }
+  // go fullscreen where the browser allows it
+  try { document.documentElement.requestFullscreen?.()?.catch(() => {}); } catch (e) { /* refused */ }
 }
 function pause() {
   playing = false;
@@ -108,8 +88,8 @@ $('play').addEventListener('click', start);
 
 // touch controls press the same virtual keys as the keyboard
 function vkey(code, down) { if (down && !keys[code]) pressed.add(code); keys[code] = down; }
-const touch = isTouch ? setupTouch($('touch'), { key: vkey, look: (dx, dy) => { mdx += dx; mdy += dy; }, pause }) : null;
-if (isTouch) document.body.classList.add('touch');
+const touch = setupTouch($('touch'), { key: vkey, look: (dx, dy) => { mdx += dx; mdy += dy; }, pause });
+document.body.classList.add('touch');
 
 // ---------- camera ----------
 const cam = { yaw: 0, pitch: 0.25, dist: 6, target: new THREE.Vector3(11, 1.7, 30), lastMouse: -10, shake: 0, fov: 70, t: 0 };
@@ -186,12 +166,12 @@ function enterCar(c) {
 }
 function enterPlane() {
   mode = 'plane'; hero.state = 'vehicle'; hero.setVisible(false); cam.lastMouse = -10; sound.door();
-  toast('Throttle up with Shift (or hold W on the runway), pull up with S');
+  toast('Hold THR + to speed up, pull the stick down to climb');
 }
 function enterTank() {
   mode = 'tank'; hero.state = 'vehicle'; hero.setVisible(false); sound.door();
   cam.yaw = tank.yaw + Math.PI; cam.pitch = 0.18;
-  toast('Tank: aim with the camera, fire with ' + (isTouch ? 'FIRE' : 'click / Space'));
+  toast('Tank: drag the screen to aim, tap FIRE');
 }
 function exitVehicle() {
   if (mode === 'tank') {
@@ -265,7 +245,7 @@ function callVehicle(kind) {
     plane.q.setFromEuler(new THREE.Euler(0, heading, 0));
     plane.speed = 55; plane.throttle = 0.85; plane.onGround = false;
     plane.vel.set(Math.sin(heading) * 55, 0, Math.cos(heading) * 55);
-    enterPlane(); toast('Plane delivered! Fire rockets with ' + (isTouch ? 'FIRE' : 'click / Space'));
+    enterPlane(); toast('Plane delivered! Tap ROCKET to fire');
     return;
   }
   const s = deliverySpot();
@@ -387,37 +367,24 @@ function updateHUD(dt) {
   if (hudT > 0) return;
   hudT = 0.08;
   drawMinimap();
-  let spd = 0, label = '', hint = '';
+  let spd = 0, label = '';
   if (mode === 'foot') {
     spd = hero.speed;
     label = { ground: hero.speed > 12 ? 'SPRINTING' : 'ON FOOT', air: 'AIRBORNE', swing: 'SWINGING', wall: 'WALL CRAWL', zip: 'WEB ZIP' }[hero.state] || '';
-    if (plane.crashed <= 0 && hero.pos.distanceTo(plane.pos) < 9) hint = '<b>F</b> Fly the plane';
-    else if (traffic.nearest(hero.pos, 5)) hint = '<b>F</b> Jack the car';
-    else if (hero.state === 'wall') hint = '<b>W/S</b> climb · <b>A/D</b> strafe · <b>Space</b> leap off';
-    else if (tank.active && hero.pos.distanceTo(tank.pos) < 5.5) hint = '<b>F</b> Drive the tank';
-    else if (hero.gun) hint = '<b>Click</b> fire · <b>Q</b> back to web · <b>Space</b> still swings · <b>1/2/3</b> call car / plane / tank';
-    else if (hero.state === 'air' || hero.state === 'swing') hint = 'Hold <b>Space</b> / <b>LMB</b> to web-swing · <b>E</b> / <b>RMB</b> web-zip to crosshair';
-    else hint = '<b>G</b> grenade · <b>Q</b> blaster · <b>B</b> slow-mo · <b>1/2/3</b> call car / plane / tank · walk into a beam for a mission';
   } else if (mode === 'car') {
     spd = Math.abs(car.speed); label = 'DRIVING';
-    hint = '<b>W/S</b> gas/brake · <b>A/D</b> steer · <b>Shift</b> nitro · <b>Space</b> drift · <b>F</b> exit';
   } else if (mode === 'tank') {
     spd = Math.abs(tank.speed); label = 'TANK';
-    hint = '<b>W/S</b> drive · <b>A/D</b> turn · <b>Mouse</b> aim turret · <b>Click/Space</b> fire · <b>F</b> exit';
   } else {
     spd = plane.speed; label = plane.onGround ? 'TAXIING' : 'FLYING';
-    hint = `<b>Click/Space</b> rockets · <b>Shift/X</b> throttle ${Math.round(plane.throttle * 100)}% · <b>S</b> pull up · <b>W</b> dive · <b>A/D</b> roll · <b>Q/E</b> rudder · <b>F</b> bail`;
     label += ` · ALT ${Math.max(0, Math.round(plane.pos.y))} m`;
   }
   $('mode').textContent = label;
   $('speed').textContent = Math.round(spd * 3.6);
-  $('hint').innerHTML = isTouch ? '' : hint;
-  if (touch) {
-    const action = mode !== 'foot' ? 'EXIT' : plane.crashed <= 0 && hero.pos.distanceTo(plane.pos) < 9 ? 'FLY'
-      : tank.active && hero.pos.distanceTo(tank.pos) < 5.5 ? 'TANK' : traffic.nearest(hero.pos, 5) ? 'DRIVE' : '';
-    touch.update(mode, action, hero.gun);
-    if (mode === 'plane') $('mode').textContent += ` · THR ${Math.round(plane.throttle * 100)}%`;
-  }
+  const action = mode !== 'foot' ? 'EXIT' : plane.crashed <= 0 && hero.pos.distanceTo(plane.pos) < 9 ? 'FLY'
+    : tank.active && hero.pos.distanceTo(tank.pos) < 5.5 ? 'TANK' : traffic.nearest(hero.pos, 5) ? 'DRIVE' : '';
+  touch.update(mode, action, hero.gun);
+  if (mode === 'plane') $('mode').textContent += ` · THR ${Math.round(plane.throttle * 100)}%`;
   $('tokens').textContent = `${tokens} / ${world.tokens.length}`;
   $('cross').style.display = mode === 'foot' || mode === 'tank' ? 'block' : 'none';
   $('cross').classList.toggle('gun', (mode === 'foot' && hero.gun) || mode === 'tank');
@@ -636,7 +603,7 @@ function frame(now) {
   pressed.clear(); lmbHit = rmbHit = false; mdx = mdy = 0;
 }
 $('loading').style.display = 'none';
-if (isTouch) setQuality('low');
+setQuality('low');
 $('play').disabled = false;
 requestAnimationFrame(frame);
 
