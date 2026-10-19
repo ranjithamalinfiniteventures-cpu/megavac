@@ -110,6 +110,11 @@ function updateCamera(dt) {
     const sp = hero.speed;
     target.copy(hero.pos); target.y += hero.landT > 0 ? 1.1 : 1.6;
     dist = hero.state === 'swing' ? 7.5 + Math.min(4, sp * 0.06) : hero.state === 'wall' ? 6.5 : 5.2 + Math.min(4, sp * 0.08);
+    if (hero.gun && (hero.state === 'ground' || hero.state === 'air')) {
+      // over the right shoulder so the crosshair sits beside the hero, not on his head
+      target.x += Math.cos(cam.yaw) * 0.6; target.z -= Math.sin(cam.yaw) * 0.6; target.y += 0.35;
+      dist = 4.4;
+    }
     fov = 68 + Math.min(24, Math.max(0, sp - 8) * 0.55);
     follow = hero.state === 'swing' || hero.state === 'zip' ? 10 : 16;
     cam.shake = Math.max(cam.shake, hero.shake); hero.shake = 0;

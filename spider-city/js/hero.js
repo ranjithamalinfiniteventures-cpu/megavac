@@ -157,7 +157,8 @@ export class Hero {
     }
   }
 
-  trySwing(inp) {
+  // chain: re-web mid-swing, so the new anchor must be ahead of us and not the old one
+  trySwing(inp, chain = false) {
     const col = this.world.col;
     const o = v1.copy(this.pos); o.y += 1.4;
     const origin = o.clone();
@@ -171,7 +172,8 @@ export class Hero {
       const cy = Math.cos(y), sy = Math.sin(y);
       d.set(base.x * cy + base.z * sy, 0, -base.x * sy + base.z * cy).multiplyScalar(Math.cos(p)); d.y = Math.sin(p);
       const hit = col.raycast(origin, d, 120, false);
-      if (!hit || hit.point.y < this.pos.y + 6) continue;
+      if (!hit || hit.point.y < this.pos.y + (this.state === 'ground' ? 6 : 4)) continue;
+      if (chain && ((hit.point.x - this.pos.x) * base.x + (hit.point.z - this.pos.z) * base.z < 8 || hit.point.distanceTo(this.anchor) < 10)) continue;
       const score = Math.abs(hit.dist - 38) * 0.5 + Math.abs(yd) * 0.55 + Math.abs(pd - 55) * 0.3;
       if (score < bestScore) { bestScore = score; best = hit; }
     }
@@ -182,6 +184,7 @@ export class Hero {
     const floor = col.groundAt(this.pos.x, this.pos.z, this.pos.y + 0.5);
     this.ropeTarget = Math.max(6, Math.min(best.dist * 0.9, this.anchor.y - floor - 3.2));
     if (this.state === 'ground') { this.pos.y += 0.3; this.vel.y = Math.max(this.vel.y, 7); }
+    if (chain) this.vel.multiplyScalar(1.05);
     this.state = 'swing'; this.webT = 0; this.webHand *= -1; this.airJumps = 1; this.flipT = -1;
     this.sound.thwip();
     return true;
@@ -212,10 +215,19 @@ export class Hero {
   update(dt, inp) {
     if (this.state === 'vehicle') return;
     if (inp.zipPressed && this.state !== 'zip') this.tryZip(inp);
-    if (inp.swingPressed && this.state !== 'swing' && this.state !== 'zip') {
+    if (inp.swingPressed && this.state === 'swing') this.trySwing(inp, true); // jump to another building
+    else if (inp.swingPressed && this.state === 'wall') { this.jumpOrWeb(inp); this.trySwing(inp); } // kick off and web away
+    else if (inp.swingPressed && this.state !== 'zip') {
       if (!this.trySwing(inp) && inp.jumpPressed) this.jumpOrWeb(inp);
     } else if (inp.jumpPressed) this.jumpOrWeb(inp);
     if (this.state === 'swing' && !inp.swingHeld) this.releaseSwing();
+    // holding SWING chains automatically: once past the anchor and climbing, fire the next web ahead
+    this.chainCD = Math.max(0, (this.chainCD || 0) - dt);
+    if (this.state === 'swing' && inp.swingHeld && this.webT > 0.6 && this.chainCD <= 0) {
+      const hx = this.vel.x, hz = this.vel.z, hs = Math.hypot(hx, hz);
+      const past = (this.pos.x - this.anchor.x) * hx + (this.pos.z - this.anchor.z) * hz > 0;
+      if (hs > 10 && past && this.vel.y > -3 && !this.trySwing(inp, true)) this.chainCD = 0.25;
+    }
 
     this.landT = Math.max(0, this.landT - dt);
     this.webT += dt;
@@ -312,7 +324,8 @@ export class Hero {
           if (vr > 0) v.addScaledVector(d, -vr);
         }
         if (p.y > this.anchor.y - 1.5) { this.releaseSwing(); break; }
-        this._walls(inp, (n, into) => { if (into > 16 || (into > 4 && inp.move.dot(n) < -0.6)) this._toWall(n); });
+        // while SWING is held we glance off walls and keep swinging instead of sticking
+        this._walls(inp, (n, into) => { if (!inp.swingHeld && (into > 16 || (into > 4 && inp.move.dot(n) < -0.6))) this._toWall(n); });
         if (this.state !== 'swing') break;
         const g = col.groundAt(p.x, p.z, p.y);
         if (p.y <= g) { this._land(g); }

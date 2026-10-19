@@ -74,7 +74,23 @@ export class Combat {
   }
 
   // the player's blaster: aim along the camera ray, fire from the hand
-  playerShot(hand, camPos, camDir, ignoreCar) {
+  // aim assist: the nearest enemy close to the crosshair (within ~7°, and in sight)
+  assist(camPos, camDir) {
+    let best = null, bestA = 0.12;
+    const consider = (x, y, z) => {
+      v1.set(x - camPos.x, y - camPos.y, z - camPos.z);
+      const d = v1.length();
+      if (d < 2 || d > 140) return;
+      const a = Math.acos(Math.min(1, v1.dot(camDir) / d));
+      if (a < bestA && !this.world.col.raycast(camPos, v2.copy(v1).divideScalar(d), d - 0.8, true)) { bestA = a; best = v1.clone().divideScalar(d); }
+    };
+    for (const g of this.goons) if (g.down <= 0) consider(g.pos.x, g.pos.y + 1.1, g.pos.z);
+    for (const c of this.extra?.targets?.() || []) consider(c.x, c.y, c.z);
+    return best || camDir;
+  }
+
+  playerShot(hand, camPos, camDirRaw, ignoreCar) {
+    const camDir = this.assist(camPos, camDirRaw);
     const hit = this.ray(camPos, camDir, 260, ignoreCar);
     this.tracer(hand, hit.point);
     this.sound.shot(0.5);

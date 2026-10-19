@@ -17,6 +17,7 @@ export class Police {
     this._officers();
     combat.extra = {
       ray: (o, d, maxD) => this._ray(o, d, maxD),
+      targets: () => this.cops.filter(c => c.active && c.down <= 0).map(c => new THREE.Vector3(c.pos.x, c.pos.y + 1.1, c.pos.z)),
       hit: (cop, dmg, dir) => this._hurt(cop, dmg, dir, 5),
       blast: (pos, r) => { for (const c of this.cops) if (c.active && c.down <= 0 && c.pos.distanceTo(pos) < r) this._hurt(c, 99, v1.subVectors(c.pos, pos).setY(0).normalize(), 12); },
     };

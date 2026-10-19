@@ -43,6 +43,15 @@ try {
     const swung = h.state === 'swing'; S(60); __game.keys.Space = false; __game.keys.KeyW = false; S(30);
     return swung && !__game.world.col.pointInside(h.pos.x, h.pos.y + 0.9, h.pos.z) || `swung ${swung} state ${h.state}`;
   });
+  await test('holding SWING chains webs from building to building', () => {
+    const g = __game, h = g.hero; h.pos.set(0, 0, 0); h.vel.set(0, 0, 0); h.state = 'ground';
+    g.cam.yaw = 0; g.keys.KeyW = true; g.keys.ShiftLeft = true; S(60);
+    g.press('Swing'); g.keys.Swing = true;
+    let webs = 0, last = null;
+    for (let i = 0; i < 360; i++) { S(1); if (h.state === 'swing' && (!last || !last.equals(h.anchor))) { webs++; last = h.anchor.clone(); } }
+    g.keys.Swing = false; g.keys.KeyW = false; g.keys.ShiftLeft = false; S(120);
+    return webs >= 4 || `only ${webs} webs`;
+  });
   await test('climbs a wall', () => {
     const h = __game.hero; h.pos.set(80, 0.25, 30); h.vel.set(0, 0, 0); h.state = 'ground';
     __game.cam.yaw = -Math.PI / 2; __game.keys.KeyW = true; S(150); __game.keys.KeyW = false;

@@ -37,10 +37,19 @@ export function setupTouch(root, { key, look, pause }) {
     <button class="tbtn util slot-l4" id="tSlow" style="--c:#3fa7e8"><i>⏳</i><b>SLOW</b></button>
     <button class="tbtn tiny" id="tTime" aria-label="Skip time">☾</button>
     <button class="tbtn tiny" id="tPause" aria-label="Pause">II</button>
-    <div id="tCallMenu" hidden>
-      <button class="tbtn pill" id="tCallCar" style="--c:#e8243c">🚗 CAR</button>
-      <button class="tbtn pill" id="tCallPlane" style="--c:#2f5bd8">✈️ PLANE</button>
-      <button class="tbtn pill" id="tCallTank" style="--c:#3f8f3a">🪖 TANK</button>
+    <div id="tPhone" hidden>
+      <div class="phone" role="dialog" aria-label="Call a ride">
+        <div class="pbar"><span id="tPhoneTime">12:00</span><span>📶 🔋</span></div>
+        <div class="ptitle">RIDE APP</div>
+        <div class="psub">Tap a ride, it arrives right next to you</div>
+        <div class="apps">
+          <button class="app" id="tCallCar" style="--c:#e8243c"><i>🚗</i><b>CAR</b></button>
+          <button class="app" id="tCallPlane" style="--c:#2f5bd8"><i>✈️</i><b>PLANE</b></button>
+          <button class="app" id="tCallTank" style="--c:#3f8f3a"><i>🪖</i><b>TANK</b></button>
+        </div>
+        <button class="pclose" id="tPhoneClose" aria-label="Close phone">✕</button>
+        <div class="phome"></div>
+      </div>
     </div>`;
   const $ = id => root.querySelector('#' + id);
   for (const [id, [, color]] of Object.entries(BUTTONS)) $(id).style.setProperty('--c', color);
@@ -64,11 +73,19 @@ export function setupTouch(root, { key, look, pause }) {
   tap('tTime', () => press('KeyT'));
   tap('tSlow', () => press('KeyB'));
   tap('tRun', () => { st.run = !st.run; $('tRun').classList.toggle('lit', st.run); });
-  const menu = $('tCallMenu');
-  tap('tCall', () => { menu.hidden = !menu.hidden; });
+  // the PHONE button opens a phone with a ride app; picking a ride (or ✕, or tapping
+  // outside the phone) puts it away again
+  const menu = $('tPhone');
+  const openPhone = () => {
+    const d = new Date(); $('tPhoneTime').textContent = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    menu.hidden = false;
+  };
+  tap('tCall', () => { if (menu.hidden) openPhone(); else menu.hidden = true; });
   tap('tCallCar', () => { press('Digit1'); menu.hidden = true; });
   tap('tCallPlane', () => { press('Digit2'); menu.hidden = true; });
   tap('tCallTank', () => { press('Digit3'); menu.hidden = true; });
+  tap('tPhoneClose', () => { menu.hidden = true; });
+  menu.addEventListener('pointerdown', e => { if (e.target === menu) { e.preventDefault(); menu.hidden = true; } });
 
   const canvas = document.getElementById('game');
   canvas.addEventListener('pointerdown', e => {

@@ -106,10 +106,10 @@ works in portrait and landscape.
   toggle RUN, to sprint); drag on the right half to look. Run into any building to
   climb it; climbing over the top vaults you onto the roof.
 - **Buttons** — big round action buttons cluster around a main button at the bottom
-  right, with a different set for each mode. On foot: SWING (hold to swing, release to
-  fling), JUMP, WEB (zip to the centre of the screen), GUN / FIRE and BOMB. Car: GAS,
+  right, with a different set for each mode. On foot: SWING (hold to swing and keep
+  holding to chain webs from building to building, release to fling), JUMP, WEB (zip to the centre of the screen), GUN / FIRE and BOMB. Car: GAS,
   BRAKE, DRIFT, NITRO. Plane: ROCKET, THR + / THR −, LEFT / RIGHT rudder. Tank: FIRE,
-  GAS, BACK. PHONE (call a car, plane or tank), RUN and SLOW sit on the left, and
+  GAS, BACK. PHONE (opens a phone with a ride app: car, plane or tank), RUN and SLOW sit on the left, and
   DRIVE / FLY / TANK / EXIT appears when it applies. The moon button skips time of day.
 - **Cars** — walk up to any car (parked or in traffic) and tap DRIVE. Traffic follows
   lanes and turns at junctions; pedestrians walk the sidewalks and dive out of the way.
@@ -118,7 +118,8 @@ works in portrait and landscape.
   mid-air. Crash it and it respawns on the runway.
 - **Tank** — the stick steers, the turret follows where you look, FIRE shoots
   explosive shells. It flattens cars in its way.
-- **Weapons** — the hero's blaster (GUN, then FIRE), grenades (BOMB), homing rockets
+- **Weapons** — the hero's blaster (GUN, then FIRE; the camera moves over the shoulder
+  and shots near an enemy lock on), grenades (BOMB), homing rockets
   from the plane. Cars can be shot up and explode.
 - **Gangs** — armed gang members (red dots on the minimap) guard street corners and
   rooftops and shoot back. Health regenerates when you stay out of fire; at zero you
