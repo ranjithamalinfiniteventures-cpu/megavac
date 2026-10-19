@@ -386,7 +386,7 @@ function updateHUD(dt) {
   let spd = 0, label = '';
   if (mode === 'foot') {
     spd = hero.speed;
-    label = { ground: hero.speed > 12 ? 'SPRINTING' : 'ON FOOT', air: 'AIRBORNE', swing: 'SWINGING', wall: 'WALL CRAWL', zip: 'WEB ZIP' }[hero.state] || '';
+    label = { ground: hero.speed > 12 ? 'SPRINTING' : 'ON FOOT', air: 'AIRBORNE', swing: 'SWINGING', wall: hero.speed > 12 ? 'WALL RUN' : 'WALL CRAWL', wallrun: 'WALL RUN', zip: 'WEB ZIP' }[hero.state] || '';
   } else if (mode === 'car') {
     spd = Math.abs(car.speed); label = 'DRIVING';
   } else if (mode === 'tank') {
@@ -481,7 +481,8 @@ function update(dt) {
   $('hurt').style.opacity = Math.max(0, parseFloat($('hurt').style.opacity || 0) - dt * 1.5);
 
   if (mode === 'foot') hero.update(dt, inp);
-  if (mode === 'foot' && hero.state === 'ground' && hero.speed > 1.5) { // footsteps
+  const onWallRun = hero.state === 'wallrun' || (hero.state === 'wall' && hero.speed > 12);
+  if (mode === 'foot' && (hero.state === 'ground' || onWallRun) && hero.speed > 1.5) { // footsteps
     if ((stepT -= dt * (hero.speed / 3.2 + 1.2)) <= 0) { stepT = 1; sound.step(Math.min(1.5, 0.6 + hero.speed / 20)); }
   }
   if (mode === 'foot' && hero.gun && deadT <= 0 && hero.state !== 'zip' && hero.state !== 'wall') {

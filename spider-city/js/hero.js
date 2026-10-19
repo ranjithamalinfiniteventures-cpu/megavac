@@ -148,6 +148,11 @@ export class Hero {
       this.state = 'air'; this.airT = 0; this.flipT = 0; this.airJumps = 1;
       this.facing = Math.atan2(this.wallN.x, this.wallN.z);
       this.sound.jump();
+    } else if (this.state === 'wallrun') { // leap off, keeping the run's speed
+      const n = this.wallN;
+      this.vel.set(n.z * this.wrSpeed * 0.9 + n.x * 9, 12, -n.x * this.wrSpeed * 0.9 + n.z * 9);
+      this.state = 'air'; this.airT = 0; this.flipT = 0; this.airJumps = 1; this.wrCD = 0.4;
+      this.sound.jump();
     } else if (this.state === 'air') {
       if (this.trySwing(inp)) return;
       if (this.airJumps > 0) {
@@ -230,6 +235,7 @@ export class Hero {
     }
 
     this.landT = Math.max(0, this.landT - dt);
+    this.wrCD = Math.max(0, (this.wrCD || 0) - dt);
     this.webT += dt;
     const steps = Math.min(10, Math.max(1, Math.ceil(this.vel.length() * dt / 0.3)));
     for (let i = 0; i < steps; i++) this._step(dt / steps, inp);
@@ -258,10 +264,19 @@ export class Hero {
     const col = this.world.col;
     if (!col.pushCircle(this.pos, R, this.pos.y, H, STEP, nTmp)) return;
     const vn = this.vel.x * nTmp.x + this.vel.z * nTmp.z;
+    const vt = this.vel.x * nTmp.z - this.vel.z * nTmp.x; // speed along the wall
     const box = col.lastBox;
     if (vn < 0) { this.vel.x -= vn * nTmp.x; this.vel.z -= vn * nTmp.z; }
     const tall = box && box.maxY - this.pos.y > 2.6;
-    if (tall) onContact(nTmp, -vn);
+    if (tall) onContact(nTmp, -vn, vt);
+  }
+
+  // glancing a wall at speed turns into a run along it
+  _canWallRun(into, vt, minSpeed) { return (this.wrCD || 0) <= 0 && Math.abs(vt) > minSpeed && Math.abs(vt) > into * 0.8; }
+  _toWallRun(n, vt) {
+    this.state = 'wallrun'; this.wallN.copy(n); this.wrT = 0; this.flipT = -1;
+    this.wrSpeed = Math.sign(vt) * Math.max(Math.abs(vt), 17);
+    this.vel.y = Math.max(this.vel.y, 8.5);
   }
 
   _toWall(n) {
@@ -281,7 +296,11 @@ export class Hero {
         if (dl > a) { dx *= a / dl; dz *= a / dl; }
         v.x += dx; v.z += dz; v.y = 0;
         p.x += v.x * h; p.z += v.z * h;
-        this._walls(inp, (n) => { if (inp.move.dot(n) < -0.6 && !lock) this._toWall(n); });
+        this._walls(inp, (n, into, vt) => {
+          if (lock) return;
+          if (inp.sprint && this._canWallRun(into, vt, 8)) this._toWallRun(n, vt);
+          else if (inp.move.dot(n) < -0.6) this._toWall(n);
+        });
         if (this.state !== 'ground') break;
         const g = col.groundAt(p.x, p.z, p.y);
         if (g < p.y - 0.7) { this.state = 'air'; this.airT = 0; this.airJumps = 1; }
@@ -295,7 +314,10 @@ export class Hero {
         const hs2 = Math.hypot(v.x, v.z), lim = Math.max(hs, 10);
         if (hs2 > lim) { v.x *= lim / hs2; v.z *= lim / hs2; }
         p.addScaledVector(v, h);
-        this._walls(inp, (n, into) => { if (inp.move.dot(n) < -0.4 || into > 14) this._toWall(n); });
+        this._walls(inp, (n, into, vt) => {
+          if (this._canWallRun(into, vt, 9)) this._toWallRun(n, vt);
+          else if (inp.move.dot(n) < -0.4 || into > 14) this._toWall(n);
+        });
         if (this.state !== 'air') break;
         const g = col.groundAt(p.x, p.z, p.y);
         if (p.y <= g && v.y <= 0) this._land(g);
@@ -325,7 +347,11 @@ export class Hero {
         }
         if (p.y > this.anchor.y - 1.5) { this.releaseSwing(); break; }
         // while SWING is held we glance off walls and keep swinging instead of sticking
-        this._walls(inp, (n, into) => { if (!inp.swingHeld && (into > 16 || (into > 4 && inp.move.dot(n) < -0.6))) this._toWall(n); });
+        this._walls(inp, (n, into, vt) => {
+          if (inp.swingHeld) return;
+          if (this._canWallRun(into, vt, 12)) this._toWallRun(n, vt);
+          else if (into > 16 || (into > 4 && inp.move.dot(n) < -0.6)) this._toWall(n);
+        });
         if (this.state !== 'swing') break;
         const g = col.groundAt(p.x, p.z, p.y);
         if (p.y <= g) { this._land(g); }
@@ -334,16 +360,17 @@ export class Hero {
       case 'wall': {
         const n = this.wallN;
         const rx = n.z, rz = -n.x; // climber's right while facing the wall
-        const sp = inp.sprint ? 13 : 7.5;
-        v.set(rx * inp.raw.r * sp, inp.raw.f * sp, rz * inp.raw.r * sp);
+        const run = inp.sprint && inp.raw.f > 0.3; // sprinting runs straight up the wall
+        const sp = run ? 18 : inp.sprint ? 11 : 7.5;
+        v.set(rx * inp.raw.r * (run ? 6 : sp), inp.raw.f * sp, rz * inp.raw.r * (run ? 6 : sp));
         p.addScaledVector(v, h);
         const back = v2.copy(n).negate();
         const chest = col.raycast(v3.set(p.x, p.y + 1.3, p.z), back, R + 1.2, false);
         if (!chest) {
           const feet = col.raycast(v3.set(p.x, p.y + 0.15, p.z), back, R + 1.2, false);
           this.state = 'air'; this.airT = 0;
-          if (feet && inp.raw.f >= 0) { // pulled over the ledge
-            v.copy(back).multiplyScalar(5); v.y = 9.5; this.flipT = 0;
+          if (feet && inp.raw.f >= 0) { // pulled over the ledge (launched when running)
+            v.copy(back).multiplyScalar(run ? 7 : 5); v.y = run ? 15 : 9.5; this.flipT = 0;
           } else v.set(0, 0, 0);
           break;
         }
@@ -352,6 +379,23 @@ export class Hero {
         this.facing = Math.atan2(-n.x, -n.z);
         const g = col.groundAt(p.x + n.x * 0.3, p.z + n.z * 0.3, p.y);
         if (p.y <= g) { p.y = g; if (inp.raw.f < 0) { this.state = 'ground'; v.set(0, 0, 0); } }
+        break;
+      }
+      case 'wallrun': {
+        const n = this.wallN;
+        this.wrT += h;
+        v.x = n.z * this.wrSpeed; v.z = -n.x * this.wrSpeed; v.y -= (inp.sprint ? 6 : 10) * h; // sprinting holds the line longer
+        p.addScaledVector(v, h);
+        const wall = col.raycast(v3.set(p.x, p.y + 1.0, p.z), v2.copy(n).negate(), 1.4, false);
+        if (!wall || this.wrT > 2.6) { // ran off the end, or out of steam: carry the momentum
+          this.state = 'air'; this.airT = 0; this.wrCD = 0.4;
+          v.addScaledVector(n, 3); if (!wall) v.y = Math.max(v.y, 4);
+          break;
+        }
+        if (wall.normal.dot(n) > 0.5) n.copy(wall.normal);
+        p.x = wall.point.x + n.x * 0.38; p.z = wall.point.z + n.z * 0.38;
+        const g = col.groundAt(p.x + n.x * 0.4, p.z + n.z * 0.4, p.y);
+        if (p.y <= g && v.y <= 0) this._land(g);
         break;
       }
       case 'zip': {
@@ -448,6 +492,20 @@ export class Hero {
       P.knL = [0.5 + Math.max(0, swingPh) * 0.8, 0, 0]; P.knR = [0.9 + Math.max(0, swingPh) * 0.6, 0, 0];
       P.spine = [-0.15 + swingPh * 0.25, 0, 0]; P.neck = [-0.2, 0, 0];
       k = 10;
+    } else if (s === 'wallrun' || (s === 'wall' && inp.sprint && inp.raw.f > 0.3)) {
+      // running with the feet on the wall: sideways along it, or straight up it
+      const n = this.wallN, up = s === 'wallrun';
+      const fwd = up ? v2.set(n.z * this.wrSpeed, 0, -n.x * this.wrSpeed) : v2.set(0, 1, 0);
+      basisQuat(up ? v1.copy(n).multiplyScalar(0.75).addScaledVector(UP, 0.66) : v1.copy(n), fwd, targetQ);
+      const spd = up ? Math.abs(this.wrSpeed) : 18;
+      this.phase += dt * (6 + spd * 0.7);
+      const sn = Math.sin(this.phase), cs = Math.cos(this.phase);
+      bodyY = 0.95 + Math.abs(cs) * 0.08;
+      P.body = [0.35, 0, 0]; P.spine = [0.15, -sn * 0.2, 0]; P.neck = [-0.5, 0, 0];
+      P.hpL = [-sn * 1.2, 0, 0.04]; P.hpR = [sn * 1.2, 0, -0.04];
+      P.knL = [0.3 + Math.max(0, cs) * 1.8, 0, 0]; P.knR = [0.3 + Math.max(0, -cs) * 1.8, 0, 0];
+      P.shL = [0.9, 0, 0.4]; P.shR = [0.9, 0, -0.4]; P.elL = [-0.3, 0, 0]; P.elR = [-0.3, 0, 0];
+      k = 24;
     } else if (s === 'wall') {
       const climbing = Math.abs(inp.raw.f) + Math.abs(inp.raw.r) > 0.1;
       if (climbing) this.phase += dt * (inp.sprint ? 13 : 8);

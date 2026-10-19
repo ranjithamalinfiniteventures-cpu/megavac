@@ -104,7 +104,9 @@ works in portrait and landscape.
 
 - **Moving** — drag on the left half for a floating joystick (push it all the way, or
   toggle RUN, to sprint); drag on the right half to look. Run into any building to
-  climb it; climbing over the top vaults you onto the roof.
+  climb it; climbing over the top vaults you onto the roof. Sprinting into a wall runs
+  straight up it and launches you over the edge; hitting a wall at an angle while
+  sprinting or swinging fast runs along it in an arc (JUMP leaps off, SWING webs away).
 - **Buttons** — big round action buttons cluster around a main button at the bottom
   right, with a different set for each mode. On foot: SWING (hold to swing and keep
   holding to chain webs from building to building, release to fling), JUMP, WEB (zip to the centre of the screen), GUN / FIRE and BOMB. Car: GAS,

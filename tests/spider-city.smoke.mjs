@@ -57,6 +57,17 @@ try {
     __game.cam.yaw = -Math.PI / 2; __game.keys.KeyW = true; S(150); __game.keys.KeyW = false;
     return h.state === 'wall' && h.pos.y > 2 || `state ${h.state} y ${h.pos.y}`;
   });
+  await test('sprints up a wall and runs along one', () => {
+    const g = __game, h = g.hero;
+    h.pos.set(76, 0.25, 30); h.vel.set(0, 0, 0); h.state = 'ground';
+    g.cam.yaw = -Math.PI / 2; g.keys.KeyW = true; g.keys.ShiftLeft = true; S(150);
+    const upSpeed = h.state === 'wall' ? h.vel.y : 0, upY = h.pos.y;
+    h.pos.set(86, 0.25, 20); h.vel.set(0, 0, 0); h.state = 'ground'; g.cam.yaw = Math.PI + 0.3; S(2);
+    let ran = false, peak = 0;
+    for (let i = 0; i < 160; i++) { S(1); if (h.state === 'wallrun') { ran = true; peak = Math.max(peak, h.pos.y); } }
+    g.keys.KeyW = false; g.keys.ShiftLeft = false; S(90);
+    return upSpeed > 15 && upY > 15 && ran && peak > 3 || `up ${upSpeed} y ${upY} ran ${ran} peak ${peak}`;
+  });
   await test('jacks and drives a car', () => {
     const h = __game.hero; h.pos.set(9, 0.25, 14); h.state = 'ground'; S(2);
     __game.press('KeyF'); S(1); if (__game.mode !== 'car') return 'mode ' + __game.mode;
