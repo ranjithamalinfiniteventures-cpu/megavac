@@ -152,6 +152,11 @@ Code: `js/world.js` (city generation, collision, sky, day/night), `js/hero.js`
 pedestrians), `js/combat.js` (weapons, explosions, gangs), `js/missions.js` (side missions), `js/police.js` (wanted level, cruisers, officers), `js/touch.js` (touch controls),
 `js/fx.js` (particles, WebAudio), `js/main.js` (loop, camera, input, HUD).
 
+**Single-file build:** `spider-city/dist/spider-city.html` is the whole game in one file
+(three.js, game code, styles and the Bebas Neue font inlined; it loads nothing from the
+internet). Open it directly on a phone or host it anywhere. Rebuild it after code changes
+with `./tools/build_spider_city.sh` (needs network once to fetch three.js, esbuild and the font).
+
 Smoke test (headless Chromium via Playwright, needs network for three.js):
 
 ```sh

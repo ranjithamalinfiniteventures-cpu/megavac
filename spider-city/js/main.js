@@ -75,7 +75,7 @@ function start() {
   $('overlay').classList.add('hidden');
   $('hud').classList.remove('hidden');
   playing = true;
-  if (!started) { started = true; cam.yaw = 0; cam.pitch = 0.22; toast('Find the 30 golden tokens across the city'); }
+  if (!started) { started = true; cam.yaw = 0; cam.pitch = 0.22; toast(`Find the ${world.tokens.length} golden tokens across the city`); }
   // go fullscreen where the browser allows it
   try { document.documentElement.requestFullscreen?.()?.catch(() => {}); } catch (e) { /* refused */ }
 }
