@@ -28,6 +28,7 @@ const CAR_TYPES = {
   sedan: { w: 1.9, l: 4.3, h: 0.62, ch: 0.56, cl: 2.2, cz: -0.15, top: 26, acc: 15 },
   sports: { w: 2.0, l: 4.4, h: 0.5, ch: 0.42, cl: 1.8, cz: -0.35, top: 44, acc: 24 },
   van: { w: 2.05, l: 4.9, h: 1.0, ch: 0.8, cl: 3.3, cz: -0.5, top: 30, acc: 12 },
+  police: { w: 1.95, l: 4.5, h: 0.62, ch: 0.54, cl: 2.2, cz: -0.15, top: 42, acc: 24 },
   taxi: { w: 1.9, l: 4.4, h: 0.62, ch: 0.56, cl: 2.2, cz: -0.15, top: 34, acc: 17 },
   muscle: { w: 2.0, l: 4.7, h: 0.6, ch: 0.48, cl: 2.0, cz: -0.4, top: 40, acc: 21 },
 };
@@ -48,6 +49,16 @@ function carMesh(type, color) {
   const mk = (geos, mat, cast = true) => { const m = new THREE.Mesh(mergeGeometries(geos), mat); m.castShadow = cast; body.add(m); return m; };
   mk(paintG, paint); mk(glassG, glassMat); mk(darkG, darkMat, false); mk(headG, headMat, false);
   const tail = mk(tailG, tailMat, false);
+  let siren = null;
+  if (type === 'police') { // white doors band, blue/red light bar
+    const band = new THREE.Mesh(box(T.w * 1.01, T.h * 0.42, T.l * 0.5, 0, base + T.h * 0.55, 0), new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.4, flatShading: true }));
+    body.add(band);
+    const red = new THREE.MeshBasicMaterial({ color: 0xff1a1a }), blue = new THREE.MeshBasicMaterial({ color: 0x1a4dff });
+    const y = base + T.h + T.ch + 0.16;
+    const l = new THREE.Mesh(box(0.55, 0.16, 0.3), red); l.position.set(0.32, y, T.cz); body.add(l);
+    const r = new THREE.Mesh(box(0.55, 0.16, 0.3), blue); r.position.set(-0.32, y, T.cz); body.add(r);
+    siren = { red, blue };
+  }
   if (type === 'taxi') { const s = new THREE.Mesh(box(0.7, 0.22, 0.3), new THREE.MeshBasicMaterial({ color: 0xfff3a0 })); s.position.set(0, base + T.h + T.ch + 0.19, T.cz); body.add(s); }
   const wheelG = mergeGeometries([new THREE.CylinderGeometry(0.4, 0.4, 0.3, 10).rotateZ(Math.PI / 2)]);
   const rimG = new THREE.CylinderGeometry(0.22, 0.22, 0.32, 6).rotateZ(Math.PI / 2);
@@ -57,7 +68,7 @@ function carMesh(type, color) {
     const w = new THREE.Mesh(wheelG, tireMat); w.add(new THREE.Mesh(rimG, rimMat)); pivot.add(w);
     wheels.push(w); if (sz > 0) steer.push(pivot);
   }
-  return { group: g, body, wheels, steer, tail, T, paint };
+  return { group: g, body, wheels, steer, tail, T, paint, siren };
 }
 
 export class Car {
@@ -84,9 +95,14 @@ export class Car {
     let vf = this.vx * fx + this.vz * fz, vr = this.vx * rx + this.vz * rz;
     const thr = inp.raw.f;
     this.braking = false;
+    // nitro: double the push and raise the top speed while the tank lasts
+    const boost = inp.nitro && this.nitro > 0 && thr > 0;
+    this.nitro = Math.max(0, Math.min(1, (this.nitro ?? 1) + (boost ? -dt / 3 : dt / 10)));
+    this.boosting = boost;
+    const top = T.top * (boost ? 1.4 : 1), acc = T.acc * (boost ? 2.2 : 1);
     if (thr > 0) {
       if (vf < -0.5) { vf += 30 * dt; this.braking = true; }
-      else vf += (vf < T.top ? T.acc * (1 - Math.max(0, vf) / (T.top * 1.1)) + 3 : 0) * thr * dt;
+      else vf += (vf < top ? acc * (1 - Math.max(0, vf) / (top * 1.1)) + 3 : 0) * thr * dt;
     } else if (thr < 0) { if (vf > 0.5) { vf -= 32 * dt; this.braking = true; } else vf = Math.max(-10, vf + 9 * thr * dt); }
     vf -= vf * 0.1 * dt + Math.sign(vf) * Math.min(Math.abs(vf), (thr === 0 ? 3 : 1) * dt);
     if (inp.handbrake) { vf -= Math.sign(vf) * Math.min(Math.abs(vf), 10 * dt); this.braking = true; }
@@ -160,8 +176,8 @@ export class Car {
 }
 
 // ---------------- traffic ----------------
-const nodePos = (k, l) => new THREE.Vector3(roadAt(k), 0, roadAt(l));
-function neighbors(k, l) {
+export const nodePos = (k, l) => new THREE.Vector3(roadAt(k), 0, roadAt(l));
+export function neighbors(k, l) {
   const o = [];
   if (k > 0) o.push([k - 1, l]); if (k < N) o.push([k + 1, l]);
   if (l > 0) o.push([k, l - 1]); if (l < N) o.push([k, l + 1]);
@@ -210,8 +226,13 @@ export class Traffic {
     const opts = neighbors(...ai.b).filter(n => n[0] !== ai.a[0] || n[1] !== ai.a[1]);
     const d1 = new THREE.Vector3().subVectors(B, A).normalize();
     let next = opts[Math.floor(this.R() * opts.length)];
+    if (car.ai.chase) { // pursuit: take the turn that closes in on the target
+      const t = car.ai.chase();
+      let bd = Infinity;
+      for (const o of opts) { const d = nodePos(...o).distanceTo(t); if (d < bd) { bd = d; next = o; } }
+    }
     const straight = opts.find(n => { const d = nodePos(...n).sub(B).normalize(); return d.dot(d1) > 0.9; });
-    if (straight && this.R() < 0.45) next = straight;
+    if (straight && this.R() < 0.45 && !car.ai.chase) next = straight;
     const C = nodePos(...next);
     const d2 = new THREE.Vector3().subVectors(C, B).normalize();
     const r1 = new THREE.Vector3(-d1.z, 0, d1.x), r2 = new THREE.Vector3(-d2.z, 0, d2.x);
@@ -257,7 +278,7 @@ export class Traffic {
             const ahead = dx * fxv + dz * fzv, lat = Math.abs(dx * -fzv + dz * fxv);
             if (ahead > 0 && ahead < gap && lat < 2.6) target = Math.min(target, Math.max(0, (ahead - 6) * 1.2));
           };
-          for (const o of this.cars) if (o !== car && Math.abs(o.pos.x - car.pos.x) < 16 && Math.abs(o.pos.z - car.pos.z) < 16) check(o.pos.x, o.pos.z, 14);
+          if (!ai.chase) for (const o of this.cars) if (o !== car && Math.abs(o.pos.x - car.pos.x) < 16 && Math.abs(o.pos.z - car.pos.z) < 16) check(o.pos.x, o.pos.z, 14);
           if (heroPos) check(heroPos.x, heroPos.z, 11);
           if (target < 0.5) { ai.blocked += dt; if (ai.blocked > 3.5) { ai.ignore = 1.6; ai.blocked = 0; } }
           else ai.blocked = 0;
@@ -272,7 +293,7 @@ export class Traffic {
           ai.s *= 1; // carry remainder
         }
         this._placeAI(car);
-      } else if (car !== playerCar && car.moving) {
+      } else if (car !== playerCar && !car.driven && car.moving) {
         car.coast(dt);
         if (!car.moving) car.idle = 0;
       }
@@ -294,12 +315,13 @@ export class Traffic {
         const j = rel * 0.85;
         a.vx -= nx * j * 0.6; a.vz -= nz * j * 0.6;
         b.vx += nx * j * 0.9; b.vz += nz * j * 0.9; b.spin += (Math.random() - 0.5) * rel * 0.25;
+        if (rel > 9) ctx.onRam?.(a, b, rel);
         if (rel > 5) { fx.burst('spark', v1.set((a.pos.x + b.pos.x) / 2, a.pos.y + 0.8, (a.pos.z + b.pos.z) / 2), Math.min(30, rel * 2)); sound.crash(Math.min(1, rel / 25)); ctx.onCrash?.(rel); }
       }
     }
     // loose cars far from the player drift back into traffic
     for (const car of this.cars) {
-      if (car.ai || car === playerCar || car.parked || car.called) continue;
+      if (car.ai || car === playerCar || car.parked || car.called || car.police) continue;
       car.idle += dt;
       if (car.dead && car.idle < 12 && Math.random() < dt * 6) fx.burst('smoke', v1.set(car.pos.x, car.pos.y + 1.4, car.pos.z));
       if (car.idle > 30 && (!playerPos || car.pos.distanceTo(playerPos) > 120)) {
@@ -503,7 +525,7 @@ export class Peds {
           if (d2 < 2.4 * 2.4 && t.speed > 6) { // hit
             const d = Math.sqrt(d2) || 1;
             this.knock(p, dx / d * t.speed * 0.6 + t.vx * 0.4, 4 + t.speed * 0.25, dz / d * t.speed * 0.6 + t.vz * 0.4);
-            fx.burst('dust', p.pos, 6); sound.thud();
+            fx.burst('dust', p.pos, 6); sound.thud(); this.onKnock?.(p);
             break;
           }
           if (d2 < 14 * 14 && t.speed > 4) { fleeing = true; p.flee = 1.5; }

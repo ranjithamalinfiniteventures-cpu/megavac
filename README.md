@@ -103,7 +103,8 @@ captured for camera look, Esc releases it and pauses).
 
 On phones and tablets touch controls appear automatically: drag on the left half for
 a floating joystick (push it all the way to sprint), drag on the right half to look,
-and use the context buttons (JUMP/WEB — hold in the air to swing, ZIP, GUN/FIRE,
+and use the big round action buttons (each mode has its own set; PHONE calls a ride, RUN
+toggles sprint) (JUMP/WEB — hold in the air to swing, ZIP, GUN/FIRE,
 DRIVE/FLY/EXIT, GAS/BRAKE/DRIFT in cars, THR +/− and FIRE in the plane, CALL for a ride). Phones start on the lighter graphics setting and
 landscape works best.
 
@@ -127,13 +128,18 @@ landscape works best.
 - **Gangs** — armed gang members (red dots on the minimap) guard street corners and
   rooftops and shoot back. Health regenerates when you stay out of fire; at zero you
   respawn on the nearest street.
+- **Police** — crimes (carjacking, wrecking cars, hitting pedestrians, shooting
+  officers) raise a five-star wanted level. Cruisers hunt you through the streets,
+  ram you and shoot from the window; officers bail out when you are on foot. Destroy
+  them or stay out of sight for a while to lose the stars.
+- **Grenades** — G (touch: BOMB) throws a bouncing grenade. **Nitro** — Shift in a car.
 - **Missions** — glowing beams around the city (coloured dots on the minimap) start
   side missions for cash: ring races (blue), gang hits (red) and smash sprees (orange).
   Cash also comes from tokens, gang takedowns and wrecked cars.
 - **Slow motion** — B (touch: SLOW) slows the world to a third for 6 seconds.
 - **Goal** — collect the 40 golden tokens on rooftops (beams of light mark them).
 - T skips time of day (night brings lit windows, street lamps and headlights),
-  G toggles graphics quality (it also drops automatically on slow machines), M mutes,
+  V toggles graphics quality (it also drops automatically on slow machines), M mutes,
   R returns you to the nearest street.
 
 Rendering: instanced buildings with a procedural window shader (glass reflects a
@@ -143,7 +149,7 @@ procedurally (run, sprint, swing, wall crawl, flips, superhero landing).
 
 Code: `js/world.js` (city generation, collision, sky, day/night), `js/hero.js`
 (rig, animation, traversal physics), `js/vehicles.js` (cars, traffic AI, plane,
-pedestrians), `js/combat.js` (weapons, explosions, gangs), `js/missions.js` (side missions), `js/touch.js` (touch controls),
+pedestrians), `js/combat.js` (weapons, explosions, gangs), `js/missions.js` (side missions), `js/police.js` (wanted level, cruisers, officers), `js/touch.js` (touch controls),
 `js/fx.js` (particles, WebAudio), `js/main.js` (loop, camera, input, HUD).
 
 Smoke test (headless Chromium via Playwright, needs network for three.js):

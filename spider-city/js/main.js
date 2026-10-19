@@ -9,6 +9,7 @@ import { Hero } from './hero.js';
 import { Traffic, Plane, Peds, Tank, Car, headMat, tailMat } from './vehicles.js';
 import { Combat } from './combat.js';
 import { Missions } from './missions.js';
+import { Police } from './police.js';
 import { FX, Sound } from './fx.js';
 import { isTouch, setupTouch } from './touch.js';
 
@@ -44,11 +45,13 @@ const peds = new Peds(scene, world, rand, 170);
 const tank = new Tank(scene, world);
 const combat = new Combat({ scene, world, fx, sound, traffic, peds }, rng(99));
 const missions = new Missions({ scene, world, combat, fx, sound, toast }, rng(5));
+const police = new Police({ scene, world, traffic, combat, fx, sound }, rng(31));
+police.onLost = () => toast('You lost the cops');
 const headlight = new THREE.SpotLight(0xfff0d0, 0, 90, 0.55, 0.6, 1);
 scene.add(headlight, headlight.target);
 
 let mode = 'foot', car = null, playing = false, started = false, tokens = 0, quality = 'high';
-let hp = 100, hurtT = 10, deadT = 0, slowT = 0, slowCD = 0, gunCD = 0, rocketCD = 0, rocketSide = 1, calledCar = null;
+let hp = 100, hurtT = 10, deadT = 0, slowT = 0, slowCD = 0, nadeCD = 0, lastStars = 0, gunCD = 0, rocketCD = 0, rocketSide = 1, calledCar = null;
 const focusPos = () => mode === 'car' ? car.pos : mode === 'plane' ? plane.pos : mode === 'tank' ? tank.pos : hero.pos;
 const damp = (k, dt) => 1 - Math.exp(-k * dt);
 const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
@@ -175,6 +178,7 @@ function updateCamera(dt) {
 
 // ---------- modes ----------
 function enterCar(c) {
+  if (!c.called && (c.ai || c.parked)) police.crime(0.6);
   c.ai = null; c.parked = false; car = c; mode = 'car';
   hero.state = 'vehicle'; hero.vel.set(0, 0, 0); hero.setVisible(false);
   cam.lastMouse = -10; sound.door();
@@ -279,19 +283,22 @@ function damagePlayer(d) {
   hp -= d; hurtT = 0; sound.hurt();
   $('hurt').style.opacity = Math.min(0.7, 0.25 + d / 40);
   if (hp <= 0) {
-    hp = 0; deadT = 3; toast('WASTED');
+    hp = 0; deadT = 3; toast('WASTED'); police.clear();
     if (mode !== 'foot') exitVehicle();
     hero.vel.set(0, 6, 0); hero.state = 'air';
   }
 }
 combat.onCarDestroyed = c => {
-  missions.cash += 15; missions.carDestroyed();
+  missions.cash += c.police ? 60 : 15; missions.carDestroyed();
+  police.crime(c.police ? 1.5 : 0.8);
   cam.shake = Math.max(cam.shake, 0.8);
   if (c === car && mode === 'car') {
     exitVehicle(); hero.vel.y = 11; hero.state = 'air'; hero.flipT = 0;
     damagePlayer(30); if (deadT <= 0) toast('Your ride exploded!');
   }
 };
+combat.onPedHit = () => police.crime(0.35);
+peds.onKnock = () => { if (mode === 'car' || mode === 'tank') police.crime(0.35); };
 combat.onExplosion = pos => { cam.shake = Math.max(cam.shake, Math.max(0, 1.4 - camera.position.distanceTo(pos) / 70)); };
 combat.onKill = () => { missions.cash += 25; if (combat.kills % 5 === 0 && !missions.current) toast(`${combat.kills} goons down`); };
 
@@ -343,6 +350,12 @@ function drawMinimap() {
     g.fillStyle = m.color; g.strokeStyle = '#fff'; g.lineWidth = 1.5 / zoom;
     g.beginPath(); g.arc(X(m.x), Z(m.z), (m.big ? 6 : 4.5) / zoom, 0, 7); g.fill(); g.stroke();
   }
+  const blinkC = Math.floor(performance.now() / 250) % 2 ? '#3d6bff' : '#ff3048';
+  for (const pp of police.mapPoints) {
+    g.fillStyle = blinkC;
+    if (pp.car) g.fillRect(X(pp.x) - 3.5 / zoom, Z(pp.z) - 3.5 / zoom, 7 / zoom, 7 / zoom);
+    else { g.beginPath(); g.arc(X(pp.x), Z(pp.z), 2.4 / zoom, 0, 7); g.fill(); }
+  }
   if (tank.active && mode !== 'tank') { g.fillStyle = '#9bd35a'; g.fillRect(X(tank.pos.x) - 4, Z(tank.pos.z) - 4, 8, 8); }
   if (mode !== 'plane' && plane.crashed <= 0) { g.fillStyle = '#ffffff'; g.beginPath(); g.arc(X(plane.pos.x), Z(plane.pos.z), 4, 0, 7); g.fill(); }
   const face = mode === 'car' ? car.yaw : mode === 'tank' ? tank.yaw : mode === 'plane' ? Math.atan2(plane.forward.x, plane.forward.z) : hero.facing;
@@ -384,10 +397,10 @@ function updateHUD(dt) {
     else if (tank.active && hero.pos.distanceTo(tank.pos) < 5.5) hint = '<b>F</b> Drive the tank';
     else if (hero.gun) hint = '<b>Click</b> fire · <b>Q</b> back to web · <b>Space</b> still swings · <b>1/2/3</b> call car / plane / tank';
     else if (hero.state === 'air' || hero.state === 'swing') hint = 'Hold <b>Space</b> / <b>LMB</b> to web-swing · <b>E</b> / <b>RMB</b> web-zip to crosshair';
-    else hint = '<b>Q</b> blaster · <b>B</b> slow-mo · <b>1/2/3</b> call car / plane / tank · walk into a beam for a mission';
+    else hint = '<b>G</b> grenade · <b>Q</b> blaster · <b>B</b> slow-mo · <b>1/2/3</b> call car / plane / tank · walk into a beam for a mission';
   } else if (mode === 'car') {
     spd = Math.abs(car.speed); label = 'DRIVING';
-    hint = '<b>W/S</b> gas/brake · <b>A/D</b> steer · <b>Space</b> handbrake drift · <b>F</b> exit';
+    hint = '<b>W/S</b> gas/brake · <b>A/D</b> steer · <b>Shift</b> nitro · <b>Space</b> drift · <b>F</b> exit';
   } else if (mode === 'tank') {
     spd = Math.abs(tank.speed); label = 'TANK';
     hint = '<b>W/S</b> drive · <b>A/D</b> turn · <b>Mouse</b> aim turret · <b>Click/Space</b> fire · <b>F</b> exit';
@@ -412,6 +425,10 @@ function updateHUD(dt) {
   $('hpfill').style.background = hp > 50 ? '#4cd964' : hp > 25 ? '#ffcc00' : '#ff3b30';
   $('kills').textContent = `☠ ${combat.kills}`;
   $('cash').textContent = `$${missions.cash.toLocaleString()}`;
+  const stars = police.stars;
+  $('stars').hidden = stars === 0;
+  $('stars').textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+  $('stars').classList.toggle('flash', police.calm < 10);
   const ms = missions.status; $('mission').textContent = ms; $('mission').hidden = !ms;
   document.body.classList.toggle('slowmo', slowT > 0);
   const hrs = (world.time * 24 + 24) % 24;
@@ -435,7 +452,7 @@ function setQuality(q) {
 function update(dt) {
   if (pressed.has('KeyM')) { sound.setMuted(!sound.muted); toast(sound.muted ? 'Sound off' : 'Sound on'); }
   if (pressed.has('KeyT')) { world.setTime(world.time + 0.0625); toast('Time skipped'); }
-  if (pressed.has('KeyG')) setQuality(quality === 'high' ? 'low' : 'high');
+  if (pressed.has('KeyV')) setQuality(quality === 'high' ? 'low' : 'high');
   if (pressed.has('KeyF')) interact();
   if (pressed.has('KeyB')) {
     if (slowCD <= 0 && deadT <= 0) { slowT = 6; slowCD = 14; toast('SLOW MOTION'); }
@@ -459,8 +476,11 @@ function update(dt) {
   if (move.lengthSq() > 1) move.normalize();
   const inp = {
     raw, move, camFlat, camPos: camera.position.clone(), camDir: camera.getWorldDirection(new THREE.Vector3()),
-    sprint: keys.ShiftLeft || keys.ShiftRight || (touch && touch.sprint),
-    jumpPressed: pressed.has('Space'), swingPressed: hero.gun ? false : lmbHit, swingHeld: hero.gun ? keys.Space : lmb || keys.Space,
+    sprint: keys.ShiftLeft || keys.ShiftRight || (touch && (touch.sprint || touch.run)),
+    jumpPressed: pressed.has('Space'),
+    swingPressed: (hero.gun ? false : lmbHit) || pressed.has('Swing'),
+    swingHeld: (hero.gun ? false : lmb) || keys.Space || keys.Swing,
+    nitro: keys.ShiftLeft || keys.ShiftRight || keys.Nitro,
     zipPressed: rmbHit || pressed.has('KeyE'),
     handbrake: keys.Space, throttleUp: keys.ShiftLeft || keys.ShiftRight, throttleDown: keys.KeyX || keys.KeyC,
     yaw: (keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0),
@@ -488,6 +508,14 @@ function update(dt) {
         combat.playerShot(hand, inp.camPos, inp.camDir, null);
       }
     }
+  }
+  nadeCD -= dt;
+  if (pressed.has('KeyG') && mode === 'foot' && deadT <= 0 && nadeCD <= 0 && hero.state !== 'zip') {
+    nadeCD = 0.9;
+    hero.aimT = 0.35; hero.aimYaw = cam.yaw + Math.PI; hero.aimPitch = Math.max(-0.5, Math.min(0.9, Math.asin(inp.camDir.y) + 0.3));
+    const hand = hero.j.hdR.getWorldPosition(new THREE.Vector3());
+    const vel = inp.camDir.clone().multiplyScalar(22).add(new THREE.Vector3(0, 6, 0)).addScaledVector(hero.vel, 0.5);
+    combat.throwGrenade(hand, vel);
   }
   if (mode === 'tank') {
     const impact = tank.drive(dt, inp, cam.yaw + Math.PI, 0.12 - cam.pitch * 0.8);
@@ -517,6 +545,7 @@ function update(dt) {
   if (mode === 'car') {
     const impact = car.drive(dt, inp);
     if (impact > 6) { fx.burst('spark', car.pos.clone().add(new THREE.Vector3(car.fx * 2, 0.7, car.fz * 2)), Math.min(30, impact * 2)); sound.crash(Math.min(1, impact / 25)); cam.shake = Math.min(1.2, impact / 20); }
+    if (car.boosting) for (const s of [-0.5, 0.5]) fx.spawn(true, car.pos.clone().add(new THREE.Vector3(-car.fx * 2.3 - car.fz * s, 0.5, -car.fz * 2.3 + car.fx * s)), new THREE.Vector3(-car.vx * 0.2, 0.5, -car.vz * 0.2), 0.15, 0.22, new THREE.Color(4, 1.6, 0.3));
     if (car.drift > 5 && Math.abs(car.speed) > 8 && Math.random() < 0.6) fx.burst('smoke', car.pos.clone().add(new THREE.Vector3(-car.fx * 1.8, 0.3, -car.fz * 1.8)));
     speedForWind = Math.abs(car.speed);
     sound.update(speedForWind * 0.5, 'car', Math.min(1, Math.abs(car.speed) / car.T.top));
@@ -533,7 +562,11 @@ function update(dt) {
   if (plane.crashed <= 0 && mode !== 'plane' && !plane.onGround && plane.pos.y < world.col.groundAt(plane.pos.x, plane.pos.z, plane.pos.y + 1) + 0.2) crashPlane();
 
   const heroOnStreet = mode === 'foot' && hero.pos.y < 1 ? hero.pos : null;
-  traffic.update(dt, { playerCar: car, heroPos: heroOnStreet, playerPos: focusPos(), fx, sound, onCrash: rel => { if (mode === 'car') cam.shake = Math.min(1.2, rel / 18); } });
+  traffic.update(dt, { playerCar: car, heroPos: heroOnStreet, playerPos: focusPos(),
+    onRam: (a, b, rel) => {
+      if ((a === car && b.police) || (b === car && a.police)) police.crime(0.25);
+      for (const c of [a, b]) if (c.damage(rel * 1.1)) combat._carBoom(c);
+    }, fx, sound, onCrash: rel => { if (mode === 'car') cam.shake = Math.min(1.2, rel / 18); } });
   const threats = [];
   for (const k of traffic.cars) if (!k.ai && k.moving) threats.push({ pos: k.pos, speed: Math.abs(k.speed), vx: k.vx, vz: k.vz });
   if (tank.active && Math.abs(tank.speed) > 1) threats.push({ pos: tank.pos, speed: Math.abs(tank.speed) * 2, vx: tank.fx * tank.speed, vz: tank.fz * tank.speed });
@@ -545,17 +578,21 @@ function update(dt) {
     if (d < 2.6) combat.hurtGoon(g, 99, new THREE.Vector3(dx / (d || 1), 0, dz / (d || 1)), t.speed * 0.6);
   }
   const me0 = focusPos();
-  combat.update(dt, {
+  const playerInfo = {
     pos: new THREE.Vector3(me0.x, me0.y + (mode === 'tank' ? 2 : 1.2), me0.z),
     active: deadT <= 0 && mode !== 'plane',
     speed: mode === 'car' ? Math.abs(car.speed) : mode === 'tank' ? Math.abs(tank.speed) : hero.speed,
-    car: mode === 'car' ? car : null,
+    mode, car: mode === 'car' ? car : null,
     onHit: d => {
       if (mode === 'foot') damagePlayer(d);
       else if (mode === 'car') { if (car.damage(d * 1.2)) combat._carBoom(car); else fx.burst('spark', car.pos.clone().setY(1.2), 3); }
       else if (mode === 'tank') fx.burst('spark', tank.pos.clone().setY(2.2), 3);
     },
-  });
+  };
+  police.update(dt, playerInfo);
+  if (police.stars > lastStars) toast('★'.repeat(police.stars) + ' WANTED');
+  lastStars = police.stars;
+  combat.update(dt, playerInfo);
 
   missions.update(dt, focusPos(), mode);
   // tokens
@@ -615,4 +652,4 @@ function simStep(dt) { // test hook: advance the game without rendering
   update(dt); world.update(dt, camera.position, focusPos()); updateCamera(dt);
   pressed.clear(); lmbHit = rmbHit = false; mdx = mdy = 0;
 }
-window.__game = { simStep, setLoop: b => { loopOn = b; }, render: () => composer.render(), press: k => pressed.add(k), setMouse: (l, r) => { if (l && !lmb) lmbHit = true; if (r && !rmb) rmbHit = true; lmb = l; rmb = r; }, hero, traffic, plane, tank, combat, missions, get slowT() { return slowT; }, callVehicle, get hp() { return hp; }, world, camera, cam, enterCar, enterPlane, exitVehicle, start, get mode() { return mode; }, keys, pressed };
+window.__game = { simStep, setLoop: b => { loopOn = b; }, render: () => composer.render(), press: k => pressed.add(k), setMouse: (l, r) => { if (l && !lmb) lmbHit = true; if (r && !rmb) rmbHit = true; lmb = l; rmb = r; }, hero, traffic, plane, tank, combat, missions, police, get slowT() { return slowT; }, callVehicle, get hp() { return hp; }, world, camera, cam, enterCar, enterPlane, exitVehicle, start, get mode() { return mode; }, keys, pressed };

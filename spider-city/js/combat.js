@@ -21,6 +21,9 @@ export class Combat {
     Object.assign(this, { scene, world, fx, sound, traffic, peds, R: rand });
     this.kills = 0; this.projectiles = []; this.boomCD = 0;
     this.onCarDestroyed = null; this.onExplosion = null; this.onKill = null;
+    this.extra = null; // optional extra targets (police): { ray(o, d, maxD), hit(obj, dmg, dir), blast(pos, radius) }
+    this.nadeG = new THREE.IcosahedronGeometry(0.2, 1);
+    this.nadeMat = new THREE.MeshStandardMaterial({ color: 0x3d5a2a, roughness: 0.6, flatShading: true });
     // tracers
     this.tracerMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 3, 1.4), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
     this.enemyTracerMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 0.6, 0.4), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -64,6 +67,8 @@ export class Combat {
     }
     const p = this.peds.ray(o, d, best.dist);
     if (p) best = { kind: 'ped', dist: p.dist, obj: p.obj };
+    const x = this.extra?.ray(o, d, best.dist);
+    if (x) best = { kind: 'extra', dist: x.dist, obj: x.obj };
     best.point = o.clone().addScaledVector(d, best.dist);
     return best;
   }
@@ -75,7 +80,8 @@ export class Combat {
     this.sound.shot(0.5);
     if (hit.kind === 'goon') this.hurtGoon(hit.obj, 1, camDir);
     else if (hit.kind === 'car') { if (hit.obj.damage(9)) this._carBoom(hit.obj); else this.fx.burst('spark', hit.point, 5); }
-    else if (hit.kind === 'ped') this.peds.knock(hit.obj, camDir.x * 6, 3, camDir.z * 6);
+    else if (hit.kind === 'ped') { this.peds.knock(hit.obj, camDir.x * 6, 3, camDir.z * 6); this.onPedHit?.(); }
+    else if (hit.kind === 'extra') this.extra.hit(hit.obj, 1, camDir);
     else if (hit.kind === 'world') this.fx.burst('spark', hit.point, 4);
   }
 
@@ -104,6 +110,13 @@ export class Combat {
     this.sound.cannon();
   }
 
+  throwGrenade(pos, vel) {
+    const m = new THREE.Mesh(this.nadeG, this.nadeMat); m.position.copy(pos); m.castShadow = true;
+    this.scene.add(m);
+    this.projectiles.push({ kind: 'grenade', m, pos: pos.clone(), vel: vel.clone(), life: 2.2, radius: 9, power: 160 });
+    this.sound.jump();
+  }
+
   explode(pos, radius, power) {
     this.fx.burst('explosion', pos);
     if (this.boomCD <= 0) { this.sound.explosion(); this.boomCD = 0.12; }
@@ -116,8 +129,9 @@ export class Combat {
     for (const p of this.peds.list) {
       if (p.down > 0) continue;
       const d = p.pos.distanceTo(pos);
-      if (d < radius) { v1.subVectors(p.pos, pos).setY(0).normalize(); this.peds.knock(p, v1.x * 12, 9, v1.z * 12); }
+      if (d < radius) { v1.subVectors(p.pos, pos).setY(0).normalize(); this.peds.knock(p, v1.x * 12, 9, v1.z * 12); this.onPedHit?.(); }
     }
+    this.extra?.blast(pos, radius);
     for (const c of this.traffic.cars) {
       const d = c.pos.distanceTo(pos);
       if (d > radius) continue;
@@ -186,6 +200,24 @@ export class Combat {
     const col = this.world.col;
     this.projectiles = this.projectiles.filter(p => {
       p.life -= dt;
+      if (p.kind === 'grenade') { // bounce around until the fuse runs out
+        p.vel.y -= 22 * dt;
+        const step = p.vel.length() * dt;
+        if (step > 1e-4) {
+          const dir = v2.copy(p.vel).normalize();
+          const w = col.raycast(p.pos, dir, step + 0.2, true);
+          if (w) {
+            const vn = p.vel.dot(w.normal);
+            p.vel.addScaledVector(w.normal, -1.5 * vn).multiplyScalar(0.6);
+            p.pos.copy(w.point).addScaledVector(w.normal, 0.21);
+            if (Math.abs(vn) > 3) this.sound.thud();
+          } else p.pos.addScaledVector(p.vel, dt);
+        }
+        p.m.position.copy(p.pos); p.m.rotation.x += dt * 8;
+        if (p.life <= 0 || p.pos.y < -2) { this.explode(p.pos.clone(), p.radius, p.power); this.scene.remove(p.m); return false; }
+        if (Math.random() < 0.3) this.fx.spawn(true, p.pos, v1.set(0, 0.5, 0), 0.15, 0.08, new THREE.Color(4, 0.3, 0.2));
+        return true;
+      }
       if (p.kind === 'rocket') {
         if (p.target) {
           const tp = p.target.home ? v1.set(p.target.pos.x, p.target.pos.y + 1, p.target.pos.z) : v1.set(p.target.pos.x, p.target.pos.y + 0.8, p.target.pos.z);
@@ -200,7 +232,7 @@ export class Combat {
       if (w) hitAt = w.point;
       else {
         const e = this.ray(p.pos, dir, step + 1.5, player.car);
-        if (e.kind === 'goon' || e.kind === 'car') hitAt = e.point;
+        if (e.kind === 'goon' || e.kind === 'car' || e.kind === 'extra') hitAt = e.point;
       }
       if (hitAt || p.life <= 0 || p.pos.y < -2) {
         this.explode(hitAt || p.pos, p.radius, p.power);

@@ -122,6 +122,19 @@ export class Sound {
   cannon() { this._burst(0.9, 'lowpass', 900, 50, 0.9); this._tone(0.5, 'sine', 70, 30, 0.5); }
   hurt() { this._tone(0.15, 'sawtooth', 220, 110, 0.12); }
   door() { this._burst(0.12, 'lowpass', 700, 150, 0.35); }
+  // police siren: a two-tone wail whose volume follows the nearest cruiser
+  siren(vol) {
+    if (!this.ctx) return;
+    if (!this.sir) {
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain(), f = this.ctx.createBiquadFilter();
+      o.type = 'square'; f.type = 'lowpass'; f.frequency.value = 1800; g.gain.value = 0;
+      o.connect(f); f.connect(g); g.connect(this.master); o.start();
+      this.sir = { o, g };
+    }
+    const t = this.ctx.currentTime;
+    this.sir.o.frequency.setTargetAtTime(Math.floor(t * 1.6) % 2 ? 950 : 700, t, 0.05);
+    this.sir.g.gain.setTargetAtTime(this.muted ? 0 : vol, t, 0.2);
+  }
   setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.6; }
   // kind: null | 'car' | 'plane'; x: 0..1 load
   update(speed, kind, x) {

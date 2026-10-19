@@ -104,6 +104,22 @@ try {
     const d = g.world.uniforms.uTime.value - t0;
     return d > 0.25 && d < 0.5 || `world time ${d}`;
   });
+  await test('police chase a wanted player and can be taken down', () => {
+    const g = __game;
+    if (g.mode !== 'foot') { g.press('KeyF'); S(2); }
+    g.hero.pos.set(11, 0.25, 30); g.hero.vel.set(0, 0, 0); g.hero.state = 'ground';
+    g.police.crime(3); S(60 * 22);
+    const near = g.police.cars.filter(c => c.active && !c.dead && c.pos.distanceTo(g.hero.pos) < 60);
+    if (!near.length) return 'no cruiser closed in: ' + g.police.cars.map(c => c.pos.distanceTo(g.hero.pos).toFixed(0)).join(',');
+    g.combat.explode(near[0].pos.clone(), 6, 400); S(2);
+    return near[0].dead === 1 || 'cruiser survived';
+  });
+  await test('throws a grenade that explodes', () => {
+    const g = __game; S(60);
+    g.press('KeyG'); S(2);
+    const n = g.combat.projectiles.filter(p => p.kind === 'grenade').length; S(160);
+    return n === 1 && !g.combat.projectiles.some(p => p.kind === 'grenade') || `grenades ${n}`;
+  });
   await page.evaluate(() => __game.render());
   assert.deepEqual(errors, []);
   console.log('PASS no page errors');
