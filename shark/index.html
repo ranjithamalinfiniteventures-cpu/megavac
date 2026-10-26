@@ -534,7 +534,7 @@ function buildShark(top=0x56626e,belly=0xf1efe9,hammer=false,L=4.8){
 function fishModel(o){
   const f=fusiform(Object.assign({seg:40,rad:18},o));const parts=[f.body];const L=o.L,fc=o.finCol||o.top;
   const st=f.surf(.55,0).y;
-  parts.push(xf(fin(o.dorsalPts||[[.18*L,0],[.05*L,.22*L],[-.12*L,.18*L],[-.16*L,0]],.012,fc),0,st-.01,o.dorsalZ||0));
+  parts.push(xf(fin(o.dorsalPts||[[.12*L,0],[.03*L,.11*L],[-.06*L,.1*L],[-.09*L,0]],.012,fc),0,st-.01,o.dorsalZ||0));
   parts.push(xf(fin(o.tailPts||[[.05*L,.03*L],[-.12*L,.2*L],[-.18*L,.2*L],[-.08*L,0],[-.18*L,-.2*L],[-.12*L,-.2*L],[.05*L,-.03*L]],.012,o.tailCol||fc),0,0,-L/2+.02*L));
   for(const s of[1,-1]){const p=f.surf(.72,Math.PI*.6);const g=fin([[.06*L,0],[-.02*L,.12*L],[-.08*L,.1*L],[-.04*L,0]],.008,fc);xf(g,0,0,0,0,0,-s*(Math.PI/2+.5));xf(g,p.x*s,p.y,p.z);parts.push(g);}
   if(o.anal)parts.push(xf(fin([[.06*L,0],[-.08*L,-.12*L],[-.14*L,-.1*L],[-.1*L,0]],.01,fc),0,f.surf(.3,Math.PI).y+.005,f.surf(.3,Math.PI).z));
