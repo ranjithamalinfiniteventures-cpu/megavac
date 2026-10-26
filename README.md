@@ -3,6 +3,8 @@
 A procedural vacuum game: clean a kitchen, garage, street, skyline, and orbit.
 Single HTML file, no build step, no image assets. Existing `megavac.v1` saves are preserved.
 
+Also in this repo: **[Black Summit](sniper/README.md)**, a story-driven Three.js sniper game (`sniper/index.html`).
+
 ## Play locally
 
 ```sh
