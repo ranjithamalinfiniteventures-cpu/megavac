@@ -11,16 +11,15 @@ reflections, sun glint, turquoise shallows, shore foam and Snell's window from
 below; animated caustics, light absorption with depth and sun shafts underwater;
 kelp forests, coral, sand textures, palm trees and distant islands. Creatures are
 smooth anatomical models that bend as they swim, and the great white has an
-opening jaw with teeth. `three.min.js` (r159) is vendored next to the page so it works
-offline. If it is missing, the page loads the same version from jsDelivr.
+opening jaw with teeth.
+
+The whole game is one file, `index.html`: three.js r159 (MIT License) is embedded
+in it, so it needs no other files and works offline.
 
 ## Play
 
-```sh
-python3 -m http.server 8790 --directory shark
-```
-
-Open http://localhost:8790/. Opening `shark/index.html` directly from disk works too.
+Open `shark/index.html` in a browser. You can also copy that one file anywhere and
+open it there.
 
 ## Controls
 
