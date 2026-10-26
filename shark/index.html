@@ -555,10 +555,12 @@ function buildReef(){const v=Math.random()*3|0;
 function buildDolphin(orca){
   const L=orca?3.2:2.4,top=orca?0x0d0f12:0x56687a,bel=orca?0xf2f2f0:0xd6dde2;
   const f=fusiform({L,W:orca?.48:.32,H:orca?.5:.34,peak:.55,nose:orca?.45:.5,tailE:1.2,tailR:.06,seg:110,rad:30,belly:t=>t>.75?.85:1,
-    color:orca?(t,th,k)=>{const c=Math.cos(th),s=Math.abs(Math.sin(th));k.set(top);if(c<-.45&&t>.45)k.set(bel);if(t>.08&&t<.3&&c<-.2&&s>.4)k.set(bel);
-      if(t>.8&&t<.9&&c>-.1&&c<.55&&s>.6)k.set(bel);if(t>.38&&t<.5&&c>.75)k.set(0x6a6f75);}:countershade(top,bel,-.25,.05,.3)});
+    color:orca?(t,th,k)=>{const c=Math.cos(th),s=Math.abs(Math.sin(th)),B=C(bel);k.set(top);
+      k.lerp(B,smooth(-.35,-.55,c)*smooth(.42,.5,t));k.lerp(B,smooth(-.1,-.3,c)*smooth(.08,.14,t)*smooth(.32,.26,t)*smooth(.3,.5,s));
+      const ep=Math.pow((t-.79)/.045,2)+Math.pow((c-.38)/.16,2);k.lerp(B,smooth(1,.75,ep)*smooth(.5,.7,s));
+      k.lerp(C(0x5e6369),smooth(.7,.85,c)*smooth(.36,.4,t)*smooth(.52,.48,t));}:countershade(top,bel,-.25,.05,.3)});
   const parts=[f.body];const st=f.surf(.5,0).y;
-  if(orca)parts.push(xf(fin([[.32,0],[.1,.8],[-.02,1.25],[-.12,1.2],[-.18,.4],[-.35,0],[.3,-.1]],.07,top,false),0,st-.08,-.1));
+  if(orca)parts.push(xf(fin([[.32,0],[.1,.65],[-.02,1.0],[-.12,.96],[-.18,.35],[-.35,0],[.3,-.1]],.07,top,false),0,st-.08,-.1));
   else parts.push(xf(fin([[.22,0],[.05,.25],[-.25,.45],[-.28,.4],[-.15,.15],[-.22,0],[.2,-.06]],.04,top),0,st-.05,-.15));
   for(const s of[1,-1]){const p=f.surf(.72,Math.PI*.68);const g=fin([[.12,0],[.02,.25],[-.12,.42],[-.16,.38],[-.1,.1],[-.14,0]],.04,top);xf(g,0,0,0,0,0,-s*(Math.PI/2+.6));xf(g,p.x*s,p.y,p.z);parts.push(g);}
   const fl=fin([[.2,0],[-.05,.35],[-.32,.55],[-.38,.5],[-.22,.18],[-.25,0],[-.22,-.18],[-.38,-.5],[-.32,-.55],[-.05,-.35]],.04,top);xf(fl,0,0,0,0,0,Math.PI/2);xf(fl,0,0,-L/2+.02,0,0,0,L/2.4,1,L/2.4);parts.push(fl);
