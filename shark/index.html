@@ -451,11 +451,11 @@ const spongeGeo=merge([0,1,2,3].map(i=>paint(new THREE.CylinderGeometry(.16,.12,
 scatter(spongeGeo,enhance(new THREE.MeshStandardMaterial({roughness:.9,side:THREE.DoubleSide})),60,(p,e,s)=>{const[x,z,g]=seaSpot(-160,8,-3,-30);p.set(x,g-.1,z);e.set(rand(-.15,.15),rand(0,6),0);const k=Math.min(rand(1,2.5),(-g-.8)/2);s.set(k,k,k);return pick([0xa66cff,0xff8f3f,0xffd23f,0x3fb9ff]);});
 // kelp forest + sea grass (instanced, swaying in the vertex shader)
 const kelpGeo=(()=>{const parts=[];parts.push(paint(new THREE.CylinderGeometry(.04,.06,1,5,12).translate(0,.5,0),0x6b5a1e));
-  for(let i=0;i<14;i++){const y=.08+i*.065,lf=new THREE.PlaneGeometry(.16,.5,1,3);lf.translate(0,.25,0);xf(lf,0,y,0,rand(-.4,.4),i*2.4,(i%2?1:-1)*rand(.5,1));parts.push(paint(lf,0x8a7a26));}
+  for(let i=0;i<14;i++){const y=.06+i*.062,lf=new THREE.PlaneGeometry(.16,.07,1,2);lf.translate(0,.035,0);xf(lf,0,y,0,rand(-.4,.4),i*2.4,(i%2?1:-1)*rand(.5,1));parts.push(paint(lf,0x8a7a26));}
   return merge(parts);})();
 scatter(kelpGeo,enhance(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.7,side:THREE.DoubleSide}),{KELP:1}),420,(p,e,s,i)=>{let x,z,g;
   if(i<300){const cx=[-150,-40,90,170][i%4],cz=[-150,-210,-120,-240][i%4];x=cx+rand(-35,35);z=cz+rand(-30,30);g=groundY(x,z);}else[x,z,g]=seaSpot(-250,15,-8);
-  const h=Math.min(-g-1.5,rand(10,26));p.set(x,g-.2,z);e.set(0,rand(0,6),0);s.set(rand(.9,1.4),Math.max(h,3),rand(.9,1.4));return pick([0xffffff,0xd9ffb0,0xfff0b0]);});
+  const h=Math.min(-g-2,rand(10,26));p.set(x,g-.2,z);e.set(0,rand(0,6),0);s.set(rand(.9,1.4),Math.max(h,.01),rand(.9,1.4));return pick([0xffffff,0xd9ffb0,0xfff0b0]);});
 const grassGeo=merge([0,1,2,3,4,5].map(()=>{const b=new THREE.PlaneGeometry(.07,1,1,4).translate(0,.5,0);xf(b,rand(-.25,.25),0,rand(-.25,.25),rand(-.2,.2),rand(0,3),rand(-.25,.25));return paint(b,0xffffff);}));
 scatter(grassGeo,enhance(new THREE.MeshStandardMaterial({roughness:.8,side:THREE.DoubleSide}),{KELP:1}),600,(p,e,s)=>{const[x,z,g]=seaSpot(-70,6,-1.5,-14);p.set(x,g-.05,z);e.set(0,rand(0,6),0);const k=rand(.6,1.6);s.set(k,Math.min(k*rand(.8,1.6),-g-.6),k);return pick([0x4f8a3a,0x6a9a42,0x3d7a3a]);});
 // starfish
