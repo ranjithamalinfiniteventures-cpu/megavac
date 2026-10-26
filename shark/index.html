@@ -849,7 +849,7 @@ function updateCreature(c,dt,t){
       ud.legs[0].rotation.x=walk?Math.sin(ph*2)*.7:T.zone==='swim'?Math.sin(ph*2)*.4:0;ud.legs[1].rotation.x=-ud.legs[0].rotation.x;
       if(T.zone==='beach')ud.body.position.y=walk?Math.abs(Math.sin(ph*2))*.06:0;}
     if(ud.bell){const k=Math.sin(t*2.4+c.phase);ud.bell.scale.set(1-k*.1,1+k*.12,1-k*.1);p.y+=Math.max(0,k)*dt*.6;}
-    if(ud.flippers)ud.flippers.forEach(([f,s,a])=>{f.rotation.z=Math.sin(ph)*.6*s*a;f.rotation.x=Math.cos(ph)*.3*a;});
+    if(ud.flippers)ud.flippers.forEach(([f,s,a])=>{f.rotation.z=Math.sin(ph)*.42*s*a;f.rotation.x=Math.cos(ph)*.3*a;});
     if(ud.legs&&!ud.person){ud.legs[0].rotation.x=Math.sin(ph*2)*.4;ud.legs[1].rotation.x=-Math.sin(ph*2)*.4;if(Math.random()<dt*.9)burst('bubble',tmp2.copy(p).setY(p.y+.6),4,1.2,.18,2.5,4,1);}
     if(ud.wings)ud.wings.forEach(([w,s])=>w.rotation.z=Math.sin(t*9+c.phase)*.55*s);
     if(ud.crab)ud.crab.rotation.z=Math.sin(ph*3)*.06;
