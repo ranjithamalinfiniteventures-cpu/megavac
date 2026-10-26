@@ -843,8 +843,8 @@ function updateCreature(c,dt,t){
   c.phase+=dt*(2+Math.hypot(hs,c.vel.y)*1.2);const ud=c.mesh.userData,ph=c.phase;
   if(visible){
     if(c.u){c.u.uPhase.value=ph*1.6;c.u.uAmp.value=ud.bendAmp*(c.fleeing?1.4:1);}
-    if(ud.person){const run=c.fleeing||T.zone==='swim',walk=hs>.3&&T.zone==='beach';
-      ud.arms[0].rotation.z=run?2.6+Math.sin(ph*3)*.5:.12;ud.arms[1].rotation.z=-(run?2.6+Math.sin(ph*3+1)*.5:.12);
+    if(ud.person){const run=c.fleeing,walk=hs>.3&&T.zone==='beach',paddle=!run&&T.zone==='swim';
+      const az=run?2.6+Math.sin(ph*3)*.5:paddle?1.25+Math.sin(ph*1.5)*.35:.12;ud.arms[0].rotation.z=az;ud.arms[1].rotation.z=-(run?2.6+Math.sin(ph*3+1)*.5:az);
       ud.arms[0].rotation.x=walk&&!run?Math.sin(ph*2)*.6:0;ud.arms[1].rotation.x=walk&&!run?-Math.sin(ph*2)*.6:0;
       ud.legs[0].rotation.x=walk?Math.sin(ph*2)*.7:T.zone==='swim'?Math.sin(ph*2)*.4:0;ud.legs[1].rotation.x=-ud.legs[0].rotation.x;
       if(T.zone==='beach')ud.body.position.y=walk?Math.abs(Math.sin(ph*2))*.06:0;}
