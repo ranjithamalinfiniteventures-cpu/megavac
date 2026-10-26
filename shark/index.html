@@ -36,6 +36,11 @@ canvas.gl{display:block;position:fixed;inset:0;width:100%;height:100%}
 .pop.bad{color:#ff6b6b}.pop.info{color:var(--fg);font-size:15px}
 @keyframes pop{0%{opacity:0;margin-top:10px;scale:.6}15%{opacity:1;scale:1.15}100%{opacity:0;margin-top:-50px;scale:1}}
 #flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(transparent 40%,rgba(255,0,0,.55));opacity:0;transition:opacity .25s}
+#stick{position:absolute;left:max(22px,calc(env(safe-area-inset-left,0px) + 12px));bottom:calc(22px + env(safe-area-inset-bottom,0px));width:132px;height:132px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.06) 30%,rgba(255,255,255,.2));border:2px solid rgba(255,255,255,.45);box-shadow:0 6px 18px rgba(0,0,0,.3);pointer-events:auto;touch-action:none;cursor:grab}
+#stick::before,#stick::after{content:"";position:absolute;left:50%;top:50%;background:rgba(255,255,255,.35);transform:translate(-50%,-50%)}
+#stick::before{width:2px;height:70%}#stick::after{width:70%;height:2px}
+#knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffffff,#9fd8ef 60%,#3b8fb5);box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:1;transition:transform .08s}
+#stick.on #knob{transition:none}
 #actions{position:absolute;right:max(18px,calc(env(safe-area-inset-right,0px) + 10px));bottom:calc(18px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;gap:12px;align-items:end;pointer-events:auto}
 .act{border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;letter-spacing:.06em;cursor:pointer;touch-action:none;border:2px solid rgba(255,255,255,.55);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);box-shadow:0 6px 18px rgba(0,0,0,.35),inset 0 2px 0 rgba(255,255,255,.35);transition:transform .08s,filter .08s}
 .act small{font-size:9px;font-weight:700;opacity:.85;letter-spacing:.08em;margin-top:2px}
@@ -60,7 +65,7 @@ button:active{transform:translateY(2px);box-shadow:0 2px 0 var(--accent-dk)}
 kbd{background:rgba(255,255,255,.15);border-radius:4px;padding:1px 6px;font-family:inherit;color:var(--fg)}
 .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px;font-size:14px;text-align:left;margin:12px 0}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#06324d;font-weight:700;letter-spacing:.1em;color:var(--muted)}
-@media (max-width:600px){#radar{width:96px;height:96px}#feed{top:calc(186px + env(safe-area-inset-top,0px))}#score{font-size:26px}.row b{width:46px;font-size:10px}#eatBtn{width:92px;height:92px}#jumpBtn,#boostBtn{width:64px;height:64px}}
+@media (max-width:600px){#stick{width:112px;height:112px}#radar{width:96px;height:96px}#feed{top:calc(186px + env(safe-area-inset-top,0px))}#score{font-size:26px}.row b{width:46px;font-size:10px}#eatBtn{width:92px;height:92px}#jumpBtn,#boostBtn{width:64px;height:64px}}
 @media (prefers-reduced-motion:reduce){.pop,#feed div{animation-duration:.01s}}
 </style>
 </head>
@@ -78,6 +83,7 @@ kbd{background:rgba(255,255,255,.15);border-radius:4px;padding:1px 6px;font-fami
   <div id="feed"></div>
   <div id="banner"></div>
   <div id="warn"></div>
+  <div id="stick" aria-label="Steering joystick"><div id="knob"></div></div>
   <div id="actions">
     <div class="act" id="jumpBtn">JUMP<small>SPACE</small></div>
     <div class="act" id="boostBtn">BOOST<small>SHIFT</small></div>
@@ -95,8 +101,8 @@ kbd{background:rgba(255,255,255,.15);border-radius:4px;padding:1px 6px;font-fami
     <div class="keys">
       <b>Mouse</b> steer · <b>Hold left click</b> or <kbd>Shift</kbd> boost<br>
       <kbd>E</kbd> or <b>right click</b> EAT (lunge bite) · <kbd>Space</kbd> JUMP<br>
-      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows also steer · <kbd>P</kbd> pause · <kbd>M</kbd> sound<br>
-      Jump near the surface to leap out and catch seagulls. Charge the shallows to slide onto the beach. Don't stay on land too long.
+      <b>Joystick</b> (bottom left) steers too · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows · <kbd>P</kbd> pause · <kbd>M</kbd> sound<br>
+      Anything small enough near your jaws gets sucked in and eaten. Jump near the surface to leap out and catch seagulls. Charge the shallows to slide onto the beach. Don't stay on land too long.
     </div>
   </div>
 </div>
@@ -492,10 +498,36 @@ for(let i=0;i<24;i++){const x=rand(-210,210),z=shoreZ(x)+rand(10,36),g=groundY(x
   const hut=new THREE.Mesh(new THREE.BoxGeometry(2.6,1.5,2.6),wd);hut.position.y=4.7;hut.castShadow=true;t.add(hut);
   const roof=new THREE.Mesh(new THREE.ConeGeometry(2.3,1,4),mat(0xd62839,{roughness:.6}));roof.position.y=5.95;roof.rotation.y=Math.PI/4;t.add(roof);
   const ramp=new THREE.Mesh(new THREE.BoxGeometry(.8,.08,4.6),wd);ramp.position.set(0,2,-3);ramp.rotation.x=-.75;t.add(ramp);}
-// distant islands give the horizon depth
-for(let i=0;i<7;i++){const a=rand(-2.6,-.5),d=rand(900,1500),x=Math.cos(a)*d,z=Math.sin(a)*d*.9-200;const g=noisyRock(4);
-  paintFn(g,(px,py,pz,k)=>k.set(py>.05?0x4d6b3a:0x8a7f6a).offsetHSL(0,0,(fbm2(px*2,pz*2,999)-.5)*.15));
-  const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));m.scale.set(rand(80,200),rand(40,110),rand(60,140));m.position.set(x,-8,z);scene.add(m);}
+// islands: heightfield with beaches, forest, cliffs and instanced trees
+const treeGeo=(()=>{const g=new THREE.IcosahedronGeometry(1,1);const p=g.attributes.position,v=new V3();for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);v.multiplyScalar(1+(fbm2(v.x*3+7,v.z*3+v.y*2,999)-.5)*.5);p.setXYZ(i,v.x,v.y*1.3+.9,v.z);}g.deleteAttribute('uv');g.computeVertexNormals();return g;})();
+const treeMat=new THREE.MeshStandardMaterial({roughness:.9,flatShading:true});
+function buildIsland(cx,cz,R,H,seed,base=0,beach=true){
+  const N=120,g=new THREE.PlaneGeometry(R*2.7,R*2.7,N,N);g.rotateX(-Math.PI/2);
+  const p=g.attributes.position,hs=new Float32Array(p.count);
+  for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i),a=Math.atan2(z,x);
+    const rr=R*(.72+.45*fbm2(Math.cos(a)*1.6+seed,Math.sin(a)*1.6+seed*2,999,3)),d=Math.hypot(x,z)/rr;
+    let h=d<1?Math.pow(1-d,1.25)*H*(.55+.9*fbm2(x/R*2.2+seed,z/R*2.2-seed,999)):-(d-1)*R*.25;
+    if(d<1)h+=(Math.abs(fbm2(x/R*7+seed*3,z/R*7,999,3)-.5)*2-.4)*H*.18*(1-d);
+    if(d<1&&beach)h=Math.max(h,smooth(1,.9,d)*1.4);
+    h=Math.max(h,-25);hs[i]=h;p.setY(i,h+base);}
+  g.computeVertexNormals();
+  const n=g.attributes.normal,col=new Float32Array(p.count*3),k=new THREE.Color(),sand=new THREE.Color(0xe9d6a6),grass=new THREE.Color(0x6d9440),forest=new THREE.Color(0x2c5a2a),rock=new THREE.Color(0x7c7468),dark=new THREE.Color(0x4f4a43);
+  const spots=[];
+  for(let i=0;i<p.count;i++){const h=hs[i],ny=n.getY(i),x=p.getX(i),z=p.getZ(i),nz=fbm2(x*.05+seed,z*.05,999);
+    if(h<(beach?1.6:-1)+nz)k.copy(h<-.5?new THREE.Color(0xbca878):sand);
+    else if(ny<.68)k.copy(rock).lerp(dark,smooth(.68,.4,ny));
+    else{k.copy(grass).lerp(forest,smooth(.35,.6,nz));if(h>H*.8)k.lerp(rock,.5);if(ny>.8&&h<H*.75&&Math.random()<.06)spots.push([x,h,z]);}
+    k.offsetHSL(0,0,(Math.random()-.5)*.05);col[i*3]=k.r;col[i*3+1]=k.g;col[i*3+2]=k.b;}
+  g.setAttribute('color',new THREE.BufferAttribute(col,3));g.deleteAttribute('uv');
+  const m=new THREE.Mesh(g,enhance(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.95})));m.position.set(cx,0,cz);m.receiveShadow=true;scene.add(m);
+  const nt=Math.min(spots.length,700),im=new THREE.InstancedMesh(treeGeo,treeMat,nt),mm=new THREE.Matrix4(),q=new THREE.Quaternion(),sc=new V3(),pp=new V3(),cc=new THREE.Color();
+  for(let i=0;i<nt;i++){const[x,h,z]=spots[(Math.random()*spots.length)|0];const t=rand(1.6,3.4)*Math.max(1,R/220);pp.set(cx+x+rand(-1,1),h+base-.4,cz+z+rand(-1,1));sc.set(t,t*rand(.9,1.4),t);
+    q.setFromEuler(new THREE.Euler(0,rand(0,TAU),0));mm.compose(pp,q,sc);im.setMatrixAt(i,mm);im.setColorAt(i,cc.set(pick([0x2f5f2b,0x3a6e2f,0x264d24,0x4a7a34])));}
+  scene.add(im);
+}
+[[-560,-430,180,62,1],[-980,-1000,280,120,2],[180,-1250,330,150,3],[760,-820,230,95,4],[600,-330,150,48,5],[-1400,-420,320,115,6],[1300,-150,260,90,7]].forEach(a=>buildIsland(...a));
+// green hills behind the beach
+[[-300,430,240,48,8],[280,500,280,62,9],[0,820,420,95,10],[-700,250,260,55,11],[720,320,280,60,12]].forEach(([x,z,R,H,sd])=>buildIsland(x,z,R,H,sd,6.5,false));
 // clouds
 for(let i=0;i<26;i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:cloudTex,transparent:true,depthWrite:false,fog:false,opacity:rand(.55,.9)}));const a=rand(0,TAU),d=rand(700,2000);
   s.position.set(Math.cos(a)*d,rand(160,380),Math.sin(a)*d);s.scale.set(rand(260,520),rand(90,160),1);scene.add(s);}
@@ -639,22 +671,93 @@ function buildCrab(){
     for(let i=0;i<4;i++){const l=new THREE.Group();l.position.set(s*.33,0,.12-i*.13);l.rotation.set(0,s*(.3-i*.2),s*-.6);const u=new THREE.Mesh(G.cap(.03,.3),mat(red));u.rotation.z=s*Math.PI/2;u.position.x=s*.17;l.add(u);
       const lo=new THREE.Mesh(G.cap(.025,.3),mat(red));lo.position.set(s*.36,-.15,0);lo.rotation.z=s*.4;l.add(lo);b.add(l);}}
   g.userData={crab:b};return g;}
-const SKINS=[0xf1c9a5,0xe0ac69,0xc68642,0x8d5524,0xffdbac,0x5c3a24],SUITS=[0xd62839,0x1d70d6,0xffb703,0x2a9d8f,0xff70a6,0x7b2cbf,0x1b1b1b,0xff7b00,0x00a6a6],HAIRS=[0x2b1b0e,0x111111,0xd9b45a,0x8a4b1f,0xb5651d,0x5a3a22];
+const SKINS=[0xf1c9a5,0xe0ac69,0xc68642,0x8d5524,0xffdbac,0x5c3a24,0xeab88f],SUITS=[0xd62839,0x1d70d6,0xffb703,0x2a9d8f,0xff70a6,0x7b2cbf,0x1b1b1b,0xff7b00,0x00a6a6,0x2e4a7d],HAIRS=[0x2b1b0e,0x111111,0xd9b45a,0x8a4b1f,0xb5651d,0x5a3a22,0xe8d39a];
+const personMat=enhance(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.6}));
+const crs=(a,b,c,d,t)=>.5*(2*b+(-a+c)*t+(2*a-5*b+4*c-d)*t*t+(-a+3*b-3*c+d)*t*t*t);
+// body of revolution around y from rows [y, halfWidth, halfDepth, zOffset], smoothed with Catmull-Rom
+function revolveY(rows,seg,colorFn){
+  const pts=[],N=rows.length,g4=r=>[r[0],r[1],r[2],r[3]||0];
+  for(let i=0;i<N-1;i++){const r0=g4(rows[Math.max(0,i-1)]),r1=g4(rows[i]),r2=g4(rows[i+1]),r3=g4(rows[Math.min(N-1,i+2)]);for(let k=0;k<4;k++){const t=k/4;pts.push([0,1,2,3].map(j=>crs(r0[j],r1[j],r2[j],r3[j],t)));}}
+  pts.push(g4(rows[N-1]));
+  const pos=[],col=[],idx=[],kk=new THREE.Color();
+  for(const[y,w,d,zo]of pts)for(let j=0;j<=seg;j++){const a=j/seg*TAU;pos.push(Math.max(w,.001)*Math.sin(a),y,Math.max(d,.001)*Math.cos(a)+zo);colorFn(y,a,kk);col.push(kk.r,kk.g,kk.b);}
+  for(let i=0;i<pts.length-1;i++)for(let j=0;j<seg;j++){const a=i*(seg+1)+j,b=a+seg+1;idx.push(a,a+1,b,b,a+1,b+1);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setIndex(idx);g.computeVertexNormals();return g;
+}
+// tapered limb hanging down from its joint, with rounded ends
+function limbG(L,r1,rm,r2,colorFn){const pr=[[.0005,-L],[r2*.7,-L+.008],[r2,-L+.03],[(rm+r2)/2,-L*.7],[rm,-L*.35],[r1,-.04],[r1*.7,-.012],[.0005,0]].map(([x,y])=>new THREE.Vector2(x,y));
+  const g=new THREE.LatheGeometry(pr,14);g.deleteAttribute('uv');return paintFn(g,colorFn);}
+function capG(r,frac,color){const g=new THREE.SphereGeometry(r,18,10,0,TAU,0,Math.PI*frac);g.deleteAttribute('uv');return paint(g,color);}
+function boxG(w,h,d,color){const g=new THREE.BoxGeometry(w,h,d);g.deleteAttribute('uv');return paint(g,color);}
+function headG(sk,hairC,fem,style,shades,hat){
+  const p=[];
+  p.push(xf(sphereG(.1,22,16,sk),0,0,0,0,0,0,1,1.18,1.1));
+  p.push(xf(sphereG(.068,14,10,sk),0,-.065,.03,0,0,0,1,.9,1.05));
+  p.push(xf(sphereG(.017,8,6,sk),0,-.008,.112,0,0,0,1,1.5,1.2));
+  for(const s of[1,-1]){p.push(xf(sphereG(.022,8,6,sk),s*.1,0,0,0,0,0,.45,1.1,.85));
+    if(!shades){p.push(xf(sphereG(.016,10,8,0xf4f1ea),s*.037,.024,.088));p.push(xf(sphereG(.0085,8,6,0x2a1a10),s*.037,.024,.101));}
+    p.push(xf(boxG(.034,.007,.01,hairC),s*.037,.05,.1,0,0,-s*.12));}
+  p.push(xf(boxG(.036,.007,.01,0x9a4a48),0,-.056,.098));
+  if(shades){p.push(xf(boxG(.11,.03,.012,0x101418),0,.024,.105));p.push(xf(boxG(.012,.006,.012,0x101418),0,.03,.107));}
+  if(style!=='bald')p.push(xf(capG(.108,.55,hairC),0,.015,-.012,-.35,0,0,1,1.16,1.1));
+  if(style==='long')p.push(xf(paint(new THREE.CapsuleGeometry(.085,.2,4,10),hairC),0,-.1,-.065,.1,0,0,1.15,1,.55));
+  if(style==='pony'){p.push(xf(sphereG(.04,10,8,hairC),0,.04,-.12));p.push(xf(paint(new THREE.CapsuleGeometry(.03,.14,4,8),hairC),0,-.05,-.15,.35));}
+  if(style==='bun')p.push(xf(sphereG(.05,10,8,hairC),0,.11,-.08));
+  if(hat==='straw'){p.push(xf(paint(new THREE.CylinderGeometry(.22,.22,.012,28),0xd9c27a),0,.1,0));p.push(xf(paint(new THREE.CylinderGeometry(.095,.11,.09,20),0xd9c27a),0,.15,-.005));p.push(xf(paint(new THREE.CylinderGeometry(.111,.111,.025,20),0x8a2f2f),0,.12,-.005));}
+  if(hat==='cap'){p.push(xf(capG(.114,.5,0x1d70d6),0,.025,-.005,-.15));p.push(xf(boxG(.12,.01,.1,0x1d70d6),0,.04,.12,.15));}
+  p.forEach(g=>{g.deleteAttribute('uv');});
+  return merge(p);
+}
 function buildPerson(swim){
-  const g=new THREE.Group(),b=new THREE.Group();b.position.y=swim?-1.2:0;g.add(b);
-  const sk=mat(pick(SKINS),{roughness:.55}),suit=mat(pick(SUITS),{roughness:.6}),fem=Math.random()<.5,hair=mat(pick(HAIRS),{roughness:.8});
-  const legs=[1,-1].map(s=>{const p=new THREE.Group();p.position.set(s*.1,.88,0);const l=new THREE.Mesh(G.cap(.07,.68),sk);l.position.y=-.42;l.castShadow=true;p.add(l);b.add(p);return p;});
-  const hips=new THREE.Mesh(new THREE.SphereGeometry(.2,16,12),suit);hips.scale.set(1,.6,.72);hips.position.y=.9;b.add(hips);
-  const torso=new THREE.Mesh(G.cap(.17,.32),sk);torso.scale.set(1.05,1,.66);torso.position.y=1.2;torso.castShadow=true;b.add(torso);
-  if(fem){const top=new THREE.Mesh(new THREE.SphereGeometry(.17,14,10),suit);top.scale.set(1.06,.42,.75);top.position.set(0,1.3,.02);b.add(top);}
-  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.05,.06,.12,8),sk);neck.position.y=1.5;b.add(neck);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.115,18,14),sk);head.scale.set(1,1.18,1.08);head.position.y=1.63;b.add(head);
-  const hcap=new THREE.Mesh(new THREE.SphereGeometry(.125,16,10,0,TAU,0,Math.PI*.55),hair);hcap.position.set(0,1.655,-.012);hcap.rotation.x=-.25;b.add(hcap);
-  if(fem){const tail=new THREE.Mesh(G.cap(.07,.22),hair);tail.position.set(0,1.5,-.1);b.add(tail);}
-  for(const s of[1,-1]){const e=new THREE.Mesh(G.coco,mat(0x1a1410,{roughness:.2}));e.scale.setScalar(.08);e.position.set(s*.04,1.65,.11);b.add(e);}
-  const arms=[1,-1].map(s=>{const a=new THREE.Group();a.position.set(s*.22,1.38,0);const m=new THREE.Mesh(G.cap(.045,.5),sk);m.position.y=-.3;a.add(m);b.add(a);return a;});
-  if(swim&&Math.random()<.45){const r=new THREE.Mesh(new THREE.TorusGeometry(.42,.14,12,24),new THREE.MeshStandardMaterial({map:stripeTex(pick(['#ff4d6d','#ffd60a','#4cc9f0']),'#ffffff',8),roughness:.3}));r.rotation.x=Math.PI/2;r.position.y=1.2;b.add(r);}
-  g.userData={arms,legs,body:b,person:true};return g;
+  const fem=Math.random()<.5,sk=pick(SKINS),suit=pick(SUITS),hair=pick(HAIRS),onePiece=fem&&Math.random()<.35;
+  const style=fem?pick(['long','long','pony','bun']):pick(['short','short','short','bald']);
+  const shades=!swim&&Math.random()<.35,hat=swim?null:Math.random()<.15?'straw':Math.random()<.12?'cap':null;
+  const S1=C(suit),SK=C(sk),band=C(suit).offsetHSL(0,0,.15);
+  const torsoCol=(y,a,k)=>{k.copy(SK);
+    if(fem){if(onePiece?y<.4&&!(y>.36&&Math.abs(Math.sin(a))>.55):y<-.005||(y>.27&&y<.37))k.copy(S1);}
+    else{if(y<.03)k.copy(y>0?band:S1);}};
+  const rows=fem?[[-.13,.001,.001],[-.11,.12,.09],[-.04,.18,.115],[.06,.155,.1],[.15,.13,.09],[.26,.15,.1,.01],[.33,.16,.125,.02],[.4,.16,.1],[.46,.17,.09],[.5,.14,.07],[.53,.05,.05],[.6,.048,.047],[.62,.001,.001]]
+    :[[-.13,.001,.001],[-.11,.12,.09],[-.04,.17,.11],[.06,.16,.105],[.16,.15,.1],[.28,.165,.11],[.4,.19,.115],[.47,.2,.1],[.52,.17,.08],[.55,.058,.055],[.61,.054,.05],[.63,.001,.001]];
+  const g=new THREE.Group(),b=new THREE.Group();b.position.y=.9;g.add(b);
+  const torso=new THREE.Mesh(merge([revolveY(rows,20,torsoCol),xf(headG(sk,hair,fem,style,shades,hat),0,.76,0)]),personMat);torso.castShadow=true;b.add(torso);
+  const hips=[],knees=[],sh=[],el=[];
+  for(const s of[1,-1]){
+    const hp=new THREE.Group();hp.position.set(s*.085,-.07,0);b.add(hp);hips.push(hp);
+    hp.add(new THREE.Mesh(limbG(.42,fem?.085:.08,.072,.05,(x,y,z,k)=>k.copy(!fem&&y>-.2?S1:SK)),personMat));
+    const kn=new THREE.Group();kn.position.y=-.42;hp.add(kn);knees.push(kn);
+    kn.add(new THREE.Mesh(merge([limbG(.4,.05,.052,.032,(x,y,z,k)=>k.copy(SK)),xf(sphereG(.04,12,8,sk),0,-.41,.045,0,0,0,1,.7,2.6)]),personMat));
+    const sp=new THREE.Group();sp.position.set(s*(fem?.17:.195),.46,0);b.add(sp);sh.push(sp);
+    sp.add(new THREE.Mesh(merge([limbG(.28,.05,.044,.035,(x,y,z,k)=>k.copy(SK)),xf(sphereG(.05,12,8,sk),0,-.005,0)]),personMat));
+    const eb=new THREE.Group();eb.position.y=-.28;sp.add(eb);el.push(eb);
+    eb.add(new THREE.Mesh(merge([limbG(.25,.035,.033,.025,(x,y,z,k)=>k.copy(SK)),xf(sphereG(.03,10,8,sk),0,-.28,.005,0,0,0,.8,1.5,.55)]),personMat));
+  }
+  let ring=null;
+  if(swim&&Math.random()<.45){ring=new THREE.Mesh(new THREE.TorusGeometry(.42,.14,12,24),new THREE.MeshStandardMaterial({map:stripeTex(pick(['#ff4d6d','#ffd60a','#4cc9f0']),'#ffffff',8),roughness:.3}));ring.rotation.x=Math.PI/2;ring.position.y=.3;b.add(ring);}
+  g.userData={person:true,body:b,hips,knees,sh,el,ring,pose:swim?'swim':pick(['walk','walk','stand','sit'])};return g;
+}
+// poses: walk, run, stand, sit (beach); tread, crawl (swimmers)
+function animPerson(c,ud,ph,hs){
+  const T=c.T,b=ud.body;let mode=ud.pose;
+  if(T.zone==='swim')mode=c.fleeing?'crawl':'tread';
+  else if(c.fleeing){mode='run';ud.pose='walk';}
+  else if(mode==='walk'&&hs<.25)mode='stand';
+  b.rotation.set(0,0,0);b.position.y=.9;
+  for(let i=0;i<2;i++){const s=i?-1:1,o=i?Math.PI:0;let hx=0,kx=.05,ax=0,az=s*.1,ex=-.15;
+    switch(mode){
+      case'walk':hx=Math.sin(ph*2+o)*.45;kx=.08+Math.max(0,Math.sin(ph*2+o+2.2))*.7;ax=-Math.sin(ph*2+o)*.35;ex=-.25;break;
+      case'run':hx=Math.sin(ph*2.6+o)*.85;kx=.25+Math.max(0,Math.sin(ph*2.6+o+2))*1.4;ax=-Math.sin(ph*2.6+o)*1.0;ex=-1.4;break;
+      case'stand':kx=.04;ax=Math.sin(ph*.5+o)*.04;break;
+      case'sit':hx=-1.9;kx=1.55;ax=.6;az=s*.2;ex=0;break;
+      case'tread':hx=Math.sin(ph*2+o)*.35;kx=.45+Math.sin(ph*2+o+1)*.3;az=s*(1.15+Math.sin(ph*2.4)*.35);ex=-.2;break;
+      case'crawl':hx=Math.sin(ph*6+o)*.3;kx=.15;ax=(ph*2.4+o)%TAU;az=s*.15;ex=-.25;break;
+    }
+    ud.hips[i].rotation.set(hx,0,0);ud.knees[i].rotation.set(kx,0,0);ud.sh[i].rotation.set(ax,0,az);ud.el[i].rotation.set(ex,0,0);}
+  if(mode==='run'){b.rotation.x=.22;b.position.y=.9+Math.abs(Math.sin(ph*2.6))*.07;}
+  else if(mode==='walk')b.position.y=.9+Math.abs(Math.sin(ph*2))*.03;
+  else if(mode==='sit'){b.position.y=.3;b.rotation.x=-.15;}
+  else if(mode==='tread'){b.position.y=-.42+Math.sin(ph*2)*.05;b.rotation.x=.12;}
+  else if(mode==='crawl'){b.position.y=-.22;b.rotation.x=1.38;}
+  if(ud.ring)ud.ring.visible=mode==='tread';
 }
 function buildDiver(){
   const g=new THREE.Group(),suit=mat(0x15171c,{roughness:.6}),accent=mat(0x0aa3ff,{roughness:.5});
@@ -743,7 +846,7 @@ function sfx(k){if(!AC||muted)return;
 // ================= shark =================
 const shark=buildShark();scene.add(shark);const SU=shark.userData.mat.userData.u;
 const S={pos:shark.position,vel:new V3(),yaw:0,pitch:0,roll:0,size:1,lvl:1,xp:0,hp:100,hunger:100,score:0,combo:0,comboT:0,mode:'water',
-  biteCd:0,jaw:0,phase:0,hop:0,hurtCd:0,alive:true,eaten:{},bestCombo:0,time:0,landT:0,jumpT:0,jumpCd:0,lungeT:0,eatCd:0,jawWant:0};
+  biteCd:0,jaw:0,phase:0,hop:0,hurtCd:0,alive:true,eaten:{},bestCombo:0,time:0,landT:0,jumpT:0,jumpCd:0,lungeT:0,eatCd:0,jawWant:0,aim:null};
 const tmp=new V3(),tmp2=new V3(),fwd=new V3(),mouth=new V3(),camTarget=new V3(),look=new V3();
 const maxHp=()=>100+(S.lvl-1)*25;
 function sharkForward(o){return o.set(Math.sin(S.yaw)*Math.cos(S.pitch),Math.sin(S.pitch),Math.cos(S.yaw)*Math.cos(S.pitch));}
@@ -777,6 +880,7 @@ function makeCreature(key,school){
   const c={key,T,mesh,pos:mesh.position,vel:new V3(),dir:new V3(rand(-1,1),0,rand(-1,1)).normalize(),wt:rand(1,5),dead:false,respawn:0,
     hp:T.hp||1,cd:0,inkCd:0,phase:rand(0,TAU),yaw:rand(0,TAU),r:T.r*s/((T.sc[0]+T.sc[1])/2),school,off:new V3(rand(-3,3),rand(-1.5,1.5),rand(-3,3)),fleeing:false,scared:0,
     u:mesh.userData.bendAmp?mesh.userData.mat.userData.u:null};
+  if(mesh.userData.pose==='sit'||mesh.userData.pose==='stand')c.yaw=Math.PI+rand(-.7,.7); // facing the sea
   place(c);creatures.push(c);return c;
 }
 function place(c){
@@ -812,7 +916,7 @@ function updateCreature(c,dt,t){
   c.fleeing=false;
   const fear=10+6*S.size;
   if(S.alive&&edible&&T.zone!=='air'&&sd<fear&&T.zone!=='whale'){
-    c.fleeing=true;des.set(dx,flat?0:dy*.5,dz).normalize();spd*=T.zone==='beach'?1.35:1.8;
+    c.fleeing=true;des.set(dx,flat?0:dy*.5,dz).normalize();spd*=T.zone==='beach'?1.25:1.35;
     if(T.zone==='swim')des.z+=.8;
     if(T.zone==='beach')des.z+=1.2;
     if(T.scream&&c.scared<=0){c.scared=3;if(sd<30)sfx('scream');}
@@ -832,6 +936,7 @@ function updateCreature(c,dt,t){
   if(T.zone==='beach'){const sh=shoreZ(p.x);if(p.z<sh-4){des.z+=1.5;c.dir.z=Math.abs(c.dir.z);}if(p.z>sh+50){des.z-=1;c.dir.z=-Math.abs(c.dir.z);}}
   if(T.zone==='air'){const sh=shoreZ(p.x);if(p.z>sh+15){c.dir.z=-Math.abs(c.dir.z);}des.y+=(8-p.y)*.08;}
   if(des.lengthSq()>1e-6)des.normalize();
+  if(T.zone==='beach'&&!c.fleeing&&c.mesh.userData.pose!=='walk')des.set(0,0,0); // sitters and standers stay put
   c.vel.lerp(des.multiplyScalar(spd),damp(T.zone==='whale'?.6:2.2,dt));
   p.addScaledVector(c.vel,dt);
   p.x=clamp(p.x,-BX,BX);p.z=clamp(p.z,ZMIN,ZMAX);
@@ -852,11 +957,7 @@ function updateCreature(c,dt,t){
   c.phase+=dt*(2+Math.hypot(hs,c.vel.y)*1.2);const ud=c.mesh.userData,ph=c.phase;
   if(visible){
     if(c.u){c.u.uPhase.value=ph*1.6;c.u.uAmp.value=ud.bendAmp*(c.fleeing?1.4:1);}
-    if(ud.person){const run=c.fleeing,walk=hs>.3&&T.zone==='beach',paddle=!run&&T.zone==='swim';
-      const az=run?2.6+Math.sin(ph*3)*.5:paddle?1.25+Math.sin(ph*1.5)*.35:.12;ud.arms[0].rotation.z=az;ud.arms[1].rotation.z=-(run?2.6+Math.sin(ph*3+1)*.5:az);
-      ud.arms[0].rotation.x=walk&&!run?Math.sin(ph*2)*.6:0;ud.arms[1].rotation.x=walk&&!run?-Math.sin(ph*2)*.6:0;
-      ud.legs[0].rotation.x=walk?Math.sin(ph*2)*.7:T.zone==='swim'?Math.sin(ph*2)*.4:0;ud.legs[1].rotation.x=-ud.legs[0].rotation.x;
-      if(T.zone==='beach')ud.body.position.y=walk?Math.abs(Math.sin(ph*2))*.06:0;}
+    if(ud.person)animPerson(c,ud,ph,hs);
     if(ud.bell){const k=Math.sin(t*2.4+c.phase);ud.bell.scale.set(1-k*.1,1+k*.12,1-k*.1);p.y+=Math.max(0,k)*dt*.6;}
     if(ud.flippers)ud.flippers.forEach(([f,s,a])=>{f.rotation.z=Math.sin(ph)*.42*s*a;f.rotation.x=Math.cos(ph)*.3*a;});
     if(ud.legs&&!ud.person){ud.legs[0].rotation.x=Math.sin(ph*2)*.4;ud.legs[1].rotation.x=-Math.sin(ph*2)*.4;if(Math.random()<dt*.9)burst('bubble',tmp2.copy(p).setY(p.y+.6),4,1.2,.18,2.5,4,1);}
@@ -864,14 +965,16 @@ function updateCreature(c,dt,t){
     if(ud.crab)ud.crab.rotation.z=Math.sin(ph*3)*.06;
   }
   if(!S.alive)return;
-  const reach=(c.r+.85*S.size)*(S.lungeT>0?1.8:1);
+  const reach=c.r+(1.7+(S.lungeT>0?2.4:0))*S.size;
   let md;
   if(T.hl){const cf=c.mesh.getWorldDirection(tmp2);
     const ax=mouth.x-p.x,ay=mouth.y-p.y,az=mouth.z-p.z,proj=clamp(ax*cf.x+ay*cf.y+az*cf.z,-T.hl*c.mesh.scale.x,T.hl*c.mesh.scale.x);
     md=Math.hypot(ax-cf.x*proj,ay-cf.y*proj,az-cf.z*proj);}
   else md=mouth.distanceTo(p);
-  if(md<reach*1.9)S.jawWant=1;
-  if(md<reach&&S.biteCd<=0)tryBite(c);
+  if(md<reach*1.7)S.jawWant=1;
+  // suction: anything edible close to the jaws is pulled in
+  if(edible&&!T.chunk&&md<reach*1.8&&md>.2){const k=Math.min(1,dt*(S.lungeT>0?9:4.5));p.x+=(mouth.x-p.x)*k;p.z+=(mouth.z-p.z)*k;if(T.zone!=='beach'&&T.zone!=='floor')p.y+=(mouth.y-p.y)*k;}
+  if((md<reach||sd<c.r+1.3*S.size&&(edible||T.chunk))&&S.biteCd<=0)tryBite(c);
   else if(hostile&&sd<c.r+1.6*S.size&&c.cd<=0)hurtShark(c);
   else if(T.sting&&!edible&&sd<c.r+1.2*S.size&&c.cd<=0)hurtShark(c);
 }
@@ -891,7 +994,7 @@ function tryBite(c){
     if(T.danger&&c.cd<=0)hurtShark(c);
     return;
   }
-  S.biteCd=.22;S.jaw=1;eat(c,T.pts,T.food,T.xp);sfx('chomp');
+  S.biteCd=.12;S.jaw=1;eat(c,T.pts,T.food,T.xp);sfx('chomp');
   if(c.key==='gull')sfx('squawk');
 }
 const mult=()=>1+Math.min(4,Math.floor(S.combo/3));
@@ -918,7 +1021,9 @@ function hurtShark(c){
   if(tooBigT<=0){tooBigT=2;popup(S.pos,c.T.sting?'Stung! (eat at LV '+c.T.lvl+')':c.T.name+' attacks! Grow to LV '+c.T.lvl,'bad');}
 }
 // EAT: lunge forward with the jaws wide open and a longer reach
-function doEat(){if(phase!=='play'||!S.alive||S.eatCd>0)return;S.eatCd=.55;S.lungeT=.32;S.jaw=1;sfx('snap');
+function doEat(){if(phase!=='play'||!S.alive||S.eatCd>0)return;S.eatCd=.5;S.lungeT=.45;S.jaw=1;sfx('snap');
+  // aim the lunge at the nearest edible prey ahead
+  sharkForward(fwd);let best=null,bd=14*S.size;for(const c of creatures){if(c.dead||!(c.T.lvl<=S.lvl||c.T.chunk))continue;tmp.copy(c.pos).sub(S.pos);const d=tmp.length();if(d<bd&&tmp.dot(fwd)>d*.15){bd=d;best=c;}}S.aim=best;
   if(S.mode==='water'){sharkForward(fwd);S.vel.addScaledVector(fwd,6+S.size*2);}}
 // JUMP: launch out of the water (or flop along on land)
 function doJump(){if(phase!=='play'||!S.alive||S.jumpCd>0)return;
@@ -959,6 +1064,14 @@ addEventListener('pointercancel',e=>{if(e.pointerId===touchId){touchId=null;mx=m
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 function holdBtn(el,down,up){el.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();audio();el.classList.add('on');down();});
   const off=()=>{el.classList.remove('on');if(up)up();};el.addEventListener('pointerup',off);el.addEventListener('pointerleave',off);el.addEventListener('pointercancel',off);el.addEventListener('contextmenu',e=>e.preventDefault());}
+// on-screen joystick: x turns, y pitches
+const stick=$('stick'),knob=$('knob');let jx=0,jy=0,stickId=null;
+function moveStick(e){const r=stick.getBoundingClientRect(),R=r.width/2,m=R*.6;let dx=e.clientX-r.left-R,dy=e.clientY-r.top-R;const l=Math.hypot(dx,dy);if(l>m){dx*=m/l;dy*=m/l;}
+  knob.style.transform=`translate(${dx}px,${dy}px)`;jx=dx/m;jy=dy/m;}
+stick.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();audio();stickId=e.pointerId;try{stick.setPointerCapture(e.pointerId);}catch(_){}stick.classList.add('on');inputMode='stick';moveStick(e);});
+stick.addEventListener('pointermove',e=>{if(e.pointerId===stickId)moveStick(e);});
+const endStick=e=>{if(e.pointerId!==stickId)return;stickId=null;jx=jy=0;knob.style.transform='';stick.classList.remove('on');};
+stick.addEventListener('pointerup',endStick);stick.addEventListener('pointercancel',endStick);stick.addEventListener('contextmenu',e=>e.preventDefault());
 holdBtn($('eatBtn'),doEat);holdBtn($('jumpBtn'),doJump);holdBtn($('boostBtn'),()=>btnBoost=true,()=>btnBoost=false);
 
 // ================= game flow =================
@@ -991,6 +1104,7 @@ function updateShark(dt){
   const dz=v=>Math.abs(v)<.06?0:(v-Math.sign(v)*.06)/.94;
   let turn=0,pitchT=0;
   if(inputMode==='mouse'){turn=-dz(mx)*2.3;pitchT=-dz(my)*1.15;}
+  if(inputMode==='stick'){turn=-dz(jx)*2.4;pitchT=-dz(jy)*1.15;}
   const kl=keys.KeyA||keys.ArrowLeft,kr=keys.KeyD||keys.ArrowRight,ku=keys.KeyW||keys.ArrowUp,kd=keys.KeyS||keys.ArrowDown;
   if(inputMode==='keys'){turn=(kl?2:0)-(kr?2:0);if(ku)keyPitch=Math.min(1.1,keyPitch+dt*1.5);else if(kd)keyPitch=Math.max(-1.1,keyPitch-dt*1.5);else keyPitch*=Math.exp(-dt*2.5);pitchT=keyPitch;}
   if(!S.alive){turn=0;pitchT=-.3;}
@@ -1000,7 +1114,9 @@ function updateShark(dt){
   const base=7+S.size*2.2;let spd=S.alive?(boosting?base*2.1:base):1.5;if(S.lungeT>0)spd*=1.9;
   if(S.mode==='water'){
     S.yaw+=turn*dt*(boosting?.85:1);
-    if(S.jumpT<=0)S.pitch=lerp(S.pitch,pitchT,damp(3,dt));S.pitch=clamp(S.pitch,-1.25,1.25);
+    if(S.jumpT<=0)S.pitch=lerp(S.pitch,pitchT,damp(3,dt));
+    if(S.lungeT>0&&S.aim&&!S.aim.dead){const a=S.aim.pos,dx=a.x-p.x,dy=a.y-p.y,dzz=a.z-p.z;S.yaw=angLerp(S.yaw,Math.atan2(dx,dzz),damp(12,dt));S.pitch=lerp(S.pitch,Math.atan2(dy,Math.hypot(dx,dzz)),damp(12,dt));}
+    S.pitch=clamp(S.pitch,-1.25,1.25);
     sharkForward(fwd);
     if(S.jumpT>0){S.vel.x=lerp(S.vel.x,fwd.x*spd,damp(1,dt));S.vel.z=lerp(S.vel.z,fwd.z*spd,damp(1,dt));}
     else{S.vel.lerp(tmp.copy(fwd).multiplyScalar(spd),damp(3,dt));
