@@ -880,12 +880,13 @@ function makeCreature(key,school){
   const c={key,T,mesh,pos:mesh.position,vel:new V3(),dir:new V3(rand(-1,1),0,rand(-1,1)).normalize(),wt:rand(1,5),dead:false,respawn:0,
     hp:T.hp||1,cd:0,inkCd:0,phase:rand(0,TAU),yaw:rand(0,TAU),r:T.r*s/((T.sc[0]+T.sc[1])/2),school,off:new V3(rand(-3,3),rand(-1.5,1.5),rand(-3,3)),fleeing:false,scared:0,
     u:mesh.userData.bendAmp?mesh.userData.mat.userData.u:null};
-  if(mesh.userData.pose==='sit'||mesh.userData.pose==='stand')c.yaw=Math.PI+rand(-.7,.7); // facing the sea
   place(c);creatures.push(c);return c;
 }
 function place(c){
   if(c.school&&c.school.alive){c.pos.copy(c.school.pos).add(c.off);}else spawnPos(c.T,c.pos);
   c.dead=false;c.mesh.visible=true;c.hp=c.T.hp||1;c.vel.set(0,0,0);
+  const ud=c.mesh.userData;
+  if(c.T.zone==='beach'){ud.pose=pick(['walk','walk','stand','sit']);if(ud.pose==='sit'&&groundY(c.pos.x,c.pos.z)<.4)ud.pose='stand';if(ud.pose!=='walk')c.yaw=Math.PI+rand(-.7,.7);}
 }
 let populated=false;
 function populate(){
