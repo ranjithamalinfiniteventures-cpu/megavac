@@ -44,6 +44,10 @@ Kessler Observatory on top of Black Summit. You are **WRAITH**, a lone sniper on
 | Space | Skip the bullet cam |
 | Esc | Pause and settings |
 
+## Phones and tablets
+
+Touch devices get on-screen controls automatically. Drag anywhere to aim. The buttons are FIRE, SCOPE, HOLD BREATH, zoom ＋/－, zero ▲/▼, RELOAD, THERMAL and pause. Play in landscape. Tapping DEPLOY goes fullscreen, and graphics default to Performance mode.
+
 ## Under the hood
 
 - **Ballistics:** each round is simulated with gravity, quadratic drag and wind drift. The mil-dot reticle is first focal plane, so 1 mil is 1 m at 1 km at every zoom. After a miss, your spotter calls the correction in mils.
