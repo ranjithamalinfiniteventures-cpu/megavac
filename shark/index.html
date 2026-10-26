@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Shark Frenzy</title>
+<style>
+:root{--ink:#06263a;--panel:rgba(4,30,48,.82);--accent:#ffcf3f;--hp:#ff4d5e;--food:#ffa62b;--xp:#46d7ff}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#0d5d86;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;user-select:none;-webkit-user-select:none;touch-action:none}
+canvas.gl{display:block;position:fixed;inset:0;width:100%;height:100%}
+.hidden{display:none!important}
+#hud{position:fixed;inset:0;pointer-events:none}
+#bars{position:absolute;left:16px;top:14px;width:min(300px,52vw)}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.row b{width:58px;font-size:12px;letter-spacing:.06em;text-shadow:0 1px 2px #000a}
+.bar{flex:1;height:14px;border-radius:8px;background:rgba(0,0,0,.45);overflow:hidden;border:1px solid rgba(255,255,255,.25)}
+.bar i{display:block;height:100%;width:100%;background:var(--hp);transition:width .15s}
+#hungerBar{background:var(--food)}#xpBar{background:var(--xp)}
+.bar.low{animation:pulse .5s infinite alternate}
+@keyframes pulse{to{border-color:#fff;box-shadow:0 0 10px #ff4d5e}}
+#next{font-size:12px;opacity:.9;text-shadow:0 1px 2px #000;margin-top:2px}
+#scoreBox{position:absolute;right:16px;top:12px;text-align:right;text-shadow:0 2px 4px #0008}
+#score{font-size:34px;font-weight:800;color:var(--accent)}
+#combo{font-size:18px;font-weight:700;color:#fff}
+#radar{position:absolute;right:16px;bottom:16px;width:150px;height:150px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.35),0 4px 18px #0006}
+#feed{position:absolute;right:16px;top:90px;text-align:right;font-size:14px;font-weight:600}
+#feed div{animation:feed 2.6s forwards;text-shadow:0 1px 3px #000}
+@keyframes feed{0%{opacity:0;transform:translateX(20px)}10%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0}}
+#banner{position:absolute;left:0;right:0;top:22%;text-align:center;font-size:clamp(26px,5vw,48px);font-weight:900;color:var(--accent);text-shadow:0 3px 0 #a3400d,0 6px 18px #000a;opacity:0;transition:opacity .3s;padding:0 16px}
+#banner small{display:block;font-size:.42em;color:#fff;text-shadow:0 2px 6px #000;font-weight:700;margin-top:6px}
+#warn{position:absolute;left:0;right:0;bottom:22%;text-align:center;font-size:20px;font-weight:800;color:#fff;text-shadow:0 2px 6px #000}
+.pop{position:fixed;font-weight:900;font-size:20px;color:var(--accent);text-shadow:0 2px 0 #000,0 0 8px #000;pointer-events:none;transform:translate(-50%,-50%);animation:pop 1.1s forwards;white-space:nowrap}
+.pop.bad{color:#ff6b6b}.pop.info{color:#fff;font-size:15px}
+@keyframes pop{0%{opacity:0;margin-top:10px;scale:.6}15%{opacity:1;scale:1.15}100%{opacity:0;margin-top:-50px;scale:1}}
+#flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(transparent 40%,rgba(255,0,0,.55));opacity:0;transition:opacity .25s}
+.panel{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(rgba(2,20,35,.35),rgba(2,20,35,.8))}
+.card{background:var(--panel);border:1px solid rgba(255,255,255,.18);border-radius:18px;padding:24px 26px;max-width:620px;width:100%;max-height:100%;overflow:auto;box-shadow:0 20px 60px #0008;text-align:center}
+h1{margin:0 0 4px;font-size:clamp(34px,7vw,60px);font-weight:900;letter-spacing:.02em;color:var(--accent);text-shadow:0 4px 0 #a3400d}
+h2{margin:0 0 10px;font-size:28px}
+.sub{opacity:.85;margin:0 0 16px}
+.menu-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin:12px 0 16px;text-align:left;font-size:13px}
+.menu-list div{background:rgba(255,255,255,.07);border-radius:8px;padding:5px 8px}
+.menu-list span{float:right;color:var(--xp);font-weight:700}
+.menu-list .bad{color:#ff8c8c}
+button{font:inherit;font-size:20px;font-weight:800;padding:12px 34px;border:0;border-radius:40px;background:var(--accent);color:#3a1d00;cursor:pointer;box-shadow:0 4px 0 #b77b00;margin:6px}
+button:active{transform:translateY(2px);box-shadow:0 2px 0 #b77b00}
+.keys{font-size:13px;opacity:.8;margin-top:14px;line-height:1.6}
+kbd{background:rgba(255,255,255,.15);border-radius:4px;padding:1px 6px;font-family:inherit}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px;font-size:14px;text-align:left;margin:12px 0}
+#boostBtn{position:absolute;left:22px;bottom:26px;width:92px;height:92px;border-radius:50%;background:rgba(255,207,63,.85);color:#3a1d00;font-weight:900;display:flex;align-items:center;justify-content:center;pointer-events:auto;box-shadow:0 4px 0 #b77b00}
+@media (max-width:600px){#radar{width:110px;height:110px}#score{font-size:26px}.row b{width:48px;font-size:11px}}
+</style>
+</head>
+<body>
+<div id="hud" class="hidden">
+  <div id="bars">
+    <div class="row"><b>HEALTH</b><div class="bar" id="hpWrap"><i id="hpBar"></i></div></div>
+    <div class="row"><b>HUNGER</b><div class="bar" id="hungerWrap"><i id="hungerBar"></i></div></div>
+    <div class="row"><b id="lvl">LV 1</b><div class="bar"><i id="xpBar"></i></div></div>
+    <div id="next"></div>
+  </div>
+  <div id="scoreBox"><div id="score">0</div><div id="combo"></div></div>
+  <div id="feed"></div>
+  <div id="banner"></div>
+  <div id="warn"></div>
+  <canvas id="radar" width="300" height="300"></canvas>
+  <div id="boostBtn" class="hidden">BOOST</div>
+</div>
+<div id="flash"></div>
+
+<div id="menu" class="panel">
+  <div class="card">
+    <h1>SHARK FRENZY</h1>
+    <p class="sub">You are a hungry shark. Eat fish, swimmers, people on the beach, octopus, dolphins — and take bites out of the blue whale. Eat to grow, grow to eat bigger things.</p>
+    <div class="menu-list" id="menuList"></div>
+    <button id="playBtn">PLAY</button>
+    <div class="keys">
+      <b>Mouse</b> steer &nbsp;·&nbsp; <b>Hold click</b> / <kbd>Space</kbd> / <kbd>Shift</kbd> boost<br>
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows also steer &nbsp;·&nbsp; <kbd>P</kbd> pause &nbsp;·&nbsp; <kbd>M</kbd> sound<br>
+      Boost upward to leap out of the water — catch seagulls, or charge the shallows to slide onto the beach.<br>
+      Stay on land too long and you dry out. Keep your hunger up!
+    </div>
+  </div>
+</div>
+<div id="pause" class="panel hidden"><div class="card"><h2>Paused</h2><button id="resumeBtn">RESUME</button></div></div>
+<div id="over" class="panel hidden">
+  <div class="card">
+    <h1 id="overTitle">GAME OVER</h1>
+    <p class="sub" id="overWhy"></p>
+    <h2 id="overScore"></h2>
+    <div class="stats" id="overStats"></div>
+    <button id="againBtn">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script src="three.min.js"></script>
+<script>if(!window.THREE)document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"><\/script>')</script>
+<script>
+(function(){
+'use strict';
+const V3=THREE.Vector3, TAU=Math.PI*2;
+const $=id=>document.getElementById(id);
+const rand=(a,b)=>a+Math.random()*(b-a), pick=a=>a[Math.random()*a.length|0];
+const clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t, damp=(k,dt)=>1-Math.exp(-k*dt);
+const angLerp=(a,b,t)=>{let d=(b-a)%TAU;if(d>Math.PI)d-=TAU;if(d<-Math.PI)d+=TAU;return a+d*t;};
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+// ---------- renderer / scene ----------
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.domElement.className='gl';
+document.body.prepend(renderer.domElement);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,1600);
+const SKY=new THREE.Color(0x8fd3ff), DEEP=new THREE.Color(0x1a86b3);
+scene.background=SKY.clone();
+scene.fog=new THREE.Fog(SKY.clone(),120,700);
+scene.add(new THREE.HemisphereLight(0xe4f6ff,0x5a6a50,1.7));
+const sun=new THREE.DirectionalLight(0xfff1d6,2.8);sun.position.set(80,140,60);scene.add(sun);
+addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();});
+
+const matCache={};
+function mat(c,o){const k=c+(o?JSON.stringify(o):'');return matCache[k]||(matCache[k]=new THREE.MeshStandardMaterial(Object.assign({color:c,flatShading:true,roughness:.75},o)));}
+const G={sph:new THREE.SphereGeometry(1,12,9),lo:new THREE.SphereGeometry(1,7,5),cone:new THREE.ConeGeometry(1,1,7),cone4:new THREE.ConeGeometry(1,1,4),
+ cyl:new THREE.CylinderGeometry(1,1,1,8),box:new THREE.BoxGeometry(1,1,1),tent:new THREE.CylinderGeometry(1,.25,1,6),
+ half:new THREE.SphereGeometry(1,12,6,0,TAU,0,Math.PI/2),torus:new THREE.TorusGeometry(.42,.14,6,14)};
+G.tent.translate(0,-.5,0);
+function P(parent,geo,color,sx,sy,sz,x=0,y=0,z=0,rx=0,ry=0,rz=0){const m=new THREE.Mesh(geo,color&&color.isMaterial?color:mat(color));m.scale.set(sx,sy,sz);m.position.set(x,y,z);m.rotation.set(rx,ry,rz);parent.add(m);return m;}
+function pivot(parent,x=0,y=0,z=0){const g=new THREE.Group();g.position.set(x,y,z);parent.add(g);return g;}
+
+// ---------- world: beach along +z, open ocean toward -z ----------
+const BX=240, ZMIN=-345, ZMAX=135;
+function shoreZ(x){return 60+10*Math.sin(x*.013)+4*Math.sin(x*.041+1);}
+function groundY(x,z){
+  const s=z-shoreZ(x);let y;
+  if(s>=0)y=Math.min(s*.11,7.5);else if(s>-100)y=s*.12;else y=-12+(s+100)*.22;
+  if(y<-72)y=-72;
+  if(y<0){const f=Math.min(1,-y/8);y+=(Math.sin(x*.045+z*.02)*Math.cos(z*.06-x*.01)*2.5+Math.sin(x*.13)*Math.sin(z*.11)*.8)*f;}
+  else if(s>15)y+=Math.sin(x*.05)*Math.sin(z*.08)*.9*Math.min(1,(s-15)/20);
+  return y;
+}
+{ // terrain
+  const g=new THREE.PlaneGeometry(760,700,152,140);g.rotateX(-Math.PI/2);g.translate(0,0,-50);
+  const pos=g.attributes.position,col=new Float32Array(pos.count*3),c=new THREE.Color(),dry=new THREE.Color(0xf3dca6),wet=new THREE.Color(0xd9bd88),sand=new THREE.Color(0xd0b682),deep=new THREE.Color(0x3b5867);
+  for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i),y=groundY(x,z);pos.setY(i,y);
+    if(y>1.2)c.copy(dry);else if(y>-.4)c.copy(wet);else c.copy(sand).lerp(deep,clamp(-y/55,0,1));
+    const n=rand(-.03,.03);col[i*3]=c.r+n;col[i*3+1]=c.g+n;col[i*3+2]=c.b+n;}
+  g.setAttribute('color',new THREE.BufferAttribute(col,3));g.computeVertexNormals();
+  scene.add(new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,flatShading:true,roughness:1})));
+}
+const waterGeo=new THREE.PlaneGeometry(900,900,90,90);waterGeo.rotateX(-Math.PI/2);
+const waterBase=waterGeo.attributes.position.array.slice();
+const waterMat=new THREE.MeshStandardMaterial({color:0x2196c8,emissive:0x5cc8f0,emissiveIntensity:0,transparent:true,opacity:.72,roughness:.12,metalness:.1,side:THREE.DoubleSide,flatShading:true});
+const water=new THREE.Mesh(waterGeo,waterMat);
+scene.add(water);
+function updateWater(t){
+  water.position.x=Math.round(camera.position.x/10)*10;water.position.z=Math.round(camera.position.z/10)*10;
+  const a=waterGeo.attributes.position.array,ox=water.position.x,oz=water.position.z;
+  for(let i=0;i<a.length;i+=3){const x=waterBase[i]+ox,z=waterBase[i+2]+oz;
+    a[i+1]=Math.sin(x*.08+t*1.3)*.22+Math.cos(z*.07+t*1.1)*.22+Math.sin((x+z)*.16+t*2.1)*.09;}
+  waterGeo.attributes.position.needsUpdate=true;waterGeo.computeVertexNormals();
+}
+function scatter(geo,material,n,place){
+  const im=new THREE.InstancedMesh(geo,material,n),m=new THREE.Matrix4(),q=new THREE.Quaternion(),e=new THREE.Euler(),p=new V3(),s=new V3(),c=new THREE.Color();
+  for(let i=0;i<n;i++){const col=place(p,e,s);q.setFromEuler(e);m.compose(p,q,s);im.setMatrixAt(i,m);if(col!==undefined)im.setColorAt(i,c.set(col));}
+  scene.add(im);return im;
+}
+function seaSpot(zMin,zMaxOff,maxG){for(let k=0;k<30;k++){const x=rand(-300,300),z=rand(zMin,shoreZ(x)-zMaxOff),g=groundY(x,z);if(g<maxG)return[x,z,g];}return[0,-100,groundY(0,-100)];}
+scatter(new THREE.DodecahedronGeometry(1,0),mat(0x7d8a8f),110,(p,e,s)=>{const[x,z,g]=seaSpot(-390,4,-1.5);p.set(x,g,z);e.set(rand(0,3),rand(0,3),0);const k=rand(1,4.5);s.set(k*rand(.8,1.4),k*rand(.5,1),k);});
+scatter(new THREE.ConeGeometry(.6,1,5),mat(0xffffff),150,(p,e,s)=>{const[x,z,g]=seaSpot(-130,8,-2.5);const h=rand(1.5,4.5);p.set(x,g+h/2-.2,z);e.set(rand(-.3,.3),rand(0,3),rand(-.3,.3));s.set(rand(.7,1.5),h,rand(.7,1.5));return pick([0xff6f91,0xff9f43,0xb388ff,0xffd166,0xef476f]);});
+scatter(new THREE.IcosahedronGeometry(1,1),mat(0xffffff),70,(p,e,s)=>{const[x,z,g]=seaSpot(-110,8,-2.5);p.set(x,g,z);const k=rand(.6,1.6);s.set(k,k*.7,k);return pick([0xf28482,0x84a59d,0xf6bd60,0xcdb4db]);});
+const weeds=scatter(new THREE.ConeGeometry(.22,1,4),mat(0x2f9e44),260,(p,e,s)=>{const[x,z,g]=seaSpot(-300,5,-2);const h=rand(2,8);p.set(x,g+h/2,z);e.set(rand(-.15,.15),0,rand(-.15,.15));s.set(1,h,1);return pick([0x2f9e44,0x40c057,0x2b8a3e,0x5c940d]);});
+function buildPalm(x,z){const g=groundY(x,z),grp=pivot(scene,x,g,z),lean=rand(-.25,.25),h=rand(7,10);
+  for(let i=0;i<6;i++)P(grp,G.cyl,i%2?0x8b5e34:0x9c6b3e,.32-i*.03,h/6+.05,.32-i*.03,lean*i*i*.12,h/12+i*h/6,0);
+  const top=pivot(grp,lean*3.6,h,0);for(let i=0;i<7;i++){const a=i/7*TAU;const f=pivot(top);f.rotation.set(0,a,0);P(f,G.cone4,0x2d9a3e,.5,3.4,.12,0,-.2,1.6,1.9,0,0);}
+  P(top,G.sph,0x6b4423,.3,.3,.3,.2,-.3,.2);P(top,G.sph,0x6b4423,.3,.3,.3,-.25,-.35,0);}
+for(let i=0;i<34;i++){const x=rand(-280,280);buildPalm(x,shoreZ(x)+rand(40,85));}
+for(let i=0;i<20;i++){const x=rand(-200,200),z=shoreZ(x)+rand(10,38),g=groundY(x,z),u=pivot(scene,x,g,z),c=pick([0xff4d6d,0x3a86ff,0xffbe0b,0x06d6a0,0xff006e]);
+  P(u,G.cyl,0xeeeeee,.06,3,.06,0,1.5,0);P(u,G.cone,c,2,.8,2,0,3.2,0);P(u,G.box,pick([0xffffff,c,0xffd166]),1.1,.05,2,1.2,.04,.4,0,rand(-.4,.4),0);}
+{const x=-40,z=shoreZ(-40)+22,g=groundY(x,z),t=pivot(scene,x,g,z);for(const[a,b]of[[-1,-1],[1,-1],[-1,1],[1,1]])P(t,G.cyl,0xffffff,.12,4,.12,a,2,b);
+  P(t,G.box,0xffffff,2.6,1.4,2.6,0,4.6,0);P(t,G.box,0xe63946,2.8,.3,2.8,0,5.4,0);P(t,G.box,0xe63946,.5,.5,.05,0,4.7,1.31);}
+for(let i=0;i<18;i++){const c=pivot(scene,rand(-280,280),rand(65,115),rand(-500,200));const k=rand(6,14);for(let j=0;j<4;j++)P(c,G.lo,mat(0xffffff,{roughness:1,emissive:0x888888}),k*rand(.8,1.3),k*.45,k*rand(.6,1),j*k*.9-k*1.3,rand(-1,1),rand(-k*.4,k*.4));}
+P(scene,G.sph,new THREE.MeshBasicMaterial({color:0xfff6c8,fog:false}),24,24,24,300,420,600);
+// marine snow, shown only below the surface
+const snowN=700,snowPos=new Float32Array(snowN*3);for(let i=0;i<snowPos.length;i++)snowPos[i]=rand(-40,40);
+const snowGeo=new THREE.BufferGeometry();snowGeo.setAttribute('position',new THREE.BufferAttribute(snowPos,3));
+const snow=new THREE.Points(snowGeo,new THREE.PointsMaterial({color:0xcfefff,size:.12,transparent:true,opacity:.65}));scene.add(snow);
+
+// ---------- models (all face +z) ----------
+function buildShark(top,belly,hammer){
+  const g=new THREE.Group(),b=pivot(g),mt=mat(top),mb=mat(belly);
+  P(b,G.sph,mt,.7,.62,2,0,0,0);P(b,G.sph,mb,.6,.42,1.8,0,-.22,.05);P(b,G.sph,mt,.5,.4,.85,0,.02,1.3);
+  const jaw=pivot(b,0,-.3,.9);P(jaw,G.sph,mb,.42,.14,.75,0,-.04,.45);P(jaw,G.sph,0x8a1c1c,.34,.08,.6,0,.05,.42);
+  for(let i=0;i<7;i++){const a=-1.15+i*2.3/6;P(jaw,G.cone4,0xffffff,.035,.13,.035,Math.sin(a)*.33,.1,.42+Math.cos(a)*.5);P(b,G.cone4,0xffffff,.035,.13,.035,Math.sin(a)*.36,-.3,.88+Math.cos(a)*.52,Math.PI);}
+  if(hammer){P(b,G.box,mt,1.9,.2,.45,0,.05,1.6);for(const s of[1,-1])P(b,G.lo,0x0b0b0b,.1,.1,.1,s*.95,.1,1.62);}
+  else for(const s of[1,-1])P(b,G.lo,0x0b0b0b,.085,.085,.085,s*.41,.15,1.45);
+  P(b,G.cone,mt,.07,1.15,.55,0,.92,-.1,-.45);
+  for(const s of[1,-1])P(b,G.cone,mt,.07,1.15,.42,s*.72,-.32,.45,0,0,-s*(Math.PI/2+.45));
+  const tail=pivot(b,0,.05,-1.75);P(tail,G.sph,mt,.28,.32,.78,0,0,-.45);
+  P(tail,G.cone,mt,.05,1.4,.4,0,.55,-1.35,-.65);P(tail,G.cone,mt,.05,.9,.32,0,-.35,-1.25,Math.PI+.65);
+  g.userData={tail,jaw,body:b};return g;
+}
+function buildFish(c1,c2){const g=new THREE.Group();P(g,G.sph,c1,.22,.32,.6);P(g,G.sph,c2,.18,.2,.5,0,-.1,.03);
+  for(const s of[1,-1])P(g,G.lo,0x111111,.05,.05,.05,s*.16,.08,.38);
+  const tail=pivot(g,0,0,-.5);P(tail,G.cone,c1,.03,.45,.32,0,0,-.2,Math.PI/2);P(g,G.cone,c1,.02,.32,.25,0,.32,-.05,-.5);
+  g.userData={tail};return g;}
+function buildTropical(){const v=Math.random()*3|0,c=[0xff7b00,0x1f6fff,0xffd60a][v],g=new THREE.Group();
+  P(g,G.sph,c,.15,.3,.42);if(v===0)for(const z of[.16,-.12])P(g,G.sph,0xffffff,.16,.31,.05,0,0,z);
+  for(const s of[1,-1])P(g,G.lo,0x111111,.04,.04,.04,s*.12,.08,.3);
+  const tail=pivot(g,0,0,-.38);P(tail,G.cone,v===1?0xffd60a:c,.03,.32,.25,0,0,-.15,Math.PI/2);g.userData={tail};return g;}
+function buildTuna(){const g=buildFish(0x2d4f7a,0xd8e2ea);for(const s of[1,-1])P(g,G.cone4,0xffd60a,.02,.2,.08,0,s*.3,-.32,s>0?-.5:Math.PI+.5);return g;}
+function buildCrab(){const g=new THREE.Group(),b=pivot(g,0,.22,0),r=0xd8452b;
+  P(b,G.sph,r,.42,.2,.32);for(const s of[1,-1]){P(b,G.cyl,r,.02,.18,.02,s*.12,.18,.22);P(b,G.lo,0x111111,.05,.05,.05,s*.12,.28,.22);P(b,G.sph,r,.16,.12,.2,s*.48,.08,.34);
+    for(let i=0;i<3;i++)P(b,G.cyl,r,.03,.5,.03,s*.42,-.08,.15-i*.16,0,0,s*1.1);}
+  g.userData={crab:b};return g;}
+function buildPerson(swim){
+  const g=new THREE.Group(),b=pivot(g,0,swim?-1.25:0,0),skin=pick([0xf1c9a5,0xe0ac69,0xc68642,0x8d5524,0xffdbac,0x6b4423]),suit=pick([0xe63946,0x1d70d6,0xffb703,0x2a9d8f,0xff70a6,0x8338ec,0x222222,0xff7b00]),fem=Math.random()<.5;
+  for(const s of[1,-1])P(b,G.cyl,skin,.09,.82,.09,s*.12,.41,0);
+  P(b,G.box,suit,.4,.24,.24,0,.88,0);P(b,G.box,fem?suit:skin,.38,.5,.22,0,1.22,0);
+  P(b,G.sph,skin,.17,.19,.17,0,1.63,0);P(b,G.sph,pick([0x2b1b0e,0x111111,0xd9b45a,0x8a4b1f]),.18,fem?.17:.09,.18,0,1.71,-.03);
+  for(const s of[1,-1])P(b,G.lo,0x111111,.025,.025,.025,s*.06,1.65,.15);
+  const arms=[1,-1].map(s=>{const a=pivot(b,s*.25,1.42,0);P(a,G.cyl,skin,.055,.6,.055,0,-.3,0);return a;});
+  if(swim&&Math.random()<.45)P(b,G.torus,pick([0xff4d6d,0xffd60a,0x4cc9f0]),1,1,1,0,1.2,0,Math.PI/2);
+  g.userData={arms,body:b,person:true};return g;
+}
+function buildTurtle(){const g=new THREE.Group(),sk=0x8fae6a;P(g,G.sph,0x4a7d3b,.7,.32,.85);P(g,G.sph,0xd9c88f,.62,.18,.75,0,-.1,0);
+  P(g,G.sph,sk,.2,.18,.26,0,.02,.95);for(const s of[1,-1])P(g,G.lo,0x111111,.04,.04,.04,s*.13,.08,1.1);
+  const fl=[];for(const s of[1,-1]){const f=pivot(g,s*.55,0,.4);P(f,G.box,sk,.8,.06,.28,s*.4,0,0,0,-s*.4,0);fl.push([f,s]);const h=pivot(g,s*.45,0,-.6);P(h,G.box,sk,.4,.06,.22,s*.2,0,0,0,s*.4,0);fl.push([h,s]);}
+  g.userData={flippers:fl};return g;}
+function buildOctopus(){const g=new THREE.Group(),c=pick([0x9b4f96,0xc8553d,0xe76f51]),m=mat(c);
+  P(g,G.sph,m,.55,.72,.6,0,.85,-.1,-.3);for(const s of[1,-1]){P(g,G.lo,0xffffff,.13,.13,.13,s*.28,.62,.38);P(g,G.lo,0x111111,.07,.07,.07,s*.3,.62,.48);}
+  const tents=[];for(let i=0;i<8;i++){const a=i/8*TAU,p=pivot(g,Math.cos(a)*.3,.38,Math.sin(a)*.3);p.rotation.y=-a;const s=pivot(p);P(s,G.tent,m,.1,1.3,.1);tents.push(s);}
+  g.userData={tents};return g;}
+function buildJelly(){const g=new THREE.Group(),c=pick([0xff7eb6,0xb98cff,0x7ee0ff]),m=new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.45,transparent:true,opacity:.62,flatShading:true});
+  const bell=P(g,G.half,m,.6,.5,.6);for(let i=0;i<7;i++){const a=i/7*TAU;P(g,G.cyl,m,.025,1.5,.025,Math.cos(a)*.35,-.7,Math.sin(a)*.35);}
+  g.userData={bell};return g;}
+function buildSeal(){const g=new THREE.Group(),c=0x7f7a72;P(g,G.sph,c,.42,.4,1);P(g,G.sph,0xa8a39a,.36,.3,.85,0,-.12,0);
+  P(g,G.sph,c,.3,.28,.34,0,.12,1);P(g,G.sph,0x9a958d,.15,.12,.15,0,.06,1.3);P(g,G.lo,0x111111,.05,.04,.04,0,.12,1.44);
+  for(const s of[1,-1]){P(g,G.lo,0x111111,.05,.05,.05,s*.15,.23,1.2);P(g,G.box,c,.45,.05,.2,s*.45,-.2,.4,0,-s*.5,-s*.3);}
+  const tail=pivot(g,0,0,-.9);for(const s of[1,-1])P(tail,G.box,c,.25,.05,.45,s*.15,0,-.2,0,s*.3,0);
+  g.userData={tail,flukes:true};return g;}
+function buildDolphin(c1,c2,orca){
+  const g=new THREE.Group(),mt=mat(c1);P(g,G.sph,mt,.5,.5,1.6);P(g,G.sph,c2,.42,.35,1.4,0,-.18,.1);
+  if(orca){P(g,G.cone,mt,.07,1.4,.35,0,1.05,-.1,-.15);for(const s of[1,-1])P(g,G.sph,0xffffff,.1,.1,.26,s*.4,.16,1);}
+  else{P(g,G.cone,mt,.13,.6,.13,0,-.05,1.75,Math.PI/2);P(g,G.cone,mt,.06,.7,.35,0,.6,-.2,-.6);for(const s of[1,-1])P(g,G.lo,0x111111,.05,.05,.05,s*.4,.08,1.25);}
+  for(const s of[1,-1])P(g,G.cone,mt,.05,.7,.25,s*.45,-.3,.6,0,0,-s*(Math.PI/2+.6));
+  const tail=pivot(g,0,0,-1.5);P(tail,G.sph,mt,.25,.25,.7,0,0,-.4);for(const s of[1,-1])P(tail,G.box,mt,.6,.05,.35,s*.35,0,-1,0,s*.5,0);
+  g.userData={tail,flukes:true};return g;}
+function buildWhale(){
+  const g=new THREE.Group(),mt=mat(0x4f6f8f),mb=mat(0xb8c7d3);
+  P(g,G.sph,mt,2.2,1.9,7.5);P(g,G.sph,mb,1.9,1.2,6.2,0,-.85,.8);P(g,G.sph,mt,2,1.4,3,0,-.1,5);
+  for(let i=0;i<5;i++)P(g,G.box,0x8fa3b4,.12,.06,5,(i-2)*.55,-1.95,2.4);
+  for(const s of[1,-1]){P(g,G.lo,0x111111,.18,.18,.18,s*1.75,-.3,4.6);P(g,G.box,mt,3,.15,.9,s*2.6,-1.1,2.5,0,s*.3,-s*.4);}
+  P(g,G.cone,mt,.12,.8,.6,0,1.7,-3.5,-.6);
+  const tail=pivot(g,0,0,-6.8);P(tail,G.sph,mt,.9,.9,2.6,0,0,-1.6);for(const s of[1,-1])P(tail,G.box,mt,3,.15,1.4,s*1.5,0,-4,0,s*.45,0);
+  g.userData={tail,flukes:true};return g;}
+function buildDiver(){const g=new THREE.Group(),suit=0x1b1b1b;
+  P(g,G.cyl,suit,.22,1.1,.22,0,0,0,Math.PI/2);P(g,G.sph,0xf1c9a5,.16,.16,.16,0,.05,.72);P(g,G.box,0xffd60a,.26,.1,.08,0,.07,.86);
+  P(g,G.cyl,0xffd60a,.13,.8,.13,0,.25,0,Math.PI/2);for(const s of[1,-1])P(g,G.cyl,suit,.06,.5,.06,s*.25,0,.5,Math.PI/2);
+  const legs=[1,-1].map(s=>{const l=pivot(g,s*.1,0,-.55);P(l,G.cyl,suit,.08,.6,.08,0,0,-.3,Math.PI/2);P(l,G.box,0x0aa3ff,.18,.03,.45,0,0,-.75);return l;});
+  g.userData={legs};return g;}
+function buildGull(){const g=new THREE.Group();P(g,G.sph,0xffffff,.18,.18,.45);P(g,G.sph,0xffffff,.13,.13,.15,0,.1,.42);P(g,G.cone,0xffa000,.04,.18,.04,0,.08,.6,Math.PI/2);
+  const wings=[1,-1].map(s=>{const w=pivot(g,s*.12,.08,0);P(w,G.box,0xd8dde2,.9,.03,.3,s*.45,0,0);P(w,G.box,0x222222,.25,.032,.25,s*.85,0,0);return[w,s];});
+  g.userData={wings};return g;}
+
+// ---------- creature catalogue ----------
+// lvl: shark level needed to eat it; danger: damage it deals when you are too small.
+const TYPES={
+  fish:{name:'Sardine',lvl:1,r:.55,pts:10,food:5,xp:8,speed:5,n:54,zone:'sea',school:6,sc:[.9,1.25],build:()=>buildFish(0x9fb6c8,0xe8f0f5)},
+  tropical:{name:'Reef Fish',lvl:1,r:.5,pts:15,food:5,xp:10,speed:3.5,n:28,zone:'reef',sc:[1,1.4],build:buildTropical},
+  crab:{name:'Crab',lvl:1,r:.65,pts:20,food:6,xp:12,speed:1.8,n:16,zone:'floor',sc:[1,1.4],build:buildCrab},
+  gull:{name:'Seagull',lvl:1,r:.7,pts:60,food:8,xp:30,speed:6,n:10,zone:'air',sc:[1.2,1.5],build:buildGull},
+  swimmer:{name:'Swimmer',lvl:1,r:.95,pts:40,food:14,xp:25,speed:2.2,n:16,zone:'swim',sc:[1,1],build:()=>buildPerson(true),scream:true},
+  beach:{name:'Beachgoer',lvl:1,r:.95,pts:60,food:16,xp:35,speed:3.2,n:22,zone:'beach',sc:[.95,1.1],build:()=>buildPerson(false),scream:true},
+  tuna:{name:'Tuna',lvl:2,r:1.1,pts:35,food:12,xp:25,speed:8,n:12,zone:'sea',sc:[2.2,2.7],build:buildTuna},
+  turtle:{name:'Sea Turtle',lvl:2,r:1.1,pts:50,food:14,xp:30,speed:2.6,n:9,zone:'reef',sc:[1.1,1.4],build:buildTurtle},
+  octopus:{name:'Octopus',lvl:2,r:1.2,pts:70,food:18,xp:40,speed:3.4,n:9,zone:'floorup',sc:[1,1.4],build:buildOctopus,ink:true},
+  seal:{name:'Seal',lvl:3,r:1.3,pts:90,food:24,xp:55,speed:7,n:8,zone:'surface',sc:[1.1,1.3],build:buildSeal},
+  diver:{name:'Scuba Diver',lvl:3,r:1.1,pts:110,food:22,xp:60,speed:2.8,n:6,zone:'mid',sc:[1.2,1.2],build:buildDiver,scream:true},
+  jelly:{name:'Jellyfish',lvl:3,r:.9,pts:45,food:6,xp:30,speed:.9,n:16,zone:'mid',sc:[1,1.6],build:buildJelly,danger:6,sting:true},
+  dolphin:{name:'Dolphin',lvl:4,r:1.6,hl:.8,pts:150,food:30,xp:90,speed:10,n:6,zone:'sea',sc:[1.2,1.4],build:()=>buildDolphin(0x6f8fa8,0xdfe7ee)},
+  hammer:{name:'Hammerhead',lvl:5,r:2,hl:2,pts:260,food:40,xp:150,speed:8,n:5,zone:'deep',sc:[1.4,1.6],build:()=>buildShark(0x7a7f73,0xe8e4d8,true),danger:16},
+  orca:{name:'Orca',lvl:6,r:2.4,hl:2.6,pts:400,food:55,xp:220,speed:9,n:3,zone:'deep',sc:[2.2,2.4],build:()=>buildDolphin(0x151515,0xf2f2f2,true),danger:26},
+  whale:{name:'Blue Whale',lvl:99,r:3.4,hl:6,pts:1500,food:90,xp:500,speed:2.6,n:3,zone:'whale',sc:[1,1.15],build:buildWhale,hp:14,chunk:{pts:45,food:10,xp:22}},
+};
+const XP=[0,150,420,850,1500,2400,3600]; // cumulative XP to reach each level
+const MAXLVL=XP.length;
+
+// ---------- particles ----------
+const PM={bubble:new THREE.MeshBasicMaterial({color:0xe6f8ff,transparent:true,opacity:.55}),blood:new THREE.MeshBasicMaterial({color:0xa3121a,transparent:true,opacity:.8}),
+  splash:new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.85}),ink:new THREE.MeshBasicMaterial({color:0x14121c,transparent:true,opacity:.8}),
+  sand:new THREE.MeshBasicMaterial({color:0xe2c993,transparent:true,opacity:.85})};
+const parts=[];for(let i=0;i<320;i++){const m=new THREE.Mesh(G.lo,PM.bubble);m.visible=false;scene.add(m);parts.push({m,v:new V3(),life:0,max:1,size:1,grav:0,grow:false});}
+let partI=0;
+function burst(kind,pos,n,spd,size,life,grav=0,up=0){
+  for(let i=0;i<n;i++){const p=parts[partI++%parts.length];p.m.material=PM[kind];p.m.visible=true;p.m.position.copy(pos);
+    p.v.set(rand(-1,1),rand(-1,1)+up,rand(-1,1)).normalize().multiplyScalar(spd*rand(.3,1));p.max=p.life=life*rand(.6,1.2);p.size=size*rand(.6,1.3);p.grav=grav;p.grow=kind==='ink'||kind==='blood';}
+}
+function updateParts(dt){for(const p of parts){if(p.life<=0)continue;p.life-=dt;if(p.life<=0){p.m.visible=false;continue;}
+  p.v.y+=p.grav*dt;p.v.multiplyScalar(Math.exp(-dt*1.5));p.m.position.addScaledVector(p.v,dt);const f=p.life/p.max;p.m.scale.setScalar(p.size*(p.grow?(1.6-f*.8)*Math.sqrt(f)*1.4:Math.sqrt(f)));}}
+
+// ---------- audio ----------
+let AC=null,muted=store.get('shark.muted')==='1',amb=null,ambF=null,noiseB=null;
+function audio(){
+  if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+    noiseB=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);const d=noiseB.getChannelData(0);let l=0;for(let i=0;i<d.length;i++){const w=Math.random()*2-1;l=(l+.02*w)/1.02;d[i]=l*3.5;}
+    const src=AC.createBufferSource();src.buffer=noiseB;src.loop=true;ambF=AC.createBiquadFilter();ambF.type='lowpass';ambF.frequency.value=500;amb=AC.createGain();amb.gain.value=0;
+    src.connect(ambF).connect(amb).connect(AC.destination);src.start();}
+  if(AC.state==='suspended')AC.resume();
+}
+function tone(type,f0,f1,dur,vol,delay=0){const t=AC.currentTime+delay,o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(f1,1),t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+dur+.02);}
+function noise(freq,q,dur,vol,type='lowpass'){const t=AC.currentTime,s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=noiseB;f.type=type;f.frequency.value=freq;f.Q.value=q;
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f).connect(g).connect(AC.destination);s.start(t,Math.random());s.stop(t+dur+.02);}
+function sfx(k){if(!AC||muted)return;
+  if(k==='chomp'){noise(900,1,.16,.9);tone('sine',140,45,.14,.5);}
+  else if(k==='bite'){noise(600,1,.22,1.1);tone('sawtooth',90,40,.2,.2);}
+  else if(k==='splash'){noise(1400,.7,.55,.7,'bandpass');}
+  else if(k==='hurt'){tone('sawtooth',110,40,.35,.25);noise(400,1,.25,.6);}
+  else if(k==='scream'){const f=rand(700,1100);tone('triangle',f,f*1.5,.12,.12);tone('triangle',f*1.5,f*.7,.35,.12,.12);}
+  else if(k==='level'){[523,659,784,1047].forEach((f,i)=>tone('square',f,f,.16,.09,i*.09));}
+  else if(k==='whale'){tone('sine',90,55,1.2,.25);}
+  else if(k==='squawk'){tone('square',1400,700,.18,.08);}
+}
+
+// ---------- shark ----------
+const shark=buildShark(0x6d7f8e,0xf2f2ee,false);scene.add(shark);
+const S={pos:shark.position,vel:new V3(),yaw:0,pitch:0,roll:0,size:1,lvl:1,xp:0,hp:100,hunger:100,score:0,combo:0,comboT:0,mode:'water',
+  biteCd:0,jaw:0,phase:0,hop:0,hurtCd:0,alive:true,eaten:{},bestCombo:0,time:0,landT:0};
+const tmp=new V3(),tmp2=new V3(),fwd=new V3(),mouth=new V3(),camTarget=new V3(),look=new V3();
+const maxHp=()=>100+(S.lvl-1)*25;
+function sharkForward(o){return o.set(Math.sin(S.yaw)*Math.cos(S.pitch),Math.sin(S.pitch),Math.cos(S.yaw)*Math.cos(S.pitch));}
+
+// ---------- creatures ----------
+const creatures=[],schools=[];
+function spawnPos(T,v){
+  let x=0,y=-5,z=-100;
+  for(let k=0;k<40;k++){
+    x=rand(-BX+10,BX-10);const sh=shoreZ(x);let g;
+    switch(T.zone){
+      case'sea':z=rand(-330,sh-18);g=groundY(x,z);if(g>-6)continue;y=rand(g+2,-1.5);break;
+      case'reef':z=rand(-95,sh-12);g=groundY(x,z);if(g>-3.5)continue;y=rand(g+1,Math.min(-1.5,g+7));break;
+      case'floor':z=rand(-150,sh-6);g=groundY(x,z);if(g>-1.8)continue;y=g;break;
+      case'floorup':z=rand(-200,sh-12);g=groundY(x,z);if(g>-4)continue;y=g+1.2;break;
+      case'swim':z=sh-rand(8,48);g=groundY(x,z);if(g>-2)continue;y=0;break;
+      case'beach':z=sh+(Math.random()<.3?rand(-5,2):rand(2,42));g=groundY(x,z);if(g<-1.2)continue;y=Math.max(g,g);break;
+      case'air':z=rand(-110,sh+10);y=rand(4,12);break;
+      case'surface':z=rand(-180,sh-16);g=groundY(x,z);if(g>-4)continue;y=-1;break;
+      case'mid':z=rand(-300,sh-22);g=groundY(x,z);if(g>-9)continue;y=rand(g+3,-3);break;
+      case'deep':z=rand(-335,-70);g=groundY(x,z);y=rand(g+4,-6);break;
+      case'whale':z=rand(-335,-150);g=groundY(x,z);y=rand(Math.max(g+7,-32),-6);break;
+    }
+    if(S.alive&&Math.hypot(x-S.pos.x,z-S.pos.z)<55&&k<39)continue;
+    break;
+  }
+  return v.set(x,y,z);
+}
+function makeCreature(key,school){
+  const T=TYPES[key],mesh=T.build(),s=rand(T.sc[0],T.sc[1]);mesh.scale.setScalar(s);mesh.rotation.order='YXZ';scene.add(mesh);
+  const c={key,T,mesh,pos:mesh.position,vel:new V3(),dir:new V3(rand(-1,1),0,rand(-1,1)).normalize(),wt:rand(1,5),dead:false,respawn:0,
+    hp:T.hp||1,cd:0,inkCd:0,phase:rand(0,TAU),yaw:rand(0,TAU),r:T.r*s/((T.sc[0]+T.sc[1])/2),school,off:new V3(rand(-3,3),rand(-1.5,1.5),rand(-3,3)),fleeing:false,scared:0};
+  place(c);creatures.push(c);return c;
+}
+function place(c){
+  if(c.school&&c.school.alive){c.pos.copy(c.school.pos).add(c.off);}else spawnPos(c.T,c.pos);
+  c.dead=false;c.mesh.visible=true;c.hp=c.T.hp||1;c.vel.set(0,0,0);
+}
+function populate(){
+  for(const c of creatures)scene.remove(c.mesh);creatures.length=0;schools.length=0;
+  for(const key in TYPES){const T=TYPES[key];
+    if(T.school){for(let i=0;i<T.n/T.school;i++){const sc={pos:spawnPos(T,new V3()),dir:new V3(rand(-1,1),0,rand(-1,1)).normalize(),wt:rand(2,5),alive:true};schools.push(sc);for(let j=0;j<T.school;j++)makeCreature(key,sc);}}
+    else for(let i=0;i<T.n;i++)makeCreature(key);
+  }
+}
+function wander(o,dt,flat,yAmt=.25){o.wt-=dt;if(o.wt<=0){o.dir.set(rand(-1,1),flat?0:rand(-yAmt,yAmt),rand(-1,1)).normalize();o.wt=rand(2,6);}}
+function keepInBounds(p,dir){if(p.x>BX-15)dir.x=-Math.abs(dir.x)-.5;if(p.x<-BX+15)dir.x=Math.abs(dir.x)+.5;if(p.z<ZMIN+15)dir.z=Math.abs(dir.z)+.5;}
+function updateSchools(dt){for(const sc of schools){wander(sc,dt,false);keepInBounds(sc.pos,sc.dir);
+  const g=groundY(sc.pos.x,sc.pos.z);if(g>-7)sc.dir.z=-Math.abs(sc.dir.z)-.6;sc.dir.normalize();
+  sc.pos.addScaledVector(sc.dir,TYPES.fish.speed*dt);sc.pos.y=clamp(sc.pos.y,g+3,-2.5);}}
+
+const SEA_ZONES={sea:1,reef:1,mid:1,deep:1,whale:1,surface:1};
+function updateCreature(c,dt,t){
+  const T=c.T,p=c.pos;
+  if(c.dead){c.respawn-=dt;if(c.respawn<=0)place(c);return;}
+  c.cd-=dt;c.inkCd-=dt;
+  const dx=p.x-S.pos.x,dy=p.y-S.pos.y,dz=p.z-S.pos.z,sd=Math.sqrt(dx*dx+dy*dy+dz*dz);
+  const visible=sd<190;c.mesh.visible=visible;
+  if(sd>230&&!c.school){c.phase+=dt;return;} // far away: freeze to save time
+  const edible=T.lvl<=S.lvl, hostile=T.danger&&!edible&&!T.sting;
+  let spd=T.speed;const des=tmp.set(0,0,0);
+  const flat=T.zone==='floor'||T.zone==='beach'||T.zone==='swim'||T.zone==='floorup';
+  c.fleeing=false;
+  const fear=10+6*S.size;
+  if(S.alive&&edible&&T.zone!=='air'&&sd<fear&&T.zone!=='whale'){
+    c.fleeing=true;des.set(dx,flat?0:dy*.5,dz).normalize();spd*=T.zone==='beach'?1.35:1.8;
+    if(T.zone==='swim')des.z+=.8; // swimmers paddle for the shore
+    if(T.zone==='beach')des.z+=1.2; // and beachgoers run up the sand
+    if(T.scream&&c.scared<=0){c.scared=3;if(sd<30)sfx('scream');}
+    if(T.ink&&c.inkCd<=0&&sd<9){c.inkCd=6;burst('ink',p,22,4,.9,2.2);}
+  }else if(S.alive&&hostile&&sd<42&&S.mode==='water'){
+    des.set(-dx,-dy,-dz).normalize();spd*=1.45;
+  }else if(c.school){
+    des.copy(c.school.pos).add(c.off).sub(p).multiplyScalar(.4).addScaledVector(c.school.dir,1);
+  }else{
+    wander(c,dt,flat,T.zone==='whale'?.08:.25);des.copy(c.dir);
+  }
+  c.scared-=dt;
+  keepInBounds(p,c.fleeing?des:c.dir);
+  const g=groundY(p.x,p.z);
+  if(SEA_ZONES[T.zone]&&g>-(c.r*2+1.5)){des.z-=1.5;if(!c.fleeing)c.dir.z=-Math.abs(c.dir.z)-.5;}
+  if(T.zone==='swim'&&g>-1.8){des.z-=1.2;c.dir.z=-Math.abs(c.dir.z);}
+  if(T.zone==='beach'){const sh=shoreZ(p.x);if(p.z<sh-4){des.z+=1.5;c.dir.z=Math.abs(c.dir.z);}if(p.z>sh+50){des.z-=1;c.dir.z=-Math.abs(c.dir.z);}}
+  if(T.zone==='air'){const sh=shoreZ(p.x);if(p.z>sh+15){c.dir.z=-Math.abs(c.dir.z);}des.y+=(8-p.y)*.08;}
+  if(des.lengthSq()>1e-6)des.normalize();
+  if(T.zone==='whale'||T.zone==='deep'){} // gentle movers keep momentum
+  c.vel.lerp(des.multiplyScalar(spd),damp(T.zone==='whale'?.6:2.2,dt));
+  p.addScaledVector(c.vel,dt);
+  p.x=clamp(p.x,-BX,BX);p.z=clamp(p.z,ZMIN,ZMAX);
+  const g2=groundY(p.x,p.z);
+  switch(T.zone){
+    case'floor':p.y=g2;break;
+    case'floorup':p.y=clamp(p.y,g2+.8,Math.min(g2+5,-1.2));break;
+    case'swim':p.y=Math.sin(t*1.7+c.phase)*.12;break;
+    case'beach':p.y=g2;break;
+    case'air':p.y=clamp(p.y,3.5,14);break;
+    case'surface':p.y=clamp(p.y,g2+1,-.7);break;
+    default:p.y=clamp(p.y,g2+c.r,-c.r-.4);
+  }
+  // orientation
+  const hs=Math.hypot(c.vel.x,c.vel.z);
+  if(hs>.15)c.yaw=angLerp(c.yaw,Math.atan2(c.vel.x,c.vel.z),damp(T.zone==='whale'?1:5,dt));
+  c.mesh.rotation.y=c.yaw;
+  if(!flat&&T.zone!=='air')c.mesh.rotation.x=clamp(-Math.atan2(c.vel.y,hs+.01),-.6,.6);
+  // animation
+  c.phase+=dt*(2+Math.hypot(hs,c.vel.y)*1.2);const ud=c.mesh.userData,ph=c.phase;
+  if(visible){
+    if(ud.tail){if(ud.flukes)ud.tail.rotation.x=Math.sin(ph)*.35;else ud.tail.rotation.y=Math.sin(ph*1.6)*.5;}
+    if(ud.person){const run=c.fleeing||T.zone==='swim';ud.arms[0].rotation.z=run?2.6+Math.sin(ph*3)*.5:.1+Math.sin(ph)*.1;ud.arms[1].rotation.z=-(run?2.6+Math.sin(ph*3+1)*.5:.1+Math.sin(ph)*.1);
+      if(T.zone==='beach')ud.body.position.y=Math.abs(Math.sin(ph*2))*(hs>.3?.12:0);}
+    if(ud.tents)ud.tents.forEach((s,i)=>s.rotation.z=.75+Math.sin(ph*1.3+i)*.35);
+    if(ud.bell){const k=Math.sin(t*2.4+c.phase);ud.bell.scale.set(.6-k*.06,.5+k*.08,.6-k*.06);p.y+=Math.max(0,k)*dt*.6;}
+    if(ud.flippers)ud.flippers.forEach(([f,s])=>f.rotation.z=Math.sin(ph)*.5*s);
+    if(ud.legs){ud.legs[0].rotation.x=Math.sin(ph*2)*.4;ud.legs[1].rotation.x=-Math.sin(ph*2)*.4;if(Math.random()<dt*.8)burst('bubble',tmp2.copy(p).setY(p.y+.5),3,1.5,.12,1.5,3);}
+    if(ud.wings)ud.wings.forEach(([w,s])=>w.rotation.z=Math.sin(t*9+c.phase)*.55*s);
+    if(ud.crab)ud.crab.rotation.z=Math.sin(ph*3)*.08;
+  }
+  // contact with the shark
+  if(!S.alive)return;
+  const reach=c.r+.85*S.size;
+  let md;
+  if(T.hl){const cf=c.mesh.getWorldDirection(tmp2);
+    const ax=mouth.x-p.x,ay=mouth.y-p.y,az=mouth.z-p.z,proj=clamp(ax*cf.x+ay*cf.y+az*cf.z,-T.hl*c.mesh.scale.x,T.hl*c.mesh.scale.x);
+    md=Math.hypot(ax-cf.x*proj,ay-cf.y*proj,az-cf.z*proj);}
+  else md=mouth.distanceTo(p);
+  if(md<reach*1.9)S.jawWant=1;
+  if(md<reach&&S.biteCd<=0)tryBite(c);
+  else if(hostile&&sd<c.r+1.6*S.size&&c.cd<=0)hurtShark(c);
+  else if(T.sting&&!edible&&sd<c.r+1.2*S.size&&c.cd<=0)hurtShark(c);
+}
+
+let tooBigT=0;
+function tryBite(c){
+  const T=c.T;
+  if(T.chunk){ // whales: rip off chunks until it is gone
+    S.biteCd=.45;S.jaw=1;c.hp--;sfx('bite');burst('blood',mouth,14,5,.55,1.4);
+    if(c.hp<=0){eat(c,T.pts,T.food,T.xp,'DEVOURED');sfx('whale');banner('WHALE DEVOURED!','+'+T.pts*mult()+' points');}
+    else{gain(T.chunk.pts,T.chunk.food,T.chunk.xp,c.pos,'Whale bite');S.vel.multiplyScalar(.4);}
+    return;
+  }
+  if(T.lvl>S.lvl){
+    S.biteCd=.4;S.jaw=1;S.vel.addScaledVector(tmp.copy(S.pos).sub(c.pos).normalize(),6);
+    if(!T.danger&&tooBigT<=0){tooBigT=2;popup(c.pos,T.name+' too big! Reach LV '+T.lvl,'info');}
+    if(T.danger&&c.cd<=0)hurtShark(c);
+    return;
+  }
+  S.biteCd=.22;S.jaw=1;eat(c,T.pts,T.food,T.xp);sfx('chomp');
+  if(c.key==='gull')sfx('squawk');
+}
+const mult=()=>1+Math.min(4,Math.floor(S.combo/3));
+function gain(pts,food,xp,pos,label){
+  const m=mult(),got=pts*m;S.score+=got;S.hunger=Math.min(100,S.hunger+food);S.hp=Math.min(maxHp(),S.hp+food*.35);
+  S.combo++;S.comboT=2.6;S.bestCombo=Math.max(S.bestCombo,S.combo);
+  addXp(xp);popup(pos,'+'+got);feed(label+' +'+got);
+}
+function eat(c,pts,food,xp){
+  c.dead=true;c.mesh.visible=false;c.respawn=c.T.chunk?rand(45,70):rand(6,18);
+  burst(c.pos.y>0?'splash':'blood',c.pos,10+c.r*6|0,4+c.r,.25+c.r*.18,1.2,c.pos.y>0?-9:0,c.pos.y>0?1:0);
+  S.eaten[c.key]=(S.eaten[c.key]||0)+1;gain(pts,food,xp,c.pos,c.T.name);
+}
+function addXp(x){
+  S.xp+=x;
+  while(S.lvl<MAXLVL&&S.xp>=XP[S.lvl]){S.lvl++;S.hp=maxHp();sfx('level');
+    const now=Object.values(TYPES).filter(t=>t.lvl===S.lvl).map(t=>t.name);
+    banner('LEVEL '+S.lvl+'!',now.length?'You can now eat: '+now.join(', '):'Bigger, faster, hungrier');}
+}
+function hurtShark(c){
+  c.cd=1.2;S.hp-=c.T.danger;S.hurtCd=.5;sfx('hurt');burst('blood',S.pos,10,4,.4,1);
+  S.vel.addScaledVector(tmp.copy(S.pos).sub(c.pos).normalize(),9);
+  $('flash').style.opacity=1;setTimeout(()=>$('flash').style.opacity=0,180);
+  if(tooBigT<=0){tooBigT=2;popup(S.pos,c.T.sting?'Stung! (eat at LV '+c.T.lvl+')':c.T.name+' attacks! Grow to LV '+c.T.lvl,'bad');}
+}
+
+// ---------- UI helpers ----------
+const projV=new V3();
+function popup(pos,text,cls=''){projV.copy(pos).project(camera);if(projV.z>1)return;const d=document.createElement('div');d.className='pop '+cls;d.textContent=text;
+  d.style.left=((projV.x+1)/2*innerWidth)+'px';d.style.top=((1-projV.y)/2*innerHeight)+'px';document.body.appendChild(d);setTimeout(()=>d.remove(),1100);}
+function feed(text){const f=$('feed'),d=document.createElement('div');d.textContent=text;f.prepend(d);while(f.children.length>6)f.lastChild.remove();setTimeout(()=>d.remove(),2600);}
+let bannerT=0;function banner(t,s){$('banner').innerHTML=t+(s?'<small>'+s+'</small>':'');$('banner').style.opacity=1;bannerT=3;}
+$('menuList').innerHTML=Object.values(TYPES).map(t=>`<div class="${t.danger&&!t.sting?'bad':''}">${t.name}<span>${t.chunk?'BITE':'LV '+t.lvl}</span></div>`).join('');
+
+// ---------- input ----------
+const keys={};let mx=0,my=0,inputMode='mouse',mouseBoost=false,touchBoost=false,touchId=null,tox=0,toy=0,keyPitch=0;
+const isTouch=matchMedia('(pointer:coarse)').matches;
+addEventListener('keydown',e=>{keys[e.code]=true;
+  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
+  if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))inputMode='keys';
+  if(e.code==='KeyM'){muted=!muted;store.set('shark.muted',muted?'1':'0');}
+  if((e.code==='KeyP'||e.code==='Escape')&&(phase==='play'||phase==='pause'))togglePause();});
+addEventListener('keyup',e=>keys[e.code]=false);
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false;mouseBoost=false;if(phase==='play')togglePause();});
+const cv=renderer.domElement;
+cv.addEventListener('pointermove',e=>{if(e.pointerType==='touch'){if(e.pointerId===touchId){mx=clamp((e.clientX-tox)/70,-1,1);my=clamp((e.clientY-toy)/70,-1,1);}return;}
+  mx=(e.clientX/innerWidth)*2-1;my=(e.clientY/innerHeight)*2-1;inputMode='mouse';});
+cv.addEventListener('pointerdown',e=>{audio();if(e.pointerType==='touch'){if(touchId===null){touchId=e.pointerId;tox=e.clientX;toy=e.clientY;mx=my=0;inputMode='mouse';}else touchBoost=true;return;}
+  if(e.button===0||e.button===2)mouseBoost=true;});
+addEventListener('pointerup',e=>{if(e.pointerType==='touch'){if(e.pointerId===touchId){touchId=null;mx=my=0;}else touchBoost=false;return;}mouseBoost=false;});
+addEventListener('pointercancel',e=>{if(e.pointerId===touchId){touchId=null;mx=my=0;}});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+const bb=$('boostBtn');if(isTouch)bb.classList.remove('hidden');
+bb.addEventListener('pointerdown',e=>{e.stopPropagation();touchBoost=true;});bb.addEventListener('pointerup',()=>touchBoost=false);bb.addEventListener('pointerleave',()=>touchBoost=false);
+
+// ---------- game flow ----------
+let phase='menu',best=+store.get('shark.best')||0;
+function startGame(){
+  audio();
+  Object.assign(S,{yaw:0,pitch:0,roll:0,size:1,lvl:1,xp:0,hp:100,hunger:100,score:0,combo:0,comboT:0,mode:'water',biteCd:0,jaw:0,hurtCd:0,alive:true,eaten:{},bestCombo:0,time:0,landT:0});
+  S.pos.set(0,-5,-15);S.vel.set(0,0,0);shark.visible=true;
+  populate();
+  camera.position.set(0,-2,-26);
+  phase='play';$('menu').classList.add('hidden');$('over').classList.add('hidden');$('hud').classList.remove('hidden');
+  banner('EAT EVERYTHING!','Head for the beach — swimmers ahead');
+}
+function togglePause(){if(phase==='play'){phase='pause';$('pause').classList.remove('hidden');}else if(phase==='pause'){phase='play';$('pause').classList.add('hidden');}}
+function gameOver(why){
+  S.alive=false;phase='over';
+  const newBest=S.score>best;if(newBest){best=S.score;store.set('shark.best',best);}
+  setTimeout(()=>{if(phase!=='over')return;
+    $('overTitle').textContent=newBest?'NEW BEST!':'GAME OVER';$('overWhy').textContent=why;
+    $('overScore').textContent=S.score.toLocaleString()+' points · LV '+S.lvl+' · best '+best.toLocaleString();
+    const rows=Object.entries(S.eaten).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<div>${TYPES[k].name}: <b>${n}</b></div>`);
+    rows.push(`<div>Best combo: <b>${S.bestCombo}</b></div>`,`<div>Survived: <b>${Math.round(S.time)}s</b></div>`);
+    $('overStats').innerHTML=rows.join('');$('over').classList.remove('hidden');$('hud').classList.add('hidden');},1800);
+}
+$('playBtn').onclick=startGame;$('againBtn').onclick=startGame;$('resumeBtn').onclick=togglePause;
+
+// ---------- shark physics ----------
+function updateShark(dt){
+  const boosting=(keys.Space||keys.ShiftLeft||keys.ShiftRight||mouseBoost||touchBoost)&&S.alive;
+  const dz=v=>Math.abs(v)<.06?0:(v-Math.sign(v)*.06)/.94;
+  let turn=0,pitchT=0;
+  if(inputMode==='mouse'){turn=-dz(mx)*2.3;pitchT=-dz(my)*1.15;}
+  const kl=keys.KeyA||keys.ArrowLeft,kr=keys.KeyD||keys.ArrowRight,ku=keys.KeyW||keys.ArrowUp,kd=keys.KeyS||keys.ArrowDown;
+  if(inputMode==='keys'){turn=(kl?2:0)-(kr?2:0);if(ku)keyPitch=Math.min(1.1,keyPitch+dt*1.5);else if(kd)keyPitch=Math.max(-1.1,keyPitch-dt*1.5);else keyPitch*=Math.exp(-dt*2.5);pitchT=keyPitch;}
+  if(!S.alive){turn=0;pitchT=-.3;}
+  const p=S.pos,r=.62*S.size,g=groundY(p.x,p.z);
+  // which medium are we in?
+  if(p.y<=g+r+.05&&g+r>-.35*S.size)S.mode='land';else if(p.y>.05)S.mode='air';else{if(S.mode==='air'&&S.vel.y<-3){burst('splash',tmp.set(p.x,.2,p.z),24,7,.35,1,-12,1.5);sfx('splash');}S.mode='water';}
+  const base=7+S.size*2.2,spd=S.alive?(boosting?base*2.1:base):1.5;
+  if(S.mode==='water'){
+    S.yaw+=turn*dt*(boosting?.85:1);S.pitch=lerp(S.pitch,pitchT,damp(3,dt));S.pitch=clamp(S.pitch,-1.25,1.25);
+    sharkForward(fwd);S.vel.lerp(tmp.copy(fwd).multiplyScalar(spd),damp(3,dt));
+    if(p.y>-.45*S.size&&S.vel.y>0&&S.vel.y<6){p.y=Math.min(p.y,-.3*S.size);S.vel.y=0;} // cruise along the surface unless leaping
+    if(boosting&&Math.random()<dt*25)burst('bubble',tmp.copy(p).addScaledVector(fwd,-2.5*S.size),1,1,.15,1.2,4);
+  }else if(S.mode==='air'){
+    S.yaw+=turn*dt*.5;S.vel.y-=22*dt;S.pitch=Math.atan2(S.vel.y,Math.hypot(S.vel.x,S.vel.z));
+  }else{ // stranded on the sand
+    S.landT+=dt;S.yaw+=turn*dt*.9;
+    S.vel.x*=Math.exp(-dt*.75);S.vel.z*=Math.exp(-dt*.75);
+    const gx=(groundY(p.x+.5,p.z)-groundY(p.x-.5,p.z)),gz=(groundY(p.x,p.z+.5)-groundY(p.x,p.z-.5));
+    S.vel.x-=gx*8*dt;S.vel.z-=gz*8*dt;S.vel.y=Math.max(S.vel.y,0);S.pitch=lerp(S.pitch,0,damp(4,dt));
+    S.hop-=dt;
+    if(boosting&&S.hop<=0&&S.alive){S.hop=.5;S.vel.x=Math.sin(S.yaw)*9;S.vel.z=Math.cos(S.yaw)*9;S.vel.y=5.5;burst('sand',p,8,4,.2,.6,-10,1);}
+    if(g>0)S.hp-=7*dt;
+  }
+  if(S.mode!=='land')S.landT=0;
+  sharkForward(fwd);
+  p.addScaledVector(S.vel,dt);
+  if(p.x<-BX||p.x>BX){p.x=clamp(p.x,-BX,BX);S.vel.x*=-.3;}
+  if(p.z<ZMIN||p.z>ZMAX){p.z=clamp(p.z,ZMIN,ZMAX);S.vel.z*=-.3;}
+  const g2=groundY(p.x,p.z);if(p.y<g2+r){p.y=g2+r;if(S.vel.y<0)S.vel.y=0;if(S.mode==='water'&&S.pitch<0)S.pitch*=.9;}
+  // look
+  S.roll=lerp(S.roll,S.mode==='land'?Math.sin(S.time*9)*.35:-turn*.28,damp(5,dt));
+  shark.rotation.order='YXZ';shark.rotation.set(-S.pitch,S.yaw,S.roll);
+  S.size=lerp(S.size,1+(S.lvl-1)*.3,damp(2,dt));shark.scale.setScalar(S.size);
+  const ud=shark.userData;S.phase+=dt*(S.mode==='land'?14:3+S.vel.length()*.45);
+  ud.tail.rotation.y=Math.sin(S.phase)*(S.mode==='land'?.8:.45);ud.body.rotation.y=-Math.sin(S.phase)*.06;
+  S.jaw=Math.max(S.jaw-dt*4,0);const jw=Math.max(S.jaw,S.jawWant?.55:0);ud.jaw.rotation.x=lerp(ud.jaw.rotation.x,jw*.75,damp(16,dt));S.jawWant=0;
+  mouth.copy(p).addScaledVector(fwd,2.05*S.size);
+  // survival
+  if(S.alive){
+    S.time+=dt;S.biteCd-=dt;S.comboT-=dt;if(S.comboT<=0)S.combo=0;
+    S.hunger-=dt*(1.5+S.lvl*.18+(boosting?2.2:0));
+    if(S.hunger<=0){S.hunger=0;S.hp-=9*dt;}else if(S.hunger>55)S.hp=Math.min(maxHp(),S.hp+dt*1.5);
+    if(S.hp<=0){S.hp=0;gameOver(S.hunger<=0?'You starved. Keep eating!':S.mode==='land'?'You dried out on the beach.':'You were overpowered. Eat smaller prey until you grow.');}
+  }
+  return boosting;
+}
+
+// ---------- camera + atmosphere ----------
+let shake=0;
+function updateCamera(dt,boosting){
+  const d=9*S.size+(boosting?2.5:0),h=3.4*S.size;
+  const back=tmp.set(-Math.sin(S.yaw),0,-Math.cos(S.yaw));
+  camTarget.copy(S.pos).addScaledVector(back,d*Math.cos(S.pitch*.6)).addScaledVector(fwd,0);camTarget.y+=h-Math.sin(S.pitch*.6)*d;
+  camera.position.lerp(camTarget,damp(4,dt));
+  const cg=groundY(camera.position.x,camera.position.z)+.6;if(camera.position.y<cg)camera.position.y=cg;
+  if(Math.abs(camera.position.y)<.35)camera.position.y=S.pos.y<0?-.35:.35;
+  if(S.hurtCd>0){S.hurtCd-=dt;camera.position.x+=rand(-.25,.25);camera.position.y+=rand(-.25,.25);}
+  look.copy(S.pos).addScaledVector(fwd,5*S.size);look.y+=1.2*S.size;camera.lookAt(look);
+  camera.fov=lerp(camera.fov,boosting?74:65,damp(3,dt));camera.updateProjectionMatrix();
+  const under=camera.position.y<0;
+  const depth=clamp(-camera.position.y/60,0,1);
+  waterMat.emissiveIntensity=under?.9:0;
+  if(under){scene.fog.color.copy(DEEP).multiplyScalar(1-depth*.6);scene.fog.near=0;scene.fog.far=lerp(95,55,depth);}
+  else{scene.fog.color.copy(SKY);scene.fog.near=120;scene.fog.far=700;}
+  scene.background.copy(scene.fog.color);
+  snow.visible=under;if(under){const a=snowGeo.attributes.position.array,c=camera.position;
+    for(let i=0;i<a.length;i+=3){a[i]=((a[i]-c.x+40)%80+80)%80-40+c.x;a[i+1]=((a[i+1]-c.y+40)%80+80)%80-40+c.y;a[i+2]=((a[i+2]-c.z+40)%80+80)%80-40+c.z;}
+    snowGeo.attributes.position.needsUpdate=true;}
+  if(AC&&amb){amb.gain.value=muted?0:(under?.18:.1);ambF.frequency.value=under?380:1100;}
+}
+
+// ---------- HUD ----------
+const radar=$('radar'),rc=radar.getContext('2d');let hudT=0;
+function updateHud(dt){
+  hudT-=dt;bannerT-=dt;tooBigT-=dt;if(bannerT<=0)$('banner').style.opacity=0;
+  if(hudT>0)return;hudT=.08;
+  const mh=maxHp();$('hpBar').style.width=(S.hp/mh*100)+'%';$('hungerBar').style.width=S.hunger+'%';
+  $('hpWrap').classList.toggle('low',S.hp<mh*.3);$('hungerWrap').classList.toggle('low',S.hunger<25);
+  $('lvl').textContent='LV '+S.lvl;
+  $('xpBar').style.width=(S.lvl>=MAXLVL?100:(S.xp-XP[S.lvl-1])/(XP[S.lvl]-XP[S.lvl-1])*100)+'%';
+  const next=Object.values(TYPES).filter(t=>t.lvl===S.lvl+1).map(t=>t.name);
+  $('next').textContent=S.lvl>=MAXLVL?'Apex predator — everything is food':'Next level: '+next.join(', ');
+  $('score').textContent=S.score.toLocaleString();
+  $('combo').textContent=S.combo>=3?'COMBO x'+mult()+' ('+S.combo+')':'';
+  $('warn').textContent=!S.alive?'':S.mode==='land'&&groundY(S.pos.x,S.pos.z)>0?'Get back to the water! (boost to flop)':S.hunger<25?'STARVING — eat something!':'';
+  // radar: shark-relative, heading up
+  const W=radar.width,R=W/2,range=110,k=R/range,cy=Math.cos(S.yaw),sy=Math.sin(S.yaw);
+  const toR=(x,z)=>{const dx=x-S.pos.x,dz=z-S.pos.z;return[R+(-dx*cy+dz*sy)*k,R-(dx*sy+dz*cy)*k];};
+  rc.clearRect(0,0,W,W);rc.save();rc.beginPath();rc.arc(R,R,R,0,TAU);rc.clip();
+  rc.fillStyle='rgba(8,60,95,.75)';rc.fillRect(0,0,W,W);
+  rc.beginPath();for(let i=0;i<=40;i++){const x=S.pos.x-range*1.5+i*range*3/40,[a,b]=toR(x,shoreZ(x));i?rc.lineTo(a,b):rc.moveTo(a,b);}
+  for(let i=40;i>=0;i--){const x=S.pos.x-range*1.5+i*range*3/40,[a,b]=toR(x,shoreZ(x)+400);rc.lineTo(a,b);}
+  rc.fillStyle='rgba(243,220,166,.8)';rc.fill();
+  for(const c of creatures){if(c.dead)continue;const dx=c.pos.x-S.pos.x,dz=c.pos.z-S.pos.z;if(dx*dx+dz*dz>range*range)continue;
+    const[a,b]=toR(c.pos.x,c.pos.z),T=c.T;rc.fillStyle=T.chunk?'#ffd23f':T.lvl<=S.lvl?'#4dff88':T.danger?'#ff4d5e':'#9aa7b0';
+    rc.beginPath();rc.arc(a,b,T.chunk?9:T.danger?6:4,0,TAU);rc.fill();}
+  rc.restore();rc.fillStyle='#fff';rc.beginPath();rc.moveTo(R,R-13);rc.lineTo(R-8,R+9);rc.lineTo(R+8,R+9);rc.fill();
+}
+
+// ---------- loop ----------
+const clock=new THREE.Clock();let t=0,menuA=0;
+S.pos.set(0,-5,-15);populate();
+function frame(){
+  requestAnimationFrame(frame);
+  const dt=Math.min(clock.getDelta(),.05);
+  if(phase==='pause'){renderer.render(scene,camera);return;}
+  t+=dt;
+  let boosting=false;
+  if(phase==='menu'){
+    menuA+=dt*.08;S.pos.set(Math.sin(menuA*2)*20,-6,-20+Math.cos(menuA*2)*10);S.yaw=menuA*2+Math.PI/2;sharkForward(fwd);
+    shark.rotation.set(0,S.yaw,0);shark.userData.tail.rotation.y=Math.sin(t*5)*.45;mouth.set(1e5,1e5,1e5);
+    camera.position.set(Math.sin(menuA)*30,3,shoreZ(0)-70+Math.cos(menuA)*10);camera.lookAt(0,-2,shoreZ(0)-20);
+    updateCamFogOnly();
+  }else{
+    boosting=updateShark(dt);updateCamera(dt,boosting);
+    if(!S.alive){shark.position.y=Math.max(shark.position.y-dt*1.5,groundY(S.pos.x,S.pos.z)+.5);}
+  }
+  const wasAlive=S.alive;if(phase==='menu')S.alive=false;
+  updateSchools(dt);for(const c of creatures)updateCreature(c,dt,t);
+  S.alive=wasAlive;
+  updateParts(dt);updateWater(t);
+  if(phase!=='menu')updateHud(dt);
+  renderer.render(scene,camera);
+}
+function updateCamFogOnly(){const under=camera.position.y<0;waterMat.emissiveIntensity=under?.9:0;scene.fog.color.copy(under?DEEP:SKY);scene.fog.near=under?2:120;scene.fog.far=under?110:700;scene.background.copy(scene.fog.color);snow.visible=under;}
+S.alive=false;frame();
+window.__shark={S,creatures,TYPES,startGame,groundY,shoreZ,renderer,get phase(){return phase;}};
+})();
+</script>
+</body>
+</html>

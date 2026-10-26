@@ -3,6 +3,11 @@
 A procedural vacuum game: clean a kitchen, garage, street, skyline, and orbit.
 Single HTML file, no build step, no image assets. Existing `megavac.v1` saves are preserved.
 
+## Also in this repo
+
+- [`shark/`](shark/README.md) — **Shark Frenzy**, a three.js game where you play as a shark
+  and eat fish, swimmers, beachgoers, octopus and whales.
+
 ## Play locally
 
 ```sh
