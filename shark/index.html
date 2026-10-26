@@ -554,9 +554,9 @@ function buildReef(){const v=Math.random()*3|0;
   return fishModel({L:.6,W:.05,H:.27,peak:.55,nose:.45,tailR:.1,color:(t,th,k)=>k.set(0xffd60a),finCol:0xffd60a,rough:.4,metal:.1,dorsalPts:[[.18,0],[.05,.12],[-.18,.08],[-.2,0]],anal:true});}
 function buildDolphin(orca){
   const L=orca?3.2:2.4,top=orca?0x0d0f12:0x56687a,bel=orca?0xf2f2f0:0xd6dde2;
-  const f=fusiform({L,W:orca?.48:.32,H:orca?.5:.34,peak:.55,nose:orca?.45:.5,tailE:1.2,tailR:.06,seg:64,rad:28,belly:t=>t>.75?.85:1,
+  const f=fusiform({L,W:orca?.48:.32,H:orca?.5:.34,peak:.55,nose:orca?.45:.5,tailE:1.2,tailR:.06,seg:110,rad:30,belly:t=>t>.75?.85:1,
     color:orca?(t,th,k)=>{const c=Math.cos(th),s=Math.abs(Math.sin(th));k.set(top);if(c<-.45&&t>.45)k.set(bel);if(t>.08&&t<.3&&c<-.2&&s>.4)k.set(bel);
-      if(t>.8&&t<.9&&c>-.1&&c<.55&&s>.6)k.set(bel);if(t>.38&&t<.5&&c>.75)k.set(0x6a6f75);}:countershade(top,bel,-.2,.15,.18)});
+      if(t>.8&&t<.9&&c>-.1&&c<.55&&s>.6)k.set(bel);if(t>.38&&t<.5&&c>.75)k.set(0x6a6f75);}:countershade(top,bel,-.25,.05,.3)});
   const parts=[f.body];const st=f.surf(.5,0).y;
   if(orca)parts.push(xf(fin([[.32,0],[.1,.8],[-.02,1.25],[-.12,1.2],[-.18,.4],[-.35,0],[.3,-.1]],.07,top,false),0,st-.08,-.1));
   else parts.push(xf(fin([[.22,0],[.05,.25],[-.25,.45],[-.28,.4],[-.15,.15],[-.22,0],[.2,-.06]],.04,top),0,st-.05,-.15));
