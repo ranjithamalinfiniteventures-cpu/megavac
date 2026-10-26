@@ -25,8 +25,9 @@ open it there.
 
 | Input | Action |
 | --- | --- |
+| On-screen joystick (bottom left) | Steer: left/right turns, up/down dives and climbs |
 | Mouse position | Steer (left/right turns, up/down pitches) |
-| **EAT** button, E or right click | Lunge bite with a longer reach |
+| **EAT** button, E or right click | Lunge at the nearest prey ahead, with a longer reach |
 | **JUMP** button or Space | Leap out of the water (flop forward on land) |
 | **BOOST** button, hold left click or Shift | Boost |
 | W A S D / arrow keys | Steer with the keyboard |
@@ -36,6 +37,7 @@ open it there.
 
 ## How it plays
 
+- **Eat by getting close.** Anything small enough near your jaws or body is sucked in and eaten automatically.
 - **Grow by eating.** Each creature shows the level you need before you can eat it.
   Smaller creatures flee from you. Bigger ones bounce you off, and hammerheads,
   orcas and jellyfish hurt you until you outgrow them.
