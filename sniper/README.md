@@ -5,13 +5,17 @@ There are no image or audio assets: the terrain, sky, vegetation, characters, te
 
 ## Play
 
+**Easiest:** download `black-summit.html` and double-click it. It's one self-contained file with Three.js bundled in, so it works offline with nothing else needed.
+
+Or run the development version (`index.html`, which loads Three.js from a CDN):
+
 Open `index.html` in a desktop browser, or serve the folder:
 
 ```sh
 python3 -m http.server 8790 --directory sniper
 ```
 
-Then open http://localhost:8790/. You need an internet connection the first time, to load Three.js from the CDN.
+Then open http://localhost:8790/.
 
 ## Story — Operation Halcyon
 
