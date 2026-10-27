@@ -182,6 +182,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 canvas#c{touch-action:none}
 #touch{position:fixed;inset:0;pointer-events:none;display:none;z-index:7;touch-action:none}
 body.touch.playing #touch{display:block}
+body.bc #touch,body.bc #hud>*:not(#bcTag):not(#toasts){display:none!important}
 .tb{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;width:70px;height:70px;
   background:rgba(10,12,14,.42);border:1.5px solid rgba(236,230,216,.35);color:var(--fg);font:500 12px/1.1 'Oswald',sans-serif;letter-spacing:.14em;
   display:flex;align-items:center;justify-content:center;text-align:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
@@ -192,6 +193,9 @@ body.touch.playing #touch{display:block}
 #tTherm{right:calc(26px + env(safe-area-inset-right));bottom:calc(128px + env(safe-area-inset-bottom));width:52px;height:52px;font-size:9px;display:none}
 body.night #tTherm{display:flex}
 #tPause{right:calc(12px + env(safe-area-inset-right));top:calc(10px + env(safe-area-inset-top));border-radius:8px;width:38px;height:38px;font-size:11px;background:rgba(10,12,14,.3)}
+#obj.mini ul{display:none}#obj.mini .ttl{margin:0}
+body.touch #obj.mini{opacity:.75}
+body.touch #alert .lbl{display:none!important}body.touch #alert:not(.alarm) #alertTxt{display:none}
 /* compact HUD on phones */
 body.touch #ballistics,body.touch #compass{display:none}
 body.touch #obj{left:calc(12px + env(safe-area-inset-left));top:10px;min-width:0;max-width:260px;padding:8px 12px}
@@ -284,7 +288,7 @@ body.touch .toast{font-size:20px}
   <div id="toasts"></div>
   <div id="radio" class="panel"><div class="wave"><i></i><i style="animation-delay:.1s"></i><i style="animation-delay:.25s"></i><i style="animation-delay:.05s"></i></div><div><div class="who"></div><div class="txt"></div></div></div>
   <div id="hint" class="mono"></div>
-  <div id="bcTag">BULLET CAM<b id="bcDist"></b><span id="bcInfo"></span></div>
+  <div id="bcTag"><b id="bcDist"></b><span id="bcInfo" hidden></span></div>
 </div>
 
 <div id="title" class="screen">
@@ -659,7 +663,7 @@ terrainMat.onBeforeCompile = sh => {
     .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.5, tSnow); roughnessFactor = mix(roughnessFactor, 0.35, wet);')
     .replace('#include <normal_fragment_maps>', /* glsl */`#include <normal_fragment_maps>
       {
-        float amp = (0.25 + tRock * 0.9 + tSnow * 0.15) * (1.0 - smoothstep(0.35, 2.5, tfw));
+        float amp = (0.12 + tRock * 0.4 + tSnow * 0.06) * (1.0 - smoothstep(0.35, 2.5, tfw));
         if (amp > 0.01) {
           float e = 0.3; vec2 q = tp * 0.55;
           float h0 = fbm3(q), hx = fbm3(q + vec2(e, 0.0)), hz = fbm3(q + vec2(0.0, e));
@@ -955,7 +959,7 @@ const glowP = new Particles(3000, true);
 function puff(p, kind, dir) {
   const n = new THREE.Vector3(); normalAt(p.x, p.z, n);
   if (kind === 'blood') {
-    for (let i = 0; i < 26; i++) smoke.spawn(p.x, p.y, p.z, dir.x * rand(1, 5) + rand(-1.4, 1.4), rand(-0.5, 1.6), dir.z * rand(1, 5) + rand(-1.4, 1.4), rand(0.5, 1.4), 0.12, rand(0.5, 1.1), 0.28, 0.02, 0.015, rand(0.5, 0.9), 2.5, 2);
+    for (let i = 0; i < 26; i++) smoke.spawn(p.x, p.y, p.z, dir.x * rand(1, 5) + rand(-1.4, 1.4), rand(-0.5, 1.6), dir.z * rand(1, 5) + rand(-1.4, 1.4), rand(0.5, 1.4), 0.12, rand(0.5, 1.1), 0.6, 0.035, 0.025, rand(0.6, 0.95), 2.5, 2);
     for (let i = 0; i < 14; i++) smoke.spawn(p.x, p.y, p.z, dir.x * rand(4, 9) + rand(-2, 2), rand(0, 3), dir.z * rand(4, 9) + rand(-2, 2), rand(0.3, 0.7), 0.04, 0.06, 0.22, 0.01, 0.01, 1, 0.5, 9.8);
   } else if (kind === 'snow') {
     for (let i = 0; i < 30; i++) smoke.spawn(p.x, p.y, p.z, n.x * rand(1, 4) + rand(-1.5, 1.5), rand(1.5, 5), n.z * rand(1, 4) + rand(-1.5, 1.5), rand(0.8, 2.2), 0.3, rand(1.5, 3), 0.92, 0.94, 0.98, 0.8, 1.6, 2.5);
@@ -1345,9 +1349,17 @@ const LOOKS = {
   pilot: { jacket: 0x4c513c, pants: 0x4c513c, vest: null, hat: 'helmet', hatCol: 0xe8e8e8, skin: 0xc49577 },
 };
 const matCache = new Map();
+const RIM = { value: 0.45 };
 function cmat(color, rough = 0.85, metal = 0, emissive = 0, ei = 0) {
   const k = [color, rough, metal, emissive, ei].join(); if (matCache.has(k)) return matCache.get(k);
-  const m = new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, emissive, emissiveIntensity: ei }); matCache.set(k, m); return m;
+  const m = new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, emissive, emissiveIntensity: ei }); matCache.set(k, m);
+  // Soft rim light so people separate from the terrain at long range.
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uRim = RIM;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uRim;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(1.0, 0.93, 0.82) * pow(1.0 - abs(dot(normal, normalize(vViewPosition))), 2.2) * uRim;');
+  };
+  return m;
 }
 function part(geo, mat, kind) { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; m.userData.part = kind; return m; }
 const GEO = {
@@ -1972,6 +1984,7 @@ function applyEnv(name) {
   terrainU.uSnowLine.value = E.snowLine; terrainU.uSnowAmt.value = E.snowAmt; terrainU.uSnowSlope.value = E.night ? 110 : 260;
   FX.uGain.value.set(...E.gain); FX.uLift.value.set(...E.lift); FX.uSat.value = E.sat; FX.uSunTint.value.setRGB(...E.rays);
   stars.material.opacity = E.night ? 0.9 : 0;
+  RIM.value = E.night ? 0.25 : 0.45;
   moon.visible = !!E.night; if (E.night) moon.position.copy(lightDir).multiplyScalar(16000);
   snow.visible = !!E.snow; snowU.uOpacity.value = E.snow ? 0.85 : 0;
   sky.visible = true;
@@ -2106,7 +2119,7 @@ function fire() {
     const pr = predictShot(b.pos, b.vel, b.wind);
     if (pr && pr.actor && pr.actor.alive) {
       const living = actors.filter(a => a.alive && a.role !== 'pilot' && !a.hidden).length;
-      const want = settings.bulletCam === 'always' || pr.actor.primary || pr.part === 'head' || living === 1 || Math.random() < 0.3;
+      const want = settings.bulletCam !== 'off' || living === 0;
       if (want && pr.t > 0.18) startBulletCam(b, pr);
     } else if (pr && pr.heli && pr.part === 'fuel' && heli.hp <= 1) startBulletCam(b, pr);
   }
@@ -2144,6 +2157,7 @@ function onImpact(b, h) {
   if (h.actor) {
     const a = h.actor;
     puff(h.point, 'blood', dir);
+    if (h.part === 'head') { puff(h.point, 'blood', dir); for (let i = 0; i < 40; i++) smoke.spawn(h.point.x, h.point.y, h.point.z, dir.x * rand(2, 7) + rand(-1, 1), rand(-0.3, 1.2), dir.z * rand(2, 7) + rand(-1, 1), rand(0.8, 1.8), 0.05, rand(0.6, 1.4), 0.75, 0.04, 0.03, rand(0.6, 0.95), 3, 1); }
     AudioSys.impact('flesh', dist);
     if (a.alive) {
       a.kill(dir, h.part);
@@ -2185,7 +2199,7 @@ function spotterCall(b, h, nearest, nd) {
   if (Math.abs(my) > 0.25) parts.push(`${Math.abs(my).toFixed(1)} mil ${my > 0 ? 'high' : 'low'}`);
   if (Math.abs(mx) > 0.25) parts.push(`${Math.abs(mx).toFixed(1)} mil ${mx > 0 ? 'right' : 'left'}`);
   if (!parts.length) parts.push('just off — hold');
-  if (G.radioQ.length < 2) radio('SPOTTER', `Miss. Impact ${parts.join(', ')}.`, 0, true);
+  if (G.radioQ.length < 2) radio('SPOTTER', IS_TOUCH ? `Miss — ${parts.join(', ')}` : `Miss. Impact ${parts.join(', ')}.`, 0, true);
 }
 function raiseAlert(v, why) {
   if (G.alarm || !G.mission) return;
@@ -2221,7 +2235,7 @@ function updateBulletCam(rdt) {
     const side = new THREE.Vector3().crossVectors(d, UP).normalize(); const up2 = new THREE.Vector3().crossVectors(side, d);
     bc.ang += rdt * 0.9 * bc.side;
     const remain = b.pos.distanceTo(bc.target.point);
-    const pull = smoothstep(25, 4, remain);
+    const pull = smoothstep(bc.target.part === 'head' ? 12 : 25, bc.target.part === 'head' ? 1.5 : 4, remain);
     const off = side.multiplyScalar(Math.cos(bc.ang) * (0.32 + pull * 1.6)).add(up2.multiplyScalar(Math.sin(bc.ang) * 0.2 + 0.1 + pull * 0.4));
     camera.position.copy(b.pos).addScaledVector(d, -0.9 - pull * 1.5).add(off);
     camera.lookAt(_v1.copy(b.pos).addScaledVector(d, 2.5 + pull * 6));
@@ -2233,18 +2247,24 @@ function updateBulletCam(rdt) {
   } else {
     bulletMesh.visible = false;
     bc.impactT += rdt;
-    G.tsTarget = lerp(0.12, 0.55, clamp(bc.impactT / 3, 0, 1));
     const T = bc.impact || bc.target;
-    const tp = T.actor ? T.actor.centerPos(new THREE.Vector3()) : T.point.clone();
+    const head = T.part === 'head' && T.actor;
+    const dur = head ? 3.8 : 3.0;
+    G.tsTarget = head ? lerp(0.03, 0.45, smoothstep(0.6, dur, bc.impactT)) : lerp(0.12, 0.55, clamp(bc.impactT / 3, 0, 1));
+    if (!bc.tp) bc.tp = T.actor ? (head ? T.actor.headPos(new THREE.Vector3()) : T.actor.centerPos(new THREE.Vector3())) : T.point.clone();
+    const tp = bc.tp;
     const back = b.vel.clone().setY(0).normalize();
     const side = new THREE.Vector3().crossVectors(back, UP).normalize();
-    const want = tp.clone().addScaledVector(back, -4.5).addScaledVector(side, 2.6 * bc.side).add(new THREE.Vector3(0, 1.0, 0));
+    const want = head ? tp.clone().addScaledVector(back, -1.5).addScaledVector(side, 1.1 * bc.side).add(new THREE.Vector3(0, 0.12, 0))
+      : tp.clone().addScaledVector(back, -4.5).addScaledVector(side, 2.6 * bc.side).add(new THREE.Vector3(0, 1.0, 0));
+    if (head) setFov(lerp(30, 44, smoothstep(0, dur, bc.impactT)));
     if (!bc.camStart) bc.camStart = camera.position.clone();
-    camera.position.lerpVectors(bc.camStart, want, smoothstep(0, 0.8, bc.impactT));
+    camera.position.lerpVectors(bc.camStart, want, smoothstep(0, head ? 0.35 : 0.8, bc.impactT));
     camera.position.addScaledVector(side, bc.impactT * 0.4 * bc.side);
     camera.lookAt(tp);
     FX.uBC.value = Math.max(0, 1 - bc.impactT * 2);
-    if (bc.impactT > 3.0) endBulletCam();
+    camera.updateProjectionMatrix();
+    if (bc.impactT > dur) endBulletCam();
   }
 }
 function endBulletCam() {
@@ -2293,8 +2313,8 @@ const MISSIONS = [
       M.kills = 0;
       radio('OVERWATCH', 'Wraith, Overwatch. You\'re on Hollow Ridge. Forward outpost below you, bearing two-one-five, five-ninety meters slant.', 1.5);
       radio('OVERWATCH', 'Tower sentry carries the radio. Take him first and nobody calls home.', 6);
-      hint(IS_TOUCH ? 'Drag to aim · pinch to zoom · <b>hold</b> <kbd>FIRE</kbd> to steady, <b>release</b> to shoot' : '<kbd>RMB</kbd> scope · <kbd>WHEEL</kbd> zoom · <kbd>SHIFT</kbd> hold breath · <kbd>LMB</kbd> fire', 9, 2);
-      hint(IS_TOUCH ? 'Your scope zeroes itself to the target range — you only aim off for wind' : 'Shooting downhill: dial your zero <kbd>↑</kbd><kbd>↓</kbd> to the <b>BAL</b> range, not the slant range', 8, 13);
+      hint(IS_TOUCH ? 'Drag to aim · pinch to zoom · hold FIRE, release to shoot' : '<kbd>RMB</kbd> scope · <kbd>WHEEL</kbd> zoom · <kbd>SHIFT</kbd> hold breath · <kbd>LMB</kbd> fire', 9, 2);
+      if (!IS_TOUCH) hint('Shooting downhill: dial your zero <kbd>↑</kbd><kbd>↓</kbd> to the <b>BAL</b> range, not the slant range', 8, 13);
     },
     onKill(M, a) {
       M.kills++;
@@ -2435,7 +2455,7 @@ const MISSIONS = [
       M.heliHits = 0;
       radio('OVERWATCH', 'Wraith, annex door is opening. Three figures. Kael is the one in the long coat.', 2);
       radio('OVERWATCH', IS_TOUCH ? 'Visibility is garbage. Switch to thermal.' : 'Visibility is garbage. Use thermal — press N.', 7);
-      hint(IS_TOUCH ? '<kbd>THERMAL</kbd> vision' : '<kbd>N</kbd> thermal vision', 6, 7);
+      if (!IS_TOUCH) hint('<kbd>N</kbd> thermal vision', 6, 7);
     },
     update(M, dt) {
       if (G.alarm && M.kael.alive && !M.kael.hidden && !M.ran && M.kael.path) { M.ran = true; M.kael.speed = 3.2; for (const g of [M.g1, M.g2]) if (g.alive) g.speed = 3.2; }
@@ -2543,6 +2563,7 @@ function startMission(idx) {
   requestLock();
 }
 function buildObjectivesUI() {
+  const ob = $('#obj'); ob.classList.remove('mini'); clearTimeout(buildObjectivesUI.t); buildObjectivesUI.t = setTimeout(() => ob.classList.add('mini'), 7000);
   $('#objList').innerHTML = G.objectives.map(o => `<li data-id="${o.id}" class="${o.optional ? 'opt' : ''} ${o.state === 'done' ? 'done' : o.state === 'fail' ? 'fail' : ''}"><i></i><span>${o.text}</span></li>`).join('');
 }
 function complete(id) { const o = G.objectives.find(o => o.id === id); if (o && o.state === 'open') { o.state = 'done'; buildObjectivesUI(); AudioSys.click(); } }
@@ -2561,7 +2582,7 @@ function fail(reason) {
   later(3.2, () => endMission(false));
 }
 function endMission(ok) {
-  if (G.state === 'bulletcam') endBulletCam();
+  if (G.state === 'bulletcam') { later(0.4, () => endMission(ok)); return; }
   G.state = 'debrief'; releaseLock(); setScoped(false, true); setThermal(false);
   $('#hud').style.display = 'none';
   const M = G.mission, st = G.stats;
@@ -2711,7 +2732,7 @@ function renderSub(kind) {
 function settingsHTML() {
   return `<span>QUALITY</span><select data-s="quality"><option value="high" ${settings.quality === 'high' ? 'selected' : ''}>High</option><option value="low" ${settings.quality === 'low' ? 'selected' : ''}>Performance</option></select>
   <span>SENSITIVITY</span><input type="range" min="0.3" max="2.5" step="0.05" data-s="sens" value="${settings.sens}">
-  <span>BULLET CAM</span><select data-s="bulletCam"><option value="kills" ${settings.bulletCam === 'kills' ? 'selected' : ''}>Key kills</option><option value="always" ${settings.bulletCam === 'always' ? 'selected' : ''}>Every kill</option><option value="off" ${settings.bulletCam === 'off' ? 'selected' : ''}>Off</option></select>
+  <span>BULLET CAM</span><select data-s="bulletCam"><option value="kills" ${settings.bulletCam !== 'off' ? 'selected' : ''}>On</option><option value="off" ${settings.bulletCam === 'off' ? 'selected' : ''}>Off</option></select>
   <span>INVERT Y</span><select data-s="invertY"><option value="false">Off</option><option value="true" ${settings.invertY ? 'selected' : ''}>On</option></select>
   <span>VOLUME</span><input type="range" min="0" max="1" step="0.05" data-s="volume" value="${settings.volume}">`;
 }
@@ -2824,7 +2845,7 @@ const fireUp = (e, shoot) => {
 fireBtn.addEventListener('pointerup', e => fireUp(e, true));
 fireBtn.addEventListener('pointercancel', e => fireUp(e, false));
 fireBtn.addEventListener('contextmenu', e => e.preventDefault());
-tbtn('tScope', playingOnly(() => setScoped(!P.scoped)));
+tbtn('tScope', playingOnly(() => { if (!P.scoped) P.zoomIdx = Math.max(P.zoomIdx, 3); setScoped(!P.scoped); }));
 tbtn('tTherm', playingOnly(() => setThermal(!P.thermal)));
 tbtn('tPause', () => pause());
 function goFullscreen() {
@@ -2934,11 +2955,23 @@ function drawScope(range) {
   }
   g.beginPath(); g.arc(X, Y, 1.6 * PR, 0, Math.PI * 2); g.fillStyle = night ? 'rgba(255,40,30,1)' : 'rgba(220,30,20,.95)'; g.fill();
   g.restore();
+  // spotter tags: red over hostiles, gold over the primary target
+  for (const a of actors) {
+    if (!a.alive || a.hidden || a.role === 'pilot') continue;
+    const p = a.headPos(new THREE.Vector3()); p.y += 0.5; p.project(camera);
+    if (p.z > 1) continue;
+    const sx = (p.x * 0.5 + 0.5) * w, sy = (-p.y * 0.5 + 0.5) * h;
+    if ((sx - cx) ** 2 + (sy - cy) ** 2 > (R * 0.93) ** 2) continue;
+    const m = (a.primary ? 7 : 5.5) * PR;
+    g.fillStyle = a.primary ? 'rgba(242,200,121,.95)' : (a.alerted ? 'rgba(255,70,40,1)' : 'rgba(226,65,44,.85)');
+    g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx - m, sy - m * 1.5); g.lineTo(sx + m, sy - m * 1.5); g.closePath(); g.fill();
+  }
   // data strip
   g.font = `${13 * PR}px "Share Tech Mono", monospace`; g.textAlign = 'center'; g.fillStyle = 'rgba(236,230,216,.85)';
-  g.fillText(`${range ? Math.round(range) + ' M' : '---- M'}  ·  BAL ${P.bal ? Math.round(P.bal) : '----'}  ·  ${P.zooms[P.zoomIdx]}×  ·  ZERO ${IS_TOUCH ? 'AUTO ' : ''}${P.zero}`, cx, cy + R * 0.8);
-  if (range && Math.abs(P.angle) > 4) { g.fillStyle = 'rgba(224,168,74,.85)'; g.fillText(`ANGLE ${P.angle > 0 ? '+' : '−'}${Math.abs(P.angle).toFixed(0)}°`, cx, cy + R * 0.88); }
-  if (P.thermal) { g.fillStyle = 'rgba(255,255,255,.75)'; g.fillText('THERMAL · WHITE HOT', cx, cy - R * 0.8); }
+  if (IS_TOUCH) g.fillText(`${range ? Math.round(range) + ' M' : '----'}   ${P.zooms[P.zoomIdx]}×`, cx, cy + R * 0.82);
+  else g.fillText(`${range ? Math.round(range) + ' M' : '---- M'}  ·  BAL ${P.bal ? Math.round(P.bal) : '----'}  ·  ${P.zooms[P.zoomIdx]}×  ·  ZERO ${IS_TOUCH ? 'AUTO ' : ''}${P.zero}`, cx, cy + R * 0.8);
+  if (!IS_TOUCH && range && Math.abs(P.angle) > 4) { g.fillStyle = 'rgba(224,168,74,.85)'; g.fillText(`ANGLE ${P.angle > 0 ? '+' : '−'}${Math.abs(P.angle).toFixed(0)}°`, cx, cy + R * 0.88); }
+  if (P.thermal && !IS_TOUCH) { g.fillStyle = 'rgba(255,255,255,.75)'; g.fillText('THERMAL · WHITE HOT', cx, cy - R * 0.8); }
   if (P.boltT > 0 || P.reloadT > 0) { g.fillStyle = 'rgba(224,168,74,.9)'; g.fillText(P.reloadT > 0 ? 'RELOADING' : 'CHAMBERING', cx, cy + R * 0.68); }
 }
 function drawCompass() {
@@ -2972,7 +3005,7 @@ function drawWind() {
   g.fillStyle = 'rgba(236,230,216,.7)'; g.beginPath(); g.moveTo(64, 4); g.lineTo(58, 14); g.lineTo(70, 14); g.fill();
   const from = ((rel + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
   let clock = Math.round(from / (Math.PI / 6)) % 12; if (clock === 0) clock = 12;
-  $('#windTxt').innerHTML = `WIND<br><b>${sp.toFixed(1)}</b> M/S<br>FROM ${clock} O'CLOCK`;
+  $('#windTxt').innerHTML = IS_TOUCH ? `<b>${sp.toFixed(1)}</b> M/S` : `WIND<br><b>${sp.toFixed(1)}</b> M/S<br>FROM ${clock} O'CLOCK`;
 }
 let lastHudT = 0;
 function updateHUD(range) {
@@ -3082,6 +3115,8 @@ function update(rdt) {
   if (G.state === 'bulletcam') { updateBulletCam(rdt); if (G.bcSkip) { G.bcSkip = false; G.tsTarget = 1; G.timeScale = 1; finishBulletsFast(); endBulletCam(); } }
   else G.bcSkip = false;
   document.body.classList.toggle('playing', G.state === 'playing' || G.state === 'bulletcam');
+  document.body.classList.toggle('bc', G.state === 'bulletcam');
+  RIM.value = G.state === 'bulletcam' ? 0.06 : (ENV.night ? 0.25 : 0.45);
   document.body.classList.toggle('night', !!ENV.night);
   $('#tScope').classList.toggle('on', P.scoped); $('#tTherm').classList.toggle('on', P.thermal);
   if (G.state === 'menu' || G.state === 'briefing' || G.state === 'debrief') updateCine(rdt);

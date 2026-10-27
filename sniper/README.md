@@ -52,6 +52,8 @@ Touch devices get simple on-screen controls automatically, in portrait or landsc
 - **SCOPE** button to scope in or out.
 - **FIRE**: hold it to steady your breath, release to shoot.
 - Zero and reload are automatic. A **THERMAL** button appears in the night mission.
+- In the scope, red markers show enemies and a gold marker shows the main target.
+- Every kill plays a slow-motion bullet cam. Headshots end in a close-up of the head.
 
 Tapping DEPLOY goes fullscreen, and graphics default to Performance mode.
 
