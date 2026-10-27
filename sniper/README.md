@@ -44,6 +44,16 @@ Kessler Observatory on top of Black Summit. You are **WRAITH**, a lone sniper on
 | Space | Skip the bullet cam |
 | Esc | Pause and settings |
 
+## Easy mode (default)
+
+Made for kids and casual players. Switch to **Realistic** under Settings → Difficulty.
+
+- Bullets fly straight, with no drop or wind.
+- Aim assist guides each shot onto the enemy nearest the crosshair. Aim near the head for a headshot.
+- The scope barely sways, and zoom goes up to 36×.
+- Enemies never shoot back.
+- The bullet cam always shows the round striking its target.
+
 ## Phones and tablets
 
 Touch devices get simple on-screen controls automatically, in portrait or landscape:

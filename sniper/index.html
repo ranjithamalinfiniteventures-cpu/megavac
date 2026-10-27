@@ -438,9 +438,10 @@ const store = {
 };
 const IS_TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
 if (IS_TOUCH) document.body.classList.add('touch');
-const settings = Object.assign({ quality: IS_TOUCH ? 'low' : 'high', sens: 1.0, bulletCam: 'kills', invertY: false, volume: 0.8 }, store.get('settings', {}));
+const settings = Object.assign({ easy: true, quality: IS_TOUCH ? 'low' : 'high', sens: 1.0, bulletCam: 'kills', invertY: false, volume: 0.8 }, store.get('settings', {}));
 const progress = Object.assign({ unlocked: 1, stars: {} }, store.get('progress', {}));
 const HIGH = settings.quality === 'high';
+const easy = () => settings.easy !== false;
 
 // Performance mode: swap 5-octave noise for 3-octave noise inside main().
 const lowQ = src => { if (HIGH) return src; const k = src.indexOf('void main()'); return src.slice(0, k) + src.slice(k).replace(/fbmN\(/g, 'fbm3('); };
@@ -2067,6 +2068,13 @@ function zeroAngle(dist) {
   const r = (lo + hi) / 2; zeroCache.set(dist, r); return r;
 }
 function stepBullet(b, dt) {
+  if (b.easy) {
+    if (b.home && (b.home.obj || (b.home.actor.alive && !b.home.actor.hidden))) {
+      const tp = homePoint(b.home, _v3); const to = tp.sub(b.pos); const d = to.length();
+      if (d > 0.05 && to.dot(b.vel) > 0) b.vel.copy(to.multiplyScalar(MV / d));
+    }
+    b.prev.copy(b.pos); b.pos.addScaledVector(b.vel, dt); b.t += dt; return;
+  }
   const wx = b.wind.x * WIND_K, wz = b.wind.y * WIND_K;
   const rx = b.vel.x - wx, ry = b.vel.y, rz = b.vel.z - wz; const sp = Math.hypot(rx, ry, rz);
   b.vel.x -= DRAG * sp * rx * dt; b.vel.y -= (DRAG * sp * ry + 9.81) * dt; b.vel.z -= DRAG * sp * rz * dt;
@@ -2127,9 +2135,10 @@ function fire() {
   if (!P.chambered || P.reloadT > 0) { AudioSys.dry(); if (P.mag === 0 && P.reloadT <= 0) hint(IS_TOUCH ? 'Reloading…' : 'Magazine empty — press <kbd>R</kbd> to reload', 2.2); return; }
   P.chambered = false; P.mag--; P.boltT = 1.25; G.stats.shots++;
   const dir = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
-  const right = new THREE.Vector3(1, 0, 0).applyEuler(camera.rotation);
-  dir.applyAxisAngle(right, zeroAngle(P.zero));
-  const b = { pos: camera.position.clone(), prev: camera.position.clone(), vel: dir.multiplyScalar(MV), wind: G.wind.clone(), t: 0, start: camera.position.clone(), trailAcc: 0, alive: true };
+  const assist = easy() ? findAssist(camera.position, dir) : null;
+  if (easy()) { if (assist) dir.copy(assist.point).sub(camera.position).normalize(); }
+  else { const right = new THREE.Vector3(1, 0, 0).applyEuler(camera.rotation); dir.applyAxisAngle(right, zeroAngle(P.zero)); }
+  const b = { pos: camera.position.clone(), prev: camera.position.clone(), vel: dir.multiplyScalar(MV), wind: G.wind.clone(), t: 0, start: camera.position.clone(), trailAcc: 0, alive: true, easy: easy(), home: assist };
   bullets.push(b);
   G.lastShot = { pos: b.pos.clone(), dir: b.vel.clone().normalize(), rot: camera.rotation.toArray().slice(0, 3), sway: [P.swayX, P.swayY] };
   AudioSys.shot();
@@ -2141,7 +2150,10 @@ function fire() {
   setTimeout(() => { if (P.boltT > 0) AudioSys.bolt(); }, 330);
   for (const f of flocks) setTimeout(() => f.scare(), 1200);
   // Prediction for bullet cam
-  if (settings.bulletCam !== 'off') {
+  if (settings.bulletCam !== 'off' && assist) {
+    const t = assist.point.distanceTo(b.pos) / MV;
+    if (t > 0.15) startBulletCam(b, { actor: assist.actor || null, part: assist.part, heli: assist.obj ? heli : null, point: assist.point.clone(), t });
+  } else if (settings.bulletCam !== 'off' && !easy()) {
     const pr = predictShot(b.pos, b.vel, b.wind);
     if (pr && pr.actor && pr.actor.alive) {
       const living = actors.filter(a => a.alive && a.role !== 'pilot' && !a.hidden).length;
@@ -2150,9 +2162,35 @@ function fire() {
     } else if (pr && pr.heli && pr.part === 'fuel' && heli.hp <= 1) startBulletCam(b, pr);
   }
   G.mission.onShot?.(G.mission);
-  raiseAlert(G.mission.shotNoise ?? 14, 'shot');
+  raiseAlert((G.mission.shotNoise ?? 14) * (easy() ? 0.5 : 1), 'shot');
 }
 
+// Easy mode: pick the enemy (or fuel tank) nearest the crosshair and guide the round onto it.
+function homePoint(h, out) {
+  if (h.obj) return h.obj.getWorldPosition(out);
+  if (h.part === 'head') return h.actor.headPos(out);
+  h.actor.centerPos(out); out.y += 0.1; return out;
+}
+function findAssist(origin, dir) {
+  let best = null, bestScore = 1;
+  const consider = (cand) => {
+    const p = homePoint(cand, new THREE.Vector3());
+    const v = p.clone().sub(origin); const along = v.dot(dir); if (along <= 2) return;
+    const lateral = v.addScaledVector(dir, -along).length();
+    const tol = Math.max(1.6, along * 0.004);
+    const score = lateral / tol;
+    if (score < bestScore) { bestScore = score; best = cand; best.point = p; }
+  };
+  for (const a of actors) {
+    if (!a.alive || a.hidden || a.role === 'pilot') continue;
+    const hp = a.headPos(new THREE.Vector3()), cp = a.centerPos(new THREE.Vector3());
+    const v1 = hp.clone().sub(origin), v2 = cp.clone().sub(origin);
+    const lh = v1.addScaledVector(dir, -v1.dot(dir)).length(), lb = v2.addScaledVector(dir, -v2.dot(dir)).length();
+    consider({ actor: a, part: lh < lb ? 'head' : 'body' });
+  }
+  if (heli && heli.alive && G.mission.onHeliHit) for (const m of heli.meshes) if (m.userData.part === 'fuel' && m.geometry.type === 'CapsuleGeometry') consider({ obj: m, part: 'fuel' });
+  return best;
+}
 function updateBullets(dt) {
   for (const b of bullets) {
     if (!b.alive) continue;
@@ -2210,7 +2248,7 @@ function onImpact(b, h) {
     let nearest = null, nd = 1e9;
     for (const a of actors) if (a.alive && !a.hidden) { const d = a.centerPos(_v1).distanceTo(h.point); if (d < nd) { nd = d; nearest = a; } }
     if (nearest && nd < 9) { nearest.hear(rand(0.2, 0.6)); raiseAlert(28, 'miss'); }
-    if (G.mission.spotter !== false) spotterCall(b, h, nearest, nd);
+    if (G.mission.spotter !== false && !easy()) spotterCall(b, h, nearest, nd);
     if (h.object === SITEOBJ.generator) G.mission.onGenerator?.(G.mission);
   }
 }
@@ -2244,7 +2282,7 @@ function startBulletCam(b, pr) {
   const flight = pr.t;
   G.bc = { bullet: b, target: pr, phase: 'fly', t: 0, impactT: 0, ang: rand(0, 6.28), side: Math.random() < 0.5 ? -1 : 1, wasScoped: P.scoped };
   G.state = 'bulletcam';
-  G.tsTarget = G.timeScale = clamp(flight / 3.2, 0.012, 0.35);
+  G.tsTarget = G.timeScale = clamp(flight / 2.4, 0.012, 0.35);
   $('#letterbox').classList.add('on');
   $('#bcTag').style.display = 'block';
   $('#bcDist').textContent = Math.round(pr.point.distanceTo(b.start)) + ' M';
@@ -2264,7 +2302,9 @@ function updateBulletCam(rdt) {
     const pull = smoothstep(bc.target.part === 'head' ? 12 : 25, bc.target.part === 'head' ? 1.5 : 4, remain);
     const off = side.multiplyScalar(Math.cos(bc.ang) * (0.32 + pull * 1.6)).add(up2.multiplyScalar(Math.sin(bc.ang) * 0.2 + 0.1 + pull * 0.4));
     camera.position.copy(b.pos).addScaledVector(d, -0.9 - pull * 1.5).add(off);
-    camera.lookAt(_v1.copy(b.pos).addScaledVector(d, 2.5 + pull * 6));
+    // keep the target in frame: look from behind the bullet towards where it will strike
+    const aimAt = bc.target.actor && bc.target.actor.alive ? (bc.target.part === 'head' ? bc.target.actor.headPos(_v1) : bc.target.actor.centerPos(_v1)) : _v1.copy(bc.target.point);
+    camera.lookAt(aimAt.lerp(_v2.copy(b.pos).addScaledVector(d, 3), 0.25 * (1 - pull)));
     setFov(48); camera.near = 0.03;
     bulletMesh.visible = true; bulletMesh.position.copy(b.pos); bulletMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d); bulletMesh.rotateZ(bc.t * 40);
     FX.uBC.value = 1;
@@ -2282,7 +2322,7 @@ function updateBulletCam(rdt) {
     const back = b.vel.clone().setY(0).normalize();
     const side = new THREE.Vector3().crossVectors(back, UP).normalize();
     const want = head ? tp.clone().addScaledVector(back, -1.5).addScaledVector(side, 1.1 * bc.side).add(new THREE.Vector3(0, 0.12, 0))
-      : tp.clone().addScaledVector(back, -4.5).addScaledVector(side, 2.6 * bc.side).add(new THREE.Vector3(0, 1.0, 0));
+      : tp.clone().addScaledVector(back, -3).addScaledVector(side, 1.6 * bc.side).add(new THREE.Vector3(0, 0.5, 0));
     if (head) setFov(lerp(30, 44, smoothstep(0, dur, bc.impactT)));
     if (!bc.camStart) bc.camStart = camera.position.clone();
     camera.position.lerpVectors(bc.camStart, want, smoothstep(0, head ? 0.35 : 0.8, bc.impactT));
@@ -2308,7 +2348,10 @@ const bulletMesh = (() => {
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.0155, 0.05, 20), cu); body.rotation.x = Math.PI / 2; g.add(body);
   const tip = new THREE.Mesh(new THREE.ConeGeometry(0.0155, 0.045, 20), cu); tip.rotation.x = Math.PI / 2; tip.position.z = 0.047; g.add(tip);
   const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.012, 0.012, 20), cu); tail.rotation.x = Math.PI / 2; tail.position.z = -0.031; g.add(tail);
-  g.scale.setScalar(2.2); g.visible = false; scene.add(g); return g;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.glow, color: new THREE.Color(5, 2.6, 1.0), blending: THREE.AdditiveBlending, depthWrite: false })); glow.scale.setScalar(0.12); g.add(glow);
+  const streak = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.0005, 0.9, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.2, 1.4), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+  streak.rotation.x = Math.PI / 2; streak.position.z = -0.47; g.add(streak);
+  g.scale.setScalar(3); g.visible = false; scene.add(g); return g;
 })();
 
 /* =====================================================================
@@ -2345,7 +2388,7 @@ const MISSIONS = [
       M.patrol = spawn({ name: 'Patrol', look: 'guard', ...xz(sitePt('outpost', -6, 14)), path: [sitePt('outpost', -6, 14), sitePt('outpost', 10, 15), sitePt('outpost', 16, -2), sitePt('outpost', 2, -14), sitePt('outpost', -16, -10)], speed: 1.15 });
       M.kills = 0;
       hint(IS_TOUCH ? 'Drag to aim · pinch to zoom · hold FIRE, release to shoot' : '<kbd>RMB</kbd> scope · <kbd>WHEEL</kbd> zoom · <kbd>SHIFT</kbd> hold breath · <kbd>LMB</kbd> fire', 9, 2);
-      if (!IS_TOUCH) hint('Shooting downhill: dial your zero <kbd>↑</kbd><kbd>↓</kbd> to the <b>BAL</b> range, not the slant range', 8, 13);
+      if (!IS_TOUCH && !easy()) hint('Shooting downhill: dial your zero <kbd>↑</kbd><kbd>↓</kbd> to the <b>BAL</b> range, not the slant range', 8, 13);
     },
     onKill(M, a) {
       M.kills++;
@@ -2586,7 +2629,9 @@ function startMission(idx, withIntro = true) {
   G.objectives = M.objectives.map(o => ({ ...o, state: 'open' }));
   G.stats = { shots: 0, hits: 0, heads: 0, longest: 0, t0: 0 };
   G.time = 0; G.nextBolt = 6;
-  Object.assign(P, { scoped: false, zoomIdx: 2, breath: 1, holding: false, gasp: 0, chambered: true, mag: 5, reserve: 20, boltT: 0, reloadT: 0, recoil: 0, zero: M.zero, thermal: false, health: 100, outWarned: false });
+  Object.assign(P, { scoped: false, zoomIdx: 2, breath: 1, holding: false, gasp: 0, chambered: true, mag: 5, reserve: 20, boltT: 0, reloadT: 0, recoil: 0, zero: M.zero, thermal: false, health: 100, outWarned: false, zooms: easy() ? [4, 8, 16, 24, 36] : [3, 6, 10, 16, 24] });
+  if (easy()) P.zoomIdx = 3;
+  $('#wind').style.display = easy() ? 'none' : ''; $('#ballistics').style.display = easy() ? 'none' : '';
   for (const f of flocks) { f.c.copy(f.home); f.hide(!!ENVS[M.env].night); }
   setThermal(false);
   $('#scope').style.display = 'none'; $('#dot').style.display = 'block';
@@ -2815,7 +2860,8 @@ function renderSub(kind) {
   }
 }
 function settingsHTML() {
-  return `<span>QUALITY</span><select data-s="quality"><option value="high" ${settings.quality === 'high' ? 'selected' : ''}>High</option><option value="low" ${settings.quality === 'low' ? 'selected' : ''}>Performance</option></select>
+  return `<span>DIFFICULTY</span><select data-s="easy"><option value="true" ${easy() ? 'selected' : ''}>Easy</option><option value="false" ${easy() ? '' : 'selected'}>Realistic</option></select>
+  <span>QUALITY</span><select data-s="quality"><option value="high" ${settings.quality === 'high' ? 'selected' : ''}>High</option><option value="low" ${settings.quality === 'low' ? 'selected' : ''}>Performance</option></select>
   <span>SENSITIVITY</span><input type="range" min="0.3" max="2.5" step="0.05" data-s="sens" value="${settings.sens}">
   <span>BULLET CAM</span><select data-s="bulletCam"><option value="kills" ${settings.bulletCam !== 'off' ? 'selected' : ''}>On</option><option value="off" ${settings.bulletCam === 'off' ? 'selected' : ''}>Off</option></select>
   <span>INVERT Y</span><select data-s="invertY"><option value="false">Off</option><option value="true" ${settings.invertY ? 'selected' : ''}>On</option></select>
@@ -2824,7 +2870,7 @@ function settingsHTML() {
 function bindSettings(root) {
   root.querySelectorAll('[data-s]').forEach(el => el.addEventListener('input', () => {
     const k = el.dataset.s; let v = el.value;
-    if (k === 'sens' || k === 'volume') v = parseFloat(v); if (k === 'invertY') v = v === 'true';
+    if (k === 'sens' || k === 'volume') v = parseFloat(v); if (k === 'invertY' || k === 'easy') v = v === 'true';
     settings[k] = v; store.set('settings', settings);
     if (k === 'volume') AudioSys.setVolume(v);
     if (k === 'quality') { if (confirm('Reload now to apply the graphics setting?')) location.reload(); }
@@ -2930,7 +2976,7 @@ const fireUp = (e, shoot) => {
 fireBtn.addEventListener('pointerup', e => fireUp(e, true));
 fireBtn.addEventListener('pointercancel', e => fireUp(e, false));
 fireBtn.addEventListener('contextmenu', e => e.preventDefault());
-tbtn('tScope', playingOnly(() => { if (!P.scoped) P.zoomIdx = Math.max(P.zoomIdx, 3); setScoped(!P.scoped); }));
+tbtn('tScope', playingOnly(() => { if (!P.scoped) P.zoomIdx = Math.max(P.zoomIdx, easy() ? 3 : 3); setScoped(!P.scoped); }));
 tbtn('tTherm', playingOnly(() => setThermal(!P.thermal)));
 tbtn('tPause', () => pause());
 function goFullscreen() {
@@ -3054,9 +3100,9 @@ function drawScope(range) {
   }
   // data strip
   g.font = `${13 * PR}px "Share Tech Mono", monospace`; g.textAlign = 'center'; g.fillStyle = 'rgba(236,230,216,.85)';
-  if (IS_TOUCH) g.fillText(`${range ? Math.round(range) + ' M' : '----'}   ${P.zooms[P.zoomIdx]}×`, cx, cy + R * 0.82);
+  if (IS_TOUCH || easy()) g.fillText(`${range ? Math.round(range) + ' M' : '----'}   ${P.zooms[P.zoomIdx]}×`, cx, cy + R * 0.82);
   else g.fillText(`${range ? Math.round(range) + ' M' : '---- M'}  ·  BAL ${P.bal ? Math.round(P.bal) : '----'}  ·  ${P.zooms[P.zoomIdx]}×  ·  ZERO ${IS_TOUCH ? 'AUTO ' : ''}${P.zero}`, cx, cy + R * 0.8);
-  if (!IS_TOUCH && range && Math.abs(P.angle) > 4) { g.fillStyle = 'rgba(224,168,74,.85)'; g.fillText(`ANGLE ${P.angle > 0 ? '+' : '−'}${Math.abs(P.angle).toFixed(0)}°`, cx, cy + R * 0.88); }
+  if (!IS_TOUCH && !easy() && range && Math.abs(P.angle) > 4) { g.fillStyle = 'rgba(224,168,74,.85)'; g.fillText(`ANGLE ${P.angle > 0 ? '+' : '−'}${Math.abs(P.angle).toFixed(0)}°`, cx, cy + R * 0.88); }
   if (P.thermal && !IS_TOUCH) { g.fillStyle = 'rgba(255,255,255,.75)'; g.fillText('THERMAL · WHITE HOT', cx, cy - R * 0.8); }
   if (P.boltT > 0 || P.reloadT > 0) { g.fillStyle = 'rgba(224,168,74,.9)'; g.fillText(P.reloadT > 0 ? 'RELOADING' : 'CHAMBERING', cx, cy + R * 0.68); }
 }
@@ -3243,7 +3289,7 @@ function finishBulletsFast() {
 function updatePlayer(rdt) {
   // breath
   const wantHold = keys.ShiftLeft || keys.ShiftRight || P.touchHold;
-  if (wantHold && P.breath > 0 && P.gasp <= 0 && P.scoped) { if (!P.holding) { P.holding = true; } P.breath = Math.max(0, P.breath - rdt / 7); if (P.breath === 0) { P.gasp = 2.5; P.holding = false; AudioSys.breathOut(); } }
+  if (wantHold && P.breath > 0 && P.gasp <= 0 && P.scoped && !easy()) { if (!P.holding) { P.holding = true; } P.breath = Math.max(0, P.breath - rdt / 7); if (P.breath === 0) { P.gasp = 2.5; P.holding = false; AudioSys.breathOut(); } }
   else { if (P.holding) AudioSys.breathOut(); P.holding = false; P.breath = Math.min(1, P.breath + rdt / (P.gasp > 0 ? 6 : 3.5)); }
   if (P.gasp > 0) P.gasp -= rdt;
   if ((P.holding || P.gasp > 0) && G.realT - P.lastHB > (P.gasp > 0 ? 0.55 : 1.0)) { P.lastHB = G.realT; AudioSys.heartbeat(); }
@@ -3254,8 +3300,8 @@ function updatePlayer(rdt) {
   if (P.mag === 0 && P.reserve === 0 && !P.chambered && bullets.length === 0 && !G.ended && P.boltT <= 0 && !P.outWarned) P.outWarned = true, later(2, () => { if (!G.ended && P.mag === 0) fail('Out of ammunition.'); });
   // sway
   const t = G.realT;
-  const steady = P.holding ? 0.07 : (P.gasp > 0 ? 2.4 : 1);
-  const breathCyc = P.holding ? 0 : Math.sin(t * 1.45) * 0.0005;
+  const steady = easy() ? 0.08 : P.holding ? 0.07 : (P.gasp > 0 ? 2.4 : 1);
+  const breathCyc = P.holding || easy() ? 0 : Math.sin(t * 1.45) * 0.0005;
   P.swayX = (noise2(t * 0.32, 5.5) * 0.0007 + noise2(t * 1.4, 2.2) * 0.00018) * steady;
   P.swayY = (noise2(t * 0.28, 8.8) * 0.0006 + noise2(t * 1.2, 4.4) * 0.00015) * steady + breathCyc * (P.gasp > 0 ? 2 : 1);
   if (!P.scoped) { P.swayX *= 2; P.swayY *= 2; }
@@ -3287,7 +3333,7 @@ function updateGuards(dt) {
     for (let i = 0; i < 4; i++) glowP.spawn(mp.x, mp.y, mp.z, rand(-1, 1), rand(-1, 1), rand(-1, 1), 0.06, 0.6, 0.2, 5, 3, 1, 1, 0, 0);
     const dist = mp.distanceTo(P.pos);
     AudioSys.distantShot(dist);
-    const hitChance = clamp(0.24 - dist / 5000, 0.04, 0.2) * (G.mission.env === 'night' ? 0.6 : 1);
+    const hitChance = easy() ? 0 : clamp(0.24 - dist / 5000, 0.04, 0.2) * (G.mission.env === 'night' ? 0.6 : 1);
     later(dist / 700 / Math.max(G.timeScale, 0.05), () => {
       if (G.ended || G.state !== 'playing') return;
       if (Math.random() < hitChance) {
