@@ -182,36 +182,25 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 canvas#c{touch-action:none}
 #touch{position:fixed;inset:0;pointer-events:none;display:none;z-index:7;touch-action:none}
 body.touch.playing #touch{display:block}
-.tb{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;width:62px;height:62px;
-  background:rgba(10,12,14,.45);border:1.5px solid rgba(236,230,216,.35);color:var(--fg);font:500 12px/1.1 'Oswald',sans-serif;letter-spacing:.12em;
+.tb{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;width:70px;height:70px;
+  background:rgba(10,12,14,.42);border:1.5px solid rgba(236,230,216,.35);color:var(--fg);font:500 12px/1.1 'Oswald',sans-serif;letter-spacing:.14em;
   display:flex;align-items:center;justify-content:center;text-align:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
-.tb.on,.tb:active{background:rgba(224,168,74,.55);border-color:var(--accent);color:#111}
-.tb.sm{width:46px;height:46px;font-size:11px}
-#tFire{width:96px;height:96px;right:calc(22px + env(safe-area-inset-right));bottom:22px;font-size:16px;border-color:rgba(226,65,44,.8);background:rgba(120,20,10,.4)}
-#tFire:active{background:rgba(226,65,44,.75);color:#fff}
-#tScope{right:calc(132px + env(safe-area-inset-right));bottom:30px}
-#tBreath{left:calc(22px + env(safe-area-inset-left));bottom:22px;width:84px;height:84px}
-#tZin{right:calc(30px + env(safe-area-inset-right));bottom:184px}
-#tZout{right:calc(30px + env(safe-area-inset-right));bottom:132px}
-#tZup{right:calc(86px + env(safe-area-inset-right));bottom:184px}
-#tZdn{right:calc(86px + env(safe-area-inset-right));bottom:132px}
-.tlab{position:absolute;font:500 10px 'Share Tech Mono',monospace;letter-spacing:.2em;color:rgba(236,230,216,.7);pointer-events:none}
-#tReload{right:calc(142px + env(safe-area-inset-right));bottom:132px}
-#tTherm{right:calc(142px + env(safe-area-inset-right));bottom:184px;font-size:9px}
-#tPause{right:calc(16px + env(safe-area-inset-right));top:12px;border-radius:8px;width:42px;height:42px}
-#rotate{position:fixed;inset:0;z-index:50;background:#050607;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:30px}
-#rotate .ph{width:46px;height:80px;border:2px solid var(--fg);border-radius:8px;animation:rot 2s ease-in-out infinite}
-@keyframes rot{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
-#rotate p{font-size:15px;letter-spacing:.3em;color:var(--dim)}
-@media (orientation:portrait){body.touch #rotate{display:flex}}
+.tb.on{background:rgba(224,168,74,.55);border-color:var(--accent);color:#111}
+#tFire{width:92px;height:92px;right:calc(20px + env(safe-area-inset-right));bottom:calc(22px + env(safe-area-inset-bottom));font-size:15px;border-color:rgba(226,65,44,.8);background:rgba(120,20,10,.38)}
+#tFire.on{background:rgba(226,65,44,.7);color:#fff;transform:scale(.94)}
+#tScope{left:calc(20px + env(safe-area-inset-left));bottom:calc(30px + env(safe-area-inset-bottom))}
+#tTherm{right:calc(26px + env(safe-area-inset-right));bottom:calc(128px + env(safe-area-inset-bottom));width:52px;height:52px;font-size:9px;display:none}
+body.night #tTherm{display:flex}
+#tPause{right:calc(12px + env(safe-area-inset-right));top:calc(10px + env(safe-area-inset-top));border-radius:8px;width:38px;height:38px;font-size:11px;background:rgba(10,12,14,.3)}
 /* compact HUD on phones */
 body.touch #ballistics,body.touch #compass{display:none}
 body.touch #obj{left:calc(12px + env(safe-area-inset-left));top:10px;min-width:0;max-width:260px;padding:8px 12px}
 body.touch #obj .ttl{font-size:15px;margin:0 0 4px}
 body.touch #obj ul{font-size:12px}
-body.touch #alert{right:70px;top:12px;width:170px}
-body.touch #timer{right:70px;top:58px;font-size:20px}
-body.touch #wind{left:calc(12px + env(safe-area-inset-left));bottom:auto;top:auto;bottom:118px;padding:6px 10px 6px 6px;gap:8px}
+body.touch #alert{right:62px;top:14px;width:150px}
+body.touch #alert .lbl{font-size:9px;letter-spacing:.22em}
+body.touch #timer{right:62px;top:56px;font-size:20px}
+body.touch #wind{left:calc(12px + env(safe-area-inset-left));bottom:calc(112px + env(safe-area-inset-bottom));padding:6px 10px 6px 6px;gap:8px}
 body.touch #windC{width:44px!important;height:44px!important}
 body.touch #windTxt{font-size:11px}body.touch #windTxt b{font-size:15px}
 body.touch #ammo{right:auto;left:50%;transform:translateX(-50%);bottom:auto;top:10px}
@@ -239,6 +228,25 @@ body.touch .toast{font-size:20px}
   .center h2{font-size:28px;margin-bottom:12px}.opts{margin-top:12px;gap:8px 12px}
   .logo{top:6vh}.logo h1{font-size:46px}.menu{bottom:8vh}.menu button{font-size:15px;padding:4px 0}
   #sub{top:6vh;max-height:84vh;padding:16px 18px}
+}
+@media (orientation:portrait){
+  body.touch #obj{max-width:58vw}
+  body.touch #alert{top:auto;bottom:calc(132px + env(safe-area-inset-bottom));right:calc(20px + env(safe-area-inset-right));width:96px}
+  body.touch #alert #alertTxt{font-size:10px}
+  body.touch #timer{top:auto;bottom:calc(178px + env(safe-area-inset-bottom));right:20px}
+  body.touch #ammo{top:auto;bottom:calc(30px + env(safe-area-inset-bottom))}
+  body.touch #bolt{top:auto;bottom:calc(70px + env(safe-area-inset-bottom))}
+  body.touch #radio{bottom:auto;top:calc(118px + env(safe-area-inset-top));max-width:92vw;width:92vw}
+  body.touch #hint{bottom:calc(200px + env(safe-area-inset-bottom));width:90vw}
+  body.touch #toasts{top:30%;width:90vw}
+  body.touch #bcTag{top:auto;bottom:16vh;left:20px;transform:none}
+  #briefing .bbtns{position:fixed;left:4vw;right:4vw;bottom:calc(2vh + env(safe-area-inset-bottom));z-index:12;display:flex}
+  #briefing .bbtns .btn{flex:1;background:rgba(8,10,12,.9)}#briefing .bbtns .btn.go{background:var(--accent)}
+  .bwrap{inset:3vh 5vw;overflow:auto;gap:3vh}.bwrap>div:first-child{padding-bottom:20px!important}
+  .bhead h2{font-size:36px}.story{font-size:14px;min-height:0;margin-top:2vh}
+  .dossier{margin-bottom:80px}.dossier .pic{aspect-ratio:4/3}
+  #debrief .wrap{inset:4vh 5vw;overflow:auto;gap:3vh}#debrief h2{font-size:36px}#debrief .bbtns{position:static;margin-top:16px;flex-wrap:wrap}
+  .logo{top:10vh}.logo h1{font-size:64px}.menu{bottom:12vh}
 }
 @media (max-width:820px){
   .bwrap,#debrief .wrap{grid-template-columns:1fr;overflow:auto}
@@ -340,16 +348,10 @@ body.touch .toast{font-size:20px}
 
 <div id="touch">
   <button class="tb" id="tPause" aria-label="Pause">❚❚</button>
-  <button class="tb" id="tBreath">HOLD<br>BREATH</button>
   <button class="tb" id="tScope">SCOPE</button>
+  <button class="tb" id="tTherm">THERMAL</button>
   <button class="tb" id="tFire">FIRE</button>
-  <button class="tb sm" id="tZin" aria-label="Zoom in">＋</button><button class="tb sm" id="tZout" aria-label="Zoom out">－</button>
-  <span class="tlab" style="right:calc(28px + env(safe-area-inset-right));bottom:236px">ZOOM</span>
-  <button class="tb sm" id="tZup" aria-label="Zero up">▲</button><button class="tb sm" id="tZdn" aria-label="Zero down">▼</button>
-  <span class="tlab" style="right:calc(86px + env(safe-area-inset-right));bottom:236px">ZERO</span>
-  <button class="tb sm" id="tReload">RELOAD</button><button class="tb sm" id="tTherm">THERMAL</button>
 </div>
-<div id="rotate"><div class="ph"></div><p>ROTATE YOUR DEVICE</p></div>
 <div id="loading"><h2>BLACK SUMMIT</h2><div class="bar"><i id="loadFill"></i></div><p id="loadTxt">INITIALISING</p></div>
 
 <script type="module">
@@ -2083,7 +2085,7 @@ function predictShot(pos, vel, wind) {
 
 function fire() {
   if (G.state !== 'playing') return;
-  if (!P.chambered || P.reloadT > 0) { AudioSys.dry(); if (P.mag === 0 && P.reloadT <= 0) hint(IS_TOUCH ? 'Magazine empty — tap <kbd>RELOAD</kbd>' : 'Magazine empty — press <kbd>R</kbd> to reload', 2.2); return; }
+  if (!P.chambered || P.reloadT > 0) { AudioSys.dry(); if (P.mag === 0 && P.reloadT <= 0) hint(IS_TOUCH ? 'Reloading…' : 'Magazine empty — press <kbd>R</kbd> to reload', 2.2); return; }
   P.chambered = false; P.mag--; P.boltT = 1.25; G.stats.shots++;
   const dir = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
   const right = new THREE.Vector3(1, 0, 0).applyEuler(camera.rotation);
@@ -2223,7 +2225,7 @@ function updateBulletCam(rdt) {
     const off = side.multiplyScalar(Math.cos(bc.ang) * (0.32 + pull * 1.6)).add(up2.multiplyScalar(Math.sin(bc.ang) * 0.2 + 0.1 + pull * 0.4));
     camera.position.copy(b.pos).addScaledVector(d, -0.9 - pull * 1.5).add(off);
     camera.lookAt(_v1.copy(b.pos).addScaledVector(d, 2.5 + pull * 6));
-    camera.fov = 48; camera.near = 0.03;
+    setFov(48); camera.near = 0.03;
     bulletMesh.visible = true; bulletMesh.position.copy(b.pos); bulletMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d); bulletMesh.rotateZ(bc.t * 40);
     FX.uBC.value = 1;
     if (remain < 30) G.tsTarget = Math.min(G.tsTarget, 0.04);
@@ -2249,7 +2251,7 @@ function endBulletCam() {
   const ws = G.bc && G.bc.wasScoped;
   G.bc = null; G.state = 'playing'; G.tsTarget = 1; bulletMesh.visible = false; FX.uBC.value = 0;
   $('#letterbox').classList.remove('on'); $('#bcTag').style.display = 'none';
-  camera.near = 0.1; camera.fov = P.fov; camera.updateProjectionMatrix();
+  camera.near = 0.1; setFov(P.fov); camera.updateProjectionMatrix();
   camera.position.copy(P.pos); rifle.g.visible = true;
   if (ws && !G.ended) setScoped(true, true);
   flashFade(0.25);
@@ -2291,8 +2293,8 @@ const MISSIONS = [
       M.kills = 0;
       radio('OVERWATCH', 'Wraith, Overwatch. You\'re on Hollow Ridge. Forward outpost below you, bearing two-one-five, five-ninety meters slant.', 1.5);
       radio('OVERWATCH', 'Tower sentry carries the radio. Take him first and nobody calls home.', 6);
-      hint(IS_TOUCH ? 'Drag to aim · <kbd>SCOPE</kbd> · <kbd>＋/－</kbd> zoom · hold <kbd>BREATH</kbd> · <kbd>FIRE</kbd>' : '<kbd>RMB</kbd> scope · <kbd>WHEEL</kbd> zoom · <kbd>SHIFT</kbd> hold breath · <kbd>LMB</kbd> fire', 9, 2);
-      hint(`Shooting downhill: dial your zero ${IS_TOUCH ? '<kbd>▲</kbd><kbd>▼</kbd>' : '<kbd>↑</kbd><kbd>↓</kbd>'} to the <b>BAL</b> range, not the slant range`, 8, 13);
+      hint(IS_TOUCH ? 'Drag to aim · pinch to zoom · <b>hold</b> <kbd>FIRE</kbd> to steady, <b>release</b> to shoot' : '<kbd>RMB</kbd> scope · <kbd>WHEEL</kbd> zoom · <kbd>SHIFT</kbd> hold breath · <kbd>LMB</kbd> fire', 9, 2);
+      hint(IS_TOUCH ? 'Your scope zeroes itself to the target range — you only aim off for wind' : 'Shooting downhill: dial your zero <kbd>↑</kbd><kbd>↓</kbd> to the <b>BAL</b> range, not the slant range', 8, 13);
     },
     onKill(M, a) {
       M.kills++;
@@ -2529,7 +2531,7 @@ function startMission(idx) {
   P.pos.set(0, heightAt(0, 0) + 1.5, 0);
   const s = SITES[M.site]; const tp = new THREE.Vector3(s.x, heightAt(s.x, s.z) + 3, s.z);
   P.yaw = Math.atan2(-(tp.x - P.pos.x), -(tp.z - P.pos.z)) + 0.06; P.pitch = Math.atan2(tp.y - P.pos.y, Math.hypot(tp.x - P.pos.x, tp.z - P.pos.z));
-  camera.position.copy(P.pos); camera.fov = P.fov; camera.near = 0.1; camera.updateProjectionMatrix();
+  camera.position.copy(P.pos); setFov(P.fov); camera.near = 0.1; camera.updateProjectionMatrix();
   M.setup(M);
   buildObjectivesUI();
   $('#objCode').textContent = `MISSION ${M.code}`; $('#objTitle').textContent = M.title;
@@ -2692,9 +2694,9 @@ function renderSub(kind) {
     }).join('');
   } else if (kind === 'manual') {
     sub.innerHTML = `<h3>FIELD MANUAL</h3>${IS_TOUCH ? `<div class="keys">
-      <kbd>DRAG</kbd><span>Aim (anywhere on screen)</span><kbd>SCOPE</kbd><span>Scope in / out</span><kbd>＋ / －</kbd><span>Scope magnification (3× – 24×)</span>
-      <kbd>FIRE</kbd><span>Fire (bolt cycles automatically)</span><kbd>BREATH</kbd><span>Hold to steady the reticle</span>
-      <kbd>▲ / ▼</kbd><span>Elevation zero ± 50 m</span><kbd>RELOAD</kbd><span>Reload magazine</span><kbd>THERMAL</kbd><span>Thermal vision</span>
+      <kbd>DRAG</kbd><span>Aim (anywhere on screen)</span><kbd>PINCH</kbd><span>Zoom the scope (3× – 24×)</span>
+      <kbd>SCOPE</kbd><span>Scope in / out</span><kbd>FIRE</kbd><span>Hold to steady your breath, release to shoot</span>
+      <kbd>AUTO</kbd><span>Zero and reload are automatic</span><kbd>THERMAL</kbd><span>Night mission only</span>
       <kbd>TAP</kbd><span>Skip bullet cam</span><kbd>❚❚</kbd><span>Pause</span></div>` : `<div class="keys">
       <kbd>MOUSE</kbd><span>Aim</span><kbd>RMB</kbd><span>Scope in / out</span><kbd>WHEEL</kbd><span>Scope magnification (3× – 24×)</span>
       <kbd>LMB</kbd><span>Fire (bolt cycles automatically)</span><kbd>SHIFT</kbd><span>Hold breath — steadies the reticle</span>
@@ -2768,23 +2770,34 @@ canvas.addEventListener('mousedown', e => {
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 /* ---------- touch: drag to aim + on-screen buttons ---------- */
 let lastTouch = 0, aimTouch = null;
+const touches = new Map(); let pinch = null;
 canvas.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse') return;
   lastTouch = performance.now(); e.preventDefault();
   if (G.state === 'bulletcam') { G.bcSkip = true; return; }
-  if (G.state !== 'playing' || aimTouch) return;
-  aimTouch = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  if (G.state !== 'playing') return;
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
   try { canvas.setPointerCapture(e.pointerId); } catch (err) { }
+  if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) }; }
 });
 canvas.addEventListener('pointermove', e => {
-  if (!aimTouch || e.pointerId !== aimTouch.id || G.state !== 'playing') return;
-  const dx = e.clientX - aimTouch.x, dy = e.clientY - aimTouch.y; aimTouch.x = e.clientX; aimTouch.y = e.clientY;
+  const t = touches.get(e.pointerId); if (!t || G.state !== 'playing') return;
+  const dx = e.clientX - t.x, dy = e.clientY - t.y; t.x = e.clientX; t.y = e.clientY;
+  if (touches.size >= 2) {
+    const [a, b] = [...touches.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (pinch && Math.abs(d - pinch.d) > 55) {
+      const out = d > pinch.d; pinch.d = d;
+      if (out) { if (!P.scoped) setScoped(true); else if (P.zoomIdx < P.zooms.length - 1) { P.zoomIdx++; AudioSys.click(); } }
+      else { if (P.scoped && P.zoomIdx === 0) setScoped(false); else if (P.zoomIdx > 0) { P.zoomIdx--; AudioSys.click(); } }
+    }
+    return;
+  }
   const k = settings.sens * 0.0042 * (P.fovCur / 62);
   P.yaw -= dx * k; P.pitch = clamp(P.pitch - dy * k * (settings.invertY ? -1 : 1), -1.2, 1.2);
   P.lag.x = clamp(P.lag.x - dx * 0.5, -60, 60); P.lag.y = clamp(P.lag.y - dy * 0.5, -60, 60);
 });
-const endAim = e => { if (aimTouch && e.pointerId === aimTouch.id) aimTouch = null; };
-canvas.addEventListener('pointerup', endAim); canvas.addEventListener('pointercancel', endAim);
+const endTouch = e => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; };
+canvas.addEventListener('pointerup', endTouch); canvas.addEventListener('pointercancel', endTouch);
 function tbtn(id, down, up) {
   const el = document.getElementById(id);
   el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); lastTouch = performance.now(); AudioSys.init(); el.classList.add('on'); down && down(); });
@@ -2793,21 +2806,32 @@ function tbtn(id, down, up) {
   el.addEventListener('contextmenu', e => e.preventDefault());
 }
 const playingOnly = fn => () => { if (G.state === 'bulletcam') { G.bcSkip = true; return; } if (G.state === 'playing') fn(); };
-tbtn('tFire', playingOnly(() => fire()));
+// FIRE: press and hold to steady (hold breath), release to shoot.
+const fireBtn = document.getElementById('tFire');
+let fireDown = null;
+fireBtn.addEventListener('pointerdown', e => {
+  e.preventDefault(); e.stopPropagation(); lastTouch = performance.now(); AudioSys.init();
+  if (G.state === 'bulletcam') { G.bcSkip = true; return; }
+  if (G.state !== 'playing') return;
+  fireDown = e.pointerId; try { fireBtn.setPointerCapture(e.pointerId); } catch (err) { }
+  fireBtn.classList.add('on'); P.touchHold = true;
+});
+const fireUp = (e, shoot) => {
+  if (fireDown !== e.pointerId) return; fireDown = null;
+  fireBtn.classList.remove('on'); P.touchHold = false;
+  if (shoot && G.state === 'playing') fire();
+};
+fireBtn.addEventListener('pointerup', e => fireUp(e, true));
+fireBtn.addEventListener('pointercancel', e => fireUp(e, false));
+fireBtn.addEventListener('contextmenu', e => e.preventDefault());
 tbtn('tScope', playingOnly(() => setScoped(!P.scoped)));
-tbtn('tBreath', () => { P.touchHold = true; }, () => { P.touchHold = false; });
-tbtn('tZin', playingOnly(() => { if (!P.scoped) setScoped(true); else { P.zoomIdx = Math.min(P.zooms.length - 1, P.zoomIdx + 1); AudioSys.click(); } }));
-tbtn('tZout', playingOnly(() => { if (P.scoped && P.zoomIdx === 0) setScoped(false); else { P.zoomIdx = Math.max(0, P.zoomIdx - 1); AudioSys.click(); } }));
-tbtn('tZup', playingOnly(() => { P.zero = Math.min(1500, P.zero + 50); AudioSys.click(); }));
-tbtn('tZdn', playingOnly(() => { P.zero = Math.max(100, P.zero - 50); AudioSys.click(); }));
-tbtn('tReload', playingOnly(() => reload()));
 tbtn('tTherm', playingOnly(() => setThermal(!P.thermal)));
 tbtn('tPause', () => pause());
 function goFullscreen() {
   if (!IS_TOUCH) return;
-  try { const d = document.documentElement; const r = d.requestFullscreen ? d.requestFullscreen({ navigationUI: 'hide' }) : d.webkitRequestFullscreen && d.webkitRequestFullscreen(); if (r && r.then) r.then(() => { try { screen.orientation.lock('landscape').catch(() => { }); } catch (e) { } }).catch(() => { }); } catch (e) { }
+  try { const d = document.documentElement; const r = d.requestFullscreen ? d.requestFullscreen({ navigationUI: 'hide' }) : d.webkitRequestFullscreen && d.webkitRequestFullscreen(); if (r && r.then) r.catch(() => { }); } catch (e) { }
 }
-if (IS_TOUCH) $('#footTxt').textContent = 'TOUCH CONTROLS · LANDSCAPE · HEADPHONES RECOMMENDED';
+if (IS_TOUCH) $('#footTxt').textContent = 'TOUCH CONTROLS · HEADPHONES RECOMMENDED';
 document.addEventListener('mousemove', e => {
   if (!locked || G.state !== 'playing') return;
   const k = settings.sens * 0.0022 * (P.fovCur / 62);
@@ -2833,7 +2857,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.code] = false; });
 function reload() {
   if (P.reloadT > 0 || P.mag >= 5 || P.reserve <= 0) return;
-  P.reloadT = 2.6; AudioSys.reload(); setScoped(false);
+  P.reloadT = 2.6; AudioSys.reload(); if (!IS_TOUCH) setScoped(false);
 }
 function setScoped(on, instant) {
   if (P.scoped === on) return;
@@ -2912,7 +2936,7 @@ function drawScope(range) {
   g.restore();
   // data strip
   g.font = `${13 * PR}px "Share Tech Mono", monospace`; g.textAlign = 'center'; g.fillStyle = 'rgba(236,230,216,.85)';
-  g.fillText(`${range ? Math.round(range) + ' M' : '---- M'}  ·  BAL ${P.bal ? Math.round(P.bal) : '----'}  ·  ${P.zooms[P.zoomIdx]}×  ·  ZERO ${P.zero}`, cx, cy + R * 0.8);
+  g.fillText(`${range ? Math.round(range) + ' M' : '---- M'}  ·  BAL ${P.bal ? Math.round(P.bal) : '----'}  ·  ${P.zooms[P.zoomIdx]}×  ·  ZERO ${IS_TOUCH ? 'AUTO ' : ''}${P.zero}`, cx, cy + R * 0.8);
   if (range && Math.abs(P.angle) > 4) { g.fillStyle = 'rgba(224,168,74,.85)'; g.fillText(`ANGLE ${P.angle > 0 ? '+' : '−'}${Math.abs(P.angle).toFixed(0)}°`, cx, cy + R * 0.88); }
   if (P.thermal) { g.fillStyle = 'rgba(255,255,255,.75)'; g.fillText('THERMAL · WHITE HOT', cx, cy - R * 0.8); }
   if (P.boltT > 0 || P.reloadT > 0) { g.fillStyle = 'rgba(224,168,74,.9)'; g.fillText(P.reloadT > 0 ? 'RELOADING' : 'CHAMBERING', cx, cy + R * 0.68); }
@@ -2996,6 +3020,8 @@ function rangefind() {
    ===================================================================== */
 let last = performance.now(), range = null, rfT = 0;
 const camShake = new THREE.Vector2();
+// fov values are for the short side of the screen, so portrait phones get the same view width as landscape.
+function setFov(f) { const a = camera.aspect; camera.fov = a < 1 ? 2 * Math.atan(Math.tan(f * DEG / 2) / a) / DEG : f; }
 function loop(now) {
   requestAnimationFrame(loop);
   const rdt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -3056,6 +3082,7 @@ function update(rdt) {
   if (G.state === 'bulletcam') { updateBulletCam(rdt); if (G.bcSkip) { G.bcSkip = false; G.tsTarget = 1; G.timeScale = 1; finishBulletsFast(); endBulletCam(); } }
   else G.bcSkip = false;
   document.body.classList.toggle('playing', G.state === 'playing' || G.state === 'bulletcam');
+  document.body.classList.toggle('night', !!ENV.night);
   $('#tScope').classList.toggle('on', P.scoped); $('#tTherm').classList.toggle('on', P.thermal);
   if (G.state === 'menu' || G.state === 'briefing' || G.state === 'debrief') updateCine(rdt);
   rifle.g.visible = G.state === 'playing' && !P.scoped;
@@ -3083,7 +3110,7 @@ function update(rdt) {
   updateShadowCam();
   PART_U.uScale.value = renderer.domElement.height / (2 * Math.tan(camera.fov * DEG / 2));
   if (playing && G.state === 'playing') {
-    rfT -= rdt; if (rfT <= 0) { range = rangefind(); const ang = Math.asin(clamp(_v1.set(0, 0, -1).applyQuaternion(camera.quaternion).y, -1, 1)); P.angle = ang / DEG; P.bal = range ? range * Math.cos(ang) : null; rfT = 0.1; }
+    rfT -= rdt; if (rfT <= 0) { range = rangefind(); const ang = Math.asin(clamp(_v1.set(0, 0, -1).applyQuaternion(camera.quaternion).y, -1, 1)); P.angle = ang / DEG; P.bal = range ? range * Math.cos(ang) : null; rfT = 0.1; if (IS_TOUCH && P.bal && P.scoped) P.zero = clamp(Math.round(P.bal / 25) * 25, 100, 1500); }
     updateHUD(range);
   }
 }
@@ -3099,6 +3126,7 @@ function updatePlayer(rdt) {
   if ((P.holding || P.gasp > 0) && G.realT - P.lastHB > (P.gasp > 0 ? 0.55 : 1.0)) { P.lastHB = G.realT; AudioSys.heartbeat(); }
   // bolt / reload
   if (P.boltT > 0) { P.boltT -= rdt; const k = 1 - P.boltT / 1.25; rifle.bolt.rotation.x = k > 0.25 && k < 0.85 ? -1.2 : 0; rifle.bolt.position.z = -0.06 + (k > 0.35 && k < 0.75 ? 0.09 : 0); if (P.boltT <= 0) { if (P.mag > 0) P.chambered = true; rifle.bolt.rotation.x = 0; rifle.bolt.position.z = -0.06; } }
+  if (IS_TOUCH && P.mag === 0 && P.reserve > 0 && P.reloadT <= 0 && P.boltT <= 0) reload();
   if (P.reloadT > 0) { P.reloadT -= rdt; if (P.reloadT <= 0) { const need = 5 - P.mag; const take = Math.min(need, P.reserve); P.mag += take; P.reserve -= take; P.chambered = true; P.boltT = 0; } }
   if (P.mag === 0 && P.reserve === 0 && !P.chambered && bullets.length === 0 && !G.ended && P.boltT <= 0 && !P.outWarned) P.outWarned = true, later(2, () => { if (!G.ended && P.mag === 0) fail('Out of ammunition.'); });
   // sway
@@ -3112,9 +3140,9 @@ function updatePlayer(rdt) {
   const rk = P.recoil * P.recoil;
   P.lag.multiplyScalar(Math.exp(-rdt * 9));
   // fov
-  P.fov = P.scoped ? 30 / P.zooms[P.zoomIdx] : 62;
+  P.fov = P.scoped ? 30 / P.zooms[P.zoomIdx] : (camera.aspect < 1 ? 50 : 62);
   P.fovCur = lerp(P.fovCur, P.fov, Math.min(1, rdt * 14));
-  camera.fov = P.fovCur; camera.near = P.scoped ? 1.0 : 0.1; camera.updateProjectionMatrix();
+  setFov(P.fovCur); camera.near = P.scoped ? 1.0 : 0.1; camera.updateProjectionMatrix();
   // shake
   G.shake = Math.max(0, G.shake - rdt * 1.5);
   camShake.set((Math.random() - 0.5) * G.shake * 0.02, (Math.random() - 0.5) * G.shake * 0.02);
@@ -3123,7 +3151,7 @@ function updatePlayer(rdt) {
   // weapon
   rifle.g.visible = !P.scoped;
   rifle.kick = Math.max(0, rifle.kick - rdt * 4);
-  rifle.g.position.set(0.16 + Math.sin(t * 1.3) * 0.002, -0.2 + Math.sin(t * 1.45) * 0.003 + rifle.kick * 0.02, -0.3 + rifle.kick * 0.09);
+  rifle.g.position.set((camera.aspect < 1 ? 0.07 : 0.16) + Math.sin(t * 1.3) * 0.002, -0.2 + Math.sin(t * 1.45) * 0.003 + rifle.kick * 0.02, -0.3 + rifle.kick * 0.09);
   rifle.g.rotation.set(rifle.kick * 0.14 - (P.reloadT > 0 ? 0.5 * Math.sin(Math.PI * (1 - P.reloadT / 2.6)) : 0), 0, P.reloadT > 0 ? 0.3 * Math.sin(Math.PI * (1 - P.reloadT / 2.6)) : 0);
 }
 function updateGuards(dt) {
@@ -3186,7 +3214,7 @@ function updateCine(rdt) {
     look = base.clone().add(new THREE.Vector3(0, 6, 0));
   }
   camera.position.lerp(pos, C.t < 0.1 ? 1 : Math.min(1, rdt * 2));
-  camera.lookAt(look); camera.fov = 50; camera.near = 0.5; camera.updateProjectionMatrix();
+  camera.lookAt(look); setFov(50); camera.near = 0.5; camera.updateProjectionMatrix();
   FX.uCA.value = 0.0022; FX.uVig.value = 0.6;
 }
 

@@ -46,7 +46,14 @@ Kessler Observatory on top of Black Summit. You are **WRAITH**, a lone sniper on
 
 ## Phones and tablets
 
-Touch devices get on-screen controls automatically. Drag anywhere to aim. The buttons are FIRE, SCOPE, HOLD BREATH, zoom ＋/－, zero ▲/▼, RELOAD, THERMAL and pause. Play in landscape. Tapping DEPLOY goes fullscreen, and graphics default to Performance mode.
+Touch devices get simple on-screen controls automatically, in portrait or landscape:
+
+- **Drag** anywhere to aim, **pinch** to zoom the scope.
+- **SCOPE** button to scope in or out.
+- **FIRE**: hold it to steady your breath, release to shoot.
+- Zero and reload are automatic. A **THERMAL** button appears in the night mission.
+
+Tapping DEPLOY goes fullscreen, and graphics default to Performance mode.
 
 ## Under the hood
 
