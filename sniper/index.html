@@ -2139,6 +2139,7 @@ function fire() {
   if (easy()) { if (assist) dir.copy(assist.point).sub(camera.position).normalize(); }
   else { const right = new THREE.Vector3(1, 0, 0).applyEuler(camera.rotation); dir.applyAxisAngle(right, zeroAngle(P.zero)); }
   const b = { pos: camera.position.clone(), prev: camera.position.clone(), vel: dir.multiplyScalar(MV), wind: G.wind.clone(), t: 0, start: camera.position.clone(), trailAcc: 0, alive: true, easy: easy(), home: assist };
+  b.tracer = new THREE.Sprite(tracerMat); b.tracer.scale.set(0.0045, 0.0045, 1); b.tracer.position.copy(b.pos); b.tracer.renderOrder = 5; scene.add(b.tracer);
   bullets.push(b);
   G.lastShot = { pos: b.pos.clone(), dir: b.vel.clone().normalize(), rot: camera.rotation.toArray().slice(0, 3), sway: [P.swayX, P.swayY] };
   AudioSys.shot();
@@ -2211,6 +2212,7 @@ function updateBullets(dt) {
       else if (b.t > 7 || b.pos.y < -300) b.alive = false;
     }
   }
+  for (const b of bullets) if (b.tracer) { b.tracer.position.copy(b.pos); b.tracer.visible = b.alive && !G.bc && b.pos.distanceTo(b.start) > 6; if (!b.alive) { scene.remove(b.tracer); b.tracer = null; } }
   for (let i = bullets.length - 1; i >= 0; i--) if (!bullets[i].alive) bullets.splice(i, 1);
 }
 
@@ -2282,7 +2284,7 @@ function startBulletCam(b, pr) {
   const flight = pr.t;
   G.bc = { bullet: b, target: pr, phase: 'fly', t: 0, impactT: 0, ang: rand(0, 6.28), side: Math.random() < 0.5 ? -1 : 1, wasScoped: P.scoped };
   G.state = 'bulletcam';
-  G.tsTarget = G.timeScale = clamp(flight / 2.4, 0.012, 0.35);
+  G.tsTarget = G.timeScale = clamp(flight / 3.0, 0.01, 0.35);
   $('#letterbox').classList.add('on');
   $('#bcTag').style.display = 'block';
   $('#bcDist').textContent = Math.round(pr.point.distanceTo(b.start)) + ' M';
@@ -2297,18 +2299,19 @@ function updateBulletCam(rdt) {
   if (bc.phase === 'fly') {
     const d = b.vel.clone().normalize();
     const side = new THREE.Vector3().crossVectors(d, UP).normalize(); const up2 = new THREE.Vector3().crossVectors(side, d);
-    bc.ang += rdt * 0.9 * bc.side;
+    // Side-on tracking shot: the camera flies beside the round so it is seen in profile,
+    // then widens out near the end so the strike and the target share the frame.
+    bc.ang += rdt * 0.25 * bc.side;
     const remain = b.pos.distanceTo(bc.target.point);
-    const pull = smoothstep(bc.target.part === 'head' ? 12 : 25, bc.target.part === 'head' ? 1.5 : 4, remain);
-    const off = side.multiplyScalar(Math.cos(bc.ang) * (0.32 + pull * 1.6)).add(up2.multiplyScalar(Math.sin(bc.ang) * 0.2 + 0.1 + pull * 0.4));
-    camera.position.copy(b.pos).addScaledVector(d, -0.9 - pull * 1.5).add(off);
-    // keep the target in frame: look from behind the bullet towards where it will strike
+    const k = smoothstep(30, 2, remain);
+    const sideDir = side.clone().multiplyScalar(bc.side).applyAxisAngle(d, Math.sin(bc.ang) * 0.5);
+    camera.position.copy(b.pos).addScaledVector(sideDir, 0.85 + k * 2.0).addScaledVector(up2, 0.08 + k * 0.35).addScaledVector(d, -0.1 - k * 1.2);
     const aimAt = bc.target.actor && bc.target.actor.alive ? (bc.target.part === 'head' ? bc.target.actor.headPos(_v1) : bc.target.actor.centerPos(_v1)) : _v1.copy(bc.target.point);
-    camera.lookAt(aimAt.lerp(_v2.copy(b.pos).addScaledVector(d, 3), 0.25 * (1 - pull)));
-    setFov(48); camera.near = 0.03;
+    camera.lookAt(_v2.copy(b.pos).addScaledVector(d, 0.35).lerp(aimAt, k * 0.55));
+    setFov(lerp(42, 50, k)); camera.near = 0.02; camera.updateProjectionMatrix();
     bulletMesh.visible = true; bulletMesh.position.copy(b.pos); bulletMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d); bulletMesh.rotateZ(bc.t * 40);
     FX.uBC.value = 1;
-    if (remain < 30) G.tsTarget = Math.min(G.tsTarget, 0.04);
+    if (remain < 30) G.tsTarget = Math.min(G.tsTarget, 0.03);
     if (!b.alive && bc.phase === 'fly') { bc.phase = 'impact'; bc.impactT = 0; }
   } else {
     bulletMesh.visible = false;
@@ -2342,16 +2345,18 @@ function endBulletCam() {
   if (ws && !G.ended) setScoped(true, true);
   flashFade(0.25);
 }
+// Screen-space glowing tracer so every round can be followed by eye, even at 1 km.
+const tracerMat = new THREE.SpriteMaterial({ map: TEX.glow, color: new THREE.Color(6, 3.2, 1.2), blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: false, fog: false });
 const bulletMesh = (() => {
   const g = new THREE.Group();
-  const cu = new THREE.MeshStandardMaterial({ color: 0xc87a3e, roughness: 0.22, metalness: 1 });
+  const cu = new THREE.MeshStandardMaterial({ color: 0xd08a48, roughness: 0.25, metalness: 0.9, emissive: 0x5a2c0c, emissiveIntensity: 1.2 });
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.0155, 0.05, 20), cu); body.rotation.x = Math.PI / 2; g.add(body);
   const tip = new THREE.Mesh(new THREE.ConeGeometry(0.0155, 0.045, 20), cu); tip.rotation.x = Math.PI / 2; tip.position.z = 0.047; g.add(tip);
   const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.012, 0.012, 20), cu); tail.rotation.x = Math.PI / 2; tail.position.z = -0.031; g.add(tail);
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.glow, color: new THREE.Color(5, 2.6, 1.0), blending: THREE.AdditiveBlending, depthWrite: false })); glow.scale.setScalar(0.12); g.add(glow);
-  const streak = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.0005, 0.9, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.2, 1.4), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
-  streak.rotation.x = Math.PI / 2; streak.position.z = -0.47; g.add(streak);
-  g.scale.setScalar(3); g.visible = false; scene.add(g); return g;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.glow, color: new THREE.Color(5, 2.6, 1.0), blending: THREE.AdditiveBlending, depthWrite: false })); glow.scale.setScalar(0.09); glow.position.z = -0.03; g.add(glow);
+  const streak = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.001, 1.6, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.2, 1.4), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+  streak.rotation.x = Math.PI / 2; streak.position.z = -0.84; g.add(streak);
+  g.scale.setScalar(5); g.visible = false; scene.add(g); return g;
 })();
 
 /* =====================================================================
@@ -2605,6 +2610,7 @@ function heliEscapeCheck(M) {
 /* ---------- mission flow ---------- */
 function clearMission() {
   for (const a of actors) { if (a.inHeli) heli.group.remove(a.group); a.dispose(); }
+  for (const b of bullets) if (b.tracer) scene.remove(b.tracer);
   actors.length = 0; deadBodies.length = 0; bullets.length = 0;
   smoke.clear(); glowP.clear();
   for (const t of G.timers) clearTimeout(t); G.timers = [];
@@ -3428,7 +3434,7 @@ async function boot() {
   showTitle();
   const q = new URLSearchParams(location.search);
   if (q.has('mission')) { const i = clamp(+q.get('mission') - 1, 0, MISSIONS.length - 1); if (q.has('play')) startMission(i); else showBriefing(i); }
-  window.__game = { heli: () => heli, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) update(step); }, settings, predictShot, zeroAngle, segmentHit, SITEOBJ, scene, mistSprites, getWaterY: () => waterY, FLAT, rawH, FX, rangefind, actors, VEG, G, P, startMission, showBriefing, setScoped, fire, actors, setThermal, camera, SITES, heightAt };
+  window.__game = { bulletMesh, heli: () => heli, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) update(step); }, settings, predictShot, zeroAngle, segmentHit, SITEOBJ, scene, mistSprites, getWaterY: () => waterY, FLAT, rawH, FX, rangefind, actors, VEG, G, P, startMission, showBriefing, setScoped, fire, actors, setThermal, camera, SITES, heightAt };
 }
 requestAnimationFrame(loop);
 document.addEventListener('pointerdown', () => AudioSys.init(), { once: true });
