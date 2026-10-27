@@ -55,7 +55,7 @@ Touch devices get simple on-screen controls automatically, in portrait or landsc
 - In the scope, red markers show enemies and a gold marker shows the main target.
 - Every kill plays a slow-motion bullet cam. Headshots end in a close-up of the head.
 
-Tapping DEPLOY goes fullscreen, and graphics default to Performance mode.
+Tap the big **PLAY** button to start. Each mission opens with a short 3D intro that flies the camera to the targets with one line of story; tap **SKIP** to jump straight in. On phones the game goes fullscreen, and graphics default to Performance mode: no real-time shadows or bloom, a lighter terrain mesh, and cheaper shaders.
 
 ## Under the hood
 

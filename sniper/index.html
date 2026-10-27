@@ -115,6 +115,29 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .menu button:hover:before,.menu button:focus-visible:before{transform:none}
 .menu button.primary{color:var(--fg);font-weight:500}
 @media (max-height:620px){.logo h1{font-size:54px}.logo .sub{display:none}.menu button{font-size:16px;padding:5px 0}}
+.menu .play{white-space:nowrap;background:var(--accent);color:#111;font-size:30px;font-weight:600;letter-spacing:.3em;padding:16px 46px 16px 52px;border-radius:3px;
+  box-shadow:0 0 0 0 rgba(224,168,74,.6);animation:pulse 2.2s infinite;text-align:center}
+.menu .play span{font-size:22px;margin-right:6px;vertical-align:2px}
+.menu .play:hover,.menu .play:focus-visible{padding:16px 46px 16px 52px;color:#111;background:var(--accent2)}
+.menu .play:before{display:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(224,168,74,.55)}70%{box-shadow:0 0 0 18px rgba(224,168,74,0)}100%{box-shadow:0 0 0 0 rgba(224,168,74,0)}}
+.playsub{white-space:nowrap;font-size:12px;letter-spacing:.3em;color:var(--dim);margin:12px 0 18px;text-align:center}
+.menu .minor{display:flex;gap:28px;justify-content:center}
+.menu .minor button{font-size:14px;letter-spacing:.3em;padding:6px 0}
+.menu .minor button:hover{padding-left:0}
+@media (orientation:portrait){.menu{left:50%;transform:translateX(-50%);align-items:center;min-width:0}}
+#cineUI{position:fixed;inset:0;z-index:9;display:none;pointer-events:none}
+#cineUI.on{display:block}
+#cineSkip{position:absolute;right:calc(18px + env(safe-area-inset-right));top:calc(11vh + 6px);pointer-events:auto;font-size:14px;letter-spacing:.3em;padding:10px 18px 10px 22px;
+  border:1px solid rgba(236,230,216,.5);background:rgba(0,0,0,.35);color:var(--fg)}
+#cineLine{position:absolute;left:50%;bottom:calc(9vh + 26px);transform:translateX(-50%);width:min(760px,88vw);text-align:center;font-size:clamp(17px,2.4vw,26px);
+  font-weight:400;letter-spacing:.03em;line-height:1.35;text-shadow:0 2px 12px #000,0 0 2px #000}
+#cineLine.show{animation:cine 0.7s ease-out}
+@keyframes cine{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+#cineTag{position:absolute;display:none;transform:translate(-50%,-100%);font:500 12px 'Share Tech Mono',monospace;letter-spacing:.25em;color:var(--accent2);
+  padding:0 0 26px;white-space:nowrap;text-shadow:0 1px 6px #000}
+#cineTag:after{content:"";position:absolute;left:50%;bottom:4px;width:1px;height:18px;background:var(--accent2)}
+#cineTag.vip{color:#ff5a3c}#cineTag.vip:after{background:#ff5a3c}
 .foot{position:absolute;left:7vw;bottom:5vh;font-size:12px;letter-spacing:.2em;color:var(--dim)}
 #sub{position:absolute;right:6vw;top:14vh;width:min(560px,48vw);max-height:76vh;overflow:auto;display:none;padding:26px 28px}
 #sub.on{display:block}
@@ -295,16 +318,14 @@ body.touch .toast{font-size:20px}
   <div class="logo">
     <div class="pre">OPERATION HALCYON</div>
     <h1>BLACK<span style="background:inherit;-webkit-background-clip:text;background-clip:text">SUMMIT</span></h1>
-    <div class="sub">ONE SHOT · ONE STORY</div>
   </div>
   <nav class="menu" id="mainMenu">
-    <button class="primary" data-act="continue">Continue Campaign</button>
-    <button data-act="select">Mission Select</button>
-    <button data-act="manual">Field Manual</button>
-    <button data-act="settings">Settings</button>
+    <button class="play" data-act="continue"><span>▶</span> PLAY</button>
+    <div class="playsub mono" id="playSub"></div>
+    <div class="minor"><button data-act="select">MISSIONS</button><button data-act="settings">SETTINGS</button></div>
   </nav>
   <div id="sub" class="panel"></div>
-  <div class="foot mono" id="footTxt">MOUSE + KEYBOARD · HEADPHONES RECOMMENDED</div>
+  <div class="foot mono" id="footTxt"></div>
 </div>
 
 <div id="briefing" class="screen">
@@ -356,6 +377,7 @@ body.touch .toast{font-size:20px}
   <button class="tb" id="tTherm">THERMAL</button>
   <button class="tb" id="tFire">FIRE</button>
 </div>
+<div id="cineUI"><button id="cineSkip">SKIP ›</button><div id="cineTag"></div><div id="cineLine"></div></div>
 <div id="loading"><h2>BLACK SUMMIT</h2><div class="bar"><i id="loadFill"></i></div><p id="loadTxt">INITIALISING</p></div>
 
 <script type="module">
@@ -420,6 +442,8 @@ const settings = Object.assign({ quality: IS_TOUCH ? 'low' : 'high', sens: 1.0, 
 const progress = Object.assign({ unlocked: 1, stars: {} }, store.get('progress', {}));
 const HIGH = settings.quality === 'high';
 
+// Performance mode: swap 5-octave noise for 3-octave noise inside main().
+const lowQ = src => { if (HIGH) return src; const k = src.indexOf('void main()'); return src.slice(0, k) + src.slice(k).replace(/fbmN\(/g, 'fbm3('); };
 const GLSL_NOISE = /* glsl */`
 float hash12(vec2 p){ p = mod(p, 289.0); vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f);
@@ -433,10 +457,10 @@ float fbm3(vec2 p){ float v=0.0, a=0.5; mat2 m=mat2(1.6,1.2,-1.2,1.6); for(int i
    ===================================================================== */
 const canvas = $('#c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
-const PR = Math.min(window.devicePixelRatio || 1, HIGH ? 1.5 : 1);
+const PR = IS_TOUCH && !HIGH ? 0.85 : Math.min(window.devicePixelRatio || 1, HIGH ? 1.5 : 1);
 renderer.setPixelRatio(PR);
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = HIGH;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.5;
@@ -671,10 +695,12 @@ terrainMat.onBeforeCompile = sh => {
           normal = normalize((viewMatrix * vec4(wn, 0.0)).xyz);
         }
       }`);
+  sh.fragmentShader = lowQ(sh.fragmentShader);
+  if (!HIGH) sh.fragmentShader = sh.fragmentShader.replace('if (amp > 0.01)', 'if (false)');
 };
 
 async function buildTerrain(progressCb) {
-  const xs = buildAxis(205, 5, 115, 9000);
+  const xs = HIGH ? buildAxis(205, 5, 115, 9000) : buildAxis(120, 8.5, 70, 9000);
   const zs = Float64Array.from(xs, v => v - 540);
   const N = xs.length;
   TER.N = N; TER.xs = xs; TER.zs = zs;
@@ -743,7 +769,7 @@ const cloudU = {
 const cloudDome = new THREE.Mesh(new THREE.SphereGeometry(15000, 48, 24), new THREE.ShaderMaterial({
   uniforms: cloudU, side: THREE.BackSide, transparent: true, depthWrite: false, fog: false,
   vertexShader: `varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position = p; }`,
-  fragmentShader: GLSL_NOISE + /* glsl */`
+  fragmentShader: lowQ(GLSL_NOISE + /* glsl */`
     varying vec3 vDir; uniform float uTime, uCover, uOpacity, uFlash; uniform vec3 uSunDir, uSunCol, uAmbCol; uniform vec2 uWind;
     void main(){
       vec3 d = normalize(vDir);
@@ -760,7 +786,7 @@ const cloudDome = new THREE.Mesh(new THREE.SphereGeometry(15000, 48, 24), new TH
       col += vec3(0.7,0.75,0.9) * uFlash * (0.5 + n);
       float hf = smoothstep(-0.02, 0.18, d.y);
       gl_FragColor = vec4(col, c * hf * uOpacity);
-    }`
+    }`)
 }));
 cloudDome.renderOrder = -5;
 cloudDome.frustumCulled = false;
@@ -818,7 +844,7 @@ const composer = new EffectComposer(renderer, composerRT);
 composer.setPixelRatio(PR); composer.setSize(innerWidth, innerHeight);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.6, 2.2);
-composer.addPass(bloom);
+if (HIGH) composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const finalPass = new ShaderPass({
   uniforms: {
@@ -1020,7 +1046,7 @@ function scatterTrees() {
   const rnd = mulberry32(21);
   const cells = new Map(), CELL = 420;
   const avoid = [...FLAT.map(f => ({ x: f.x, z: f.z, r: f.r0 + 14 })), { x: 0, z: 0, r: 30 }];
-  const target = HIGH ? 11000 : 5200;
+  const target = HIGH ? 11000 : 3000;
   const eyeY = heightAt(0, 0) + 1.2;
   const losLines = ['outpost', 'bunker', 'summit'].map(k => { const S = SITES[k]; return { dx: S.x, dz: S.z, len2: S.x * S.x + S.z * S.z, y0: eyeY, y1: heightAt(S.x, S.z) + 1 }; });
   let placed = 0, tries = 0;
@@ -1070,7 +1096,7 @@ function scatterRocks() {
   const mat = new THREE.MeshStandardMaterial({ color: 0x67625b, roughness: 0.95, flatShading: true });
   const rnd = mulberry32(5), list = [];
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), n = new THREE.Vector3(), e = new THREE.Euler();
-  for (let t = 0; t < 30000 && list.length < (HIGH ? 2600 : 1400); t++) {
+  for (let t = 0; t < 30000 && list.length < (HIGH ? 2600 : 700); t++) {
     let x, z, sc;
     if (t % 5 === 0) { const a = rnd() * Math.PI * 2, d = 6 + rnd() * 50; x = Math.sin(a) * d; z = Math.cos(a) * d * 0.7 - 10; sc = 0.3 + rnd() * 1.3; }
     else { x = (rnd() * 2 - 1) * 1300; z = -540 + (rnd() * 2 - 1) * 1300; sc = 0.4 + rnd() * rnd() * 4.5; }
@@ -1094,7 +1120,7 @@ function scatterGrass() {
   for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); pa.setX(i, pa.getX(i) * (1 - y / 0.6)); pa.setZ(i, (y / 0.55) ** 2 * 0.08); }
   colorGeo(blade, 0x55603a, 0.4);
   const mat = windify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide }), 0.5);
-  const n = HIGH ? 26000 : 12000, im = new THREE.InstancedMesh(blade, mat, n);
+  const n = HIGH ? 26000 : 4500, im = new THREE.InstancedMesh(blade, mat, n);
   const rnd = mulberry32(8), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
   let k = 0;
   for (let t = 0; t < n * 3 && k < n; t++) {
@@ -1326,7 +1352,7 @@ function buildCable() {
 }
 function updateCable(dt) {
   const C = SITEOBJ.cable; if (!C) return;
-  if (C.script) C.script(C, dt);
+  if (C.script) { if (!G.frozen) C.script(C, dt); }
   else {
     if (C.hold > 0) C.hold -= dt; else { C.t += C.dir * dt * 0.012; if (C.t > 0.98 || C.t < 0.02) { C.t = clamp(C.t, 0.02, 0.98); C.dir *= -1; C.hold = 14; } }
   }
@@ -1465,7 +1491,7 @@ class Actor {
     if (!this.alive) { this.updateDeath(dt); return; }
     if (this.alertDelay > 0) { this.alertDelay -= dt; if (this.alertDelay <= 0) this.becomeAlert('heard'); }
     let moving = false;
-    if (this.path && this.wait <= 0) {
+    if (this.path && this.wait <= 0 && !G.frozen) {
       const tg = this.path[this.pathIdx];
       const dx = tg.x - this.pos.x, dz = tg.z - this.pos.z, d = Math.hypot(dx, dz);
       if (d < 0.12) {
@@ -1484,7 +1510,7 @@ class Actor {
         else { const tot = Math.hypot(tg.x - this.segStart.x, tg.z - this.segStart.z) || 1; this.pos.y = lerp(this.segStart.y, tg.ground ? heightAt(tg.x, tg.z) : tg.y, 1 - d / tot); }
         moving = true;
       }
-    } else if (this.wait > 0) this.wait -= dt;
+    } else if (this.wait > 0 && !G.frozen) this.wait -= dt;
     if (!moving && this.faceYaw != null) this.targetYaw = this.faceYaw;
     if (this.alerted && !moving && this.role === 'guard') this.targetYaw = Math.atan2(-this.pos.x, -this.pos.z);
     this.yaw += angDiff(this.targetYaw, this.yaw) * Math.min(1, dt * 4);
@@ -1786,7 +1812,7 @@ const snow = (() => {
         gl_PointSize = clamp(0.014 * uScale / max(d, 0.1), 1.0, 12.0); vA = smoothstep(uNear, uNear * 2.0, d) * (1.0 - smoothstep(50.0, 70.0, d)); }`,
     fragmentShader: `uniform float uOpacity; varying float vA; void main(){ float r = length(gl_PointCoord - 0.5) * 2.0; gl_FragColor = vec4(vec3(0.32,0.36,0.42), smoothstep(1.0, 0.2, r) * vA * uOpacity); }`
   });
-  const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.visible = false; pts.renderOrder = 4; scene.add(pts); return pts;
+  const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.visible = false; pts.renderOrder = 4; if (!HIGH) g.setDrawRange(0, 6000); scene.add(pts); return pts;
 })();
 let boltMesh = null;
 function lightningStrike() {
@@ -2288,6 +2314,7 @@ const bulletMesh = (() => {
 /* =====================================================================
    MISSIONS
    ===================================================================== */
+const sitePos = (site, dy = 0) => SITEOBJ[site].position.clone().add(new THREE.Vector3(0, dy, 0));
 const sitePt = (site, lx, lz, y = null) => { const g = SITEOBJ[site]; const p = g.localToWorld(new THREE.Vector3(lx, 0, lz)); const v = new THREE.Vector3(p.x, y == null ? heightAt(p.x, p.z) : g.position.y + y, p.z); v.ground = y == null; return v; };
 const siteYaw = (site, ly) => SITEOBJ[site].rotation.y + ly;
 const yawToPlayer = (x, z) => Math.atan2(-x, -z);
@@ -2303,6 +2330,12 @@ const MISSIONS = [
     ],
     target: { look: 'guard2', name: 'Outpost Sentries', alias: 'KAEL SECURITY · FORWARD POST', desc: 'Private contractors. Rotating shifts, one radio in the watchtower. If the tower calls in, the summit goes dark.' },
     intel: [['RANGE', '≈ 590 M · 30° DOWN'], ['BALLISTIC', '≈ 500 M'], ['WIND', 'LIGHT · 1–2 M/S'], ['ZERO', 'PRESET 500 M']],
+    intro: M => [
+      { at: () => sitePos('outpost', 4), r: 120, h: 60, a0: 0.7, spin: 0.05, dur: 4.5, fov: 42, line: 'Dawn. An enemy outpost guards the way to Black Summit.' },
+      { at: () => M.tower.headPos(new THREE.Vector3()), r: 6, h: 0.8, a0: -0.5, spin: 0.12, dur: 4, fov: 40, tag: M.tower, tagText: 'RADIO', vip: true, line: 'Three guards. This one has a radio.' },
+      { at: () => M.fire.headPos(new THREE.Vector3()), r: 7, h: 1.2, a0: 0.6, spin: 0.1, dur: 3, fov: 40, tag: M.fire, tagText: 'GUARD', line: 'Take out the radio man first…' },
+      { pov: true, at: () => sitePos('outpost', 3), dur: 3.2, fov: 9, line: '…then the other two. Stay hidden.' },
+    ],
     objectives: [{ id: 'kill', text: 'Eliminate the 3 outpost sentries' }, { id: 'quiet', text: 'Do not let the tower raise the alarm', optional: true }],
     setup(M) {
       const t = SITEOBJ.towerTop;
@@ -2311,8 +2344,6 @@ const MISSIONS = [
       M.fire = spawn({ name: 'Sentry', look: 'guard', x: fire.x + 1.9, z: fire.z + 0.3, anim: 'sit', y: heightAt(fire.x, fire.z) + 0.1, faceYaw: -Math.PI / 2 + 0.2 });
       M.patrol = spawn({ name: 'Patrol', look: 'guard', ...xz(sitePt('outpost', -6, 14)), path: [sitePt('outpost', -6, 14), sitePt('outpost', 10, 15), sitePt('outpost', 16, -2), sitePt('outpost', 2, -14), sitePt('outpost', -16, -10)], speed: 1.15 });
       M.kills = 0;
-      radio('OVERWATCH', 'Wraith, Overwatch. You\'re on Hollow Ridge. Forward outpost below you, bearing two-one-five, five-ninety meters slant.', 1.5);
-      radio('OVERWATCH', 'Tower sentry carries the radio. Take him first and nobody calls home.', 6);
       hint(IS_TOUCH ? 'Drag to aim · pinch to zoom · hold FIRE, release to shoot' : '<kbd>RMB</kbd> scope · <kbd>WHEEL</kbd> zoom · <kbd>SHIFT</kbd> hold breath · <kbd>LMB</kbd> fire', 9, 2);
       if (!IS_TOUCH) hint('Shooting downhill: dial your zero <kbd>↑</kbd><kbd>↓</kbd> to the <b>BAL</b> range, not the slant range', 8, 13);
     },
@@ -2326,7 +2357,7 @@ const MISSIONS = [
       if (M.tower.alive) { failObj('quiet'); radio('OVERWATCH', 'They\'re on the radio! You have twenty seconds before that call goes through!', 0.2); startCountdown(20, () => { if (M.tower.alive) fail('The tower radioed the summit. Kael has been warned.'); }); M.tower.anim = 'phone'; }
       else { radio('OVERWATCH', 'They know you\'re out there, but the radio is dead. Finish it.', 0.3); }
     },
-    debrief: ['The outpost is silent. Through the haze, the cable line to the summit is humming — the observatory is very much alive.', 'Overwatch intercepts a burst transmission: a courier is riding the cable car down to the bunker on the southern shoulder. He carries the arming key for HALCYON.']
+    debrief: ['Outpost silent. A courier is coming down the mountain.'],
   },
   {
     code: '02', title: 'THE COURIER', time: '12:10 · MIDDAY', loc: 'SOUTHERN SHOULDER · KESSLER LINE', env: 'noon',
@@ -2338,6 +2369,11 @@ const MISSIONS = [
     ],
     target: { look: 'courier', name: 'Dr. Anton Sorel', alias: '"THE KEYHOLDER"', desc: 'Former defense engineer. Carries the HALCYON arming key in a steel case. Escorted. Will run for the bunker door at the first shot.' },
     intel: [['RANGE', '≈ 820 M · 28° DOWN'], ['WIND', 'CROSSWIND 3–5 M/S'], ['TARGET SPEED', '≈ 1.3 M/S WALKING'], ['WINDOW', '< 60 SECONDS']],
+    intro: M => [
+      { at: () => SITEOBJ.cable.gond.position.clone().add(new THREE.Vector3(0, -3, 0)), r: 16, h: 2, a0: 0.9, spin: 0.08, dur: 4.2, fov: 42, line: 'A courier rides this cable car with the bomb’s arming key.' },
+      { at: () => sitePos('bunker', 2), r: 26, h: 7, a0: -0.5, spin: 0.06, dur: 4, fov: 42, line: 'He will walk from the station to this bunker door.' },
+      { pov: true, at: () => sitePos('bunker', 2), dur: 3.4, fov: 8, line: 'Stop him before he gets inside. Aim ahead of him.' },
+    ],
     objectives: [{ id: 'courier', text: 'Eliminate Dr. Sorel before he reaches the bunker' }, { id: 'escort', text: 'Eliminate his escort', optional: true }],
     setup(M) {
       const yawB = yawToPlayer(SITES.bunker.x, SITES.bunker.z);
@@ -2362,8 +2398,6 @@ const MISSIONS = [
         M.courier.wait = 1.2;
       };
       M.route = route;
-      radio('OVERWATCH', 'Cable car inbound from the summit. ETA forty seconds. Eight-twenty slant — dial the ballistic range.', 1.5);
-      radio('OVERWATCH', 'Wind is pushing hard from your right. Watch the flag on the bunker roof.', 9);
     },
     update(M, dt) {
       if (G.alarm && M.courier.alive && !M.ran && M.arrived && !M.courier.hidden) {
@@ -2376,7 +2410,7 @@ const MISSIONS = [
       if (a === M.escort) { complete('escort'); }
     },
     onAlarm(M) { radio('OVERWATCH', 'They\'re rushing him to the door — shoot NOW!', 0.1); },
-    debrief: ['Recovery confirms it: the arming key, still cuffed to Sorel\'s wrist. Without it, HALCYON is just a very expensive paperweight — for now.', 'Then a drone pass lights up the summit. Kael himself is on the observatory deck, watching the valley at sunset like a man who believes he owns it.']
+    debrief: ['The arming key is ours. Now for Kael himself.'],
   },
   {
     code: '03', title: 'THE VULTURE\'S NEST', time: '19:24 · SUNSET', loc: 'BLACK SUMMIT · KESSLER OBSERVATORY', env: 'sunset',
@@ -2388,6 +2422,12 @@ const MISSIONS = [
     ],
     target: { look: 'kael', name: 'Viktor Kael', alias: '"THE VULTURE"', desc: 'Arms broker. Holds HALCYON. Paranoid, disciplined, never sleeps in the same room twice. Last seen: Kessler Observatory deck.' },
     intel: [['RANGE', '≈ 970 M'], ['ANGLE', 'NEAR LEVEL'], ['WIND', '4–6 M/S GUSTING'], ['ESCAPE', 'HELICOPTER ON PAD']],
+    intro: M => [
+      { at: () => sitePos('summit', 8), r: 170, h: 70, a0: 0.5, spin: 0.05, dur: 4.2, fov: 42, line: 'Black Summit. The hideout of Viktor Kael.' },
+      { at: () => M.kael.headPos(new THREE.Vector3()), r: 4.2, h: 0.4, a0: 0.25, spin: 0.08, dur: 4.5, fov: 36, tag: M.kael, tagText: 'VIKTOR KAEL', vip: true, line: 'He stole a weapon that can black out a whole city.' },
+      { at: () => heli.group.position.clone().add(new THREE.Vector3(0, 1.5, 0)), r: 15, h: 3.5, a0: 1.1, spin: 0.08, dur: 3.6, fov: 42, line: 'If the alarm sounds, he escapes in this helicopter.' },
+      { pov: true, at: () => M.kael.headPos(new THREE.Vector3()), dur: 3.2, fov: 6, line: 'One shot. Make it count.' },
+    ],
     objectives: [{ id: 'kael', text: 'Eliminate Viktor Kael' }, { id: 'escape', text: 'Do not let the helicopter take off' }],
     setup(M) {
       resetHeli();
@@ -2401,8 +2441,6 @@ const MISSIONS = [
       spawn({ name: 'Guard', look: 'guard', ...xz(sitePt('summit', 6, 20)), faceYaw: yawS, anim: 'scan' });
       spawn({ name: 'Guard', look: 'guard2', ...xz(sitePt('summit', -16, 9)), faceYaw: yawS + 1.2, anim: 'talk' });
       M.kael.walkT = 14;
-      radio('OVERWATCH', 'Eyes on the deck. Crimson coat, by the railing. That is Viktor Kael.', 1.5);
-      radio('OVERWATCH', 'Nine-seventy meters. Dial it in. Wind is gusting — time it with the flag.', 8);
     },
     update(M, dt) {
       const k = M.kael;
@@ -2422,7 +2460,7 @@ const MISSIONS = [
       radio('OVERWATCH', 'He\'s running for the helicopter! Stop him!', 0.1);
       heliFlee(M, M.kael, 4.2);
     },
-    debrief: ['The man on the deck had Kael\'s coat, Kael\'s cigar, and somebody else\'s face. A body double — and a good one.', 'Minutes later every light on the summit comes on at once. A storm is rolling over Black Summit, and under the cover of the snow the real Viktor Kael is going for the helicopter — with HALCYON.']
+    debrief: ['Wait… that was a body double. The real Kael is escaping.'],
   },
   {
     code: '04', title: 'STORMBREAK', time: '23:51 · NIGHT · BLIZZARD', loc: 'BLACK SUMMIT · HELIPAD', env: 'night',
@@ -2434,6 +2472,12 @@ const MISSIONS = [
     ],
     target: { look: 'kael', name: 'Viktor Kael', alias: '"THE VULTURE" · CONFIRMED', desc: 'This time it is him. Moving from the annex to the helipad with HALCYON and a two-man close protection detail.' },
     intel: [['RANGE', '≈ 1000 M'], ['WIND', '6–8 M/S STORM'], ['VISIBILITY', 'POOR · THERMAL ADVISED'], ['WEAK POINT', 'EXTERNAL FUEL TANKS']],
+    intro: M => [
+      { at: () => sitePos('summit', 8), r: 150, h: 55, a0: -0.4, spin: 0.05, dur: 4, fov: 44, line: 'The man you shot was a body double.' },
+      { at: () => M.kael.headPos(new THREE.Vector3()), r: 4.5, h: 0.5, a0: 0.3, spin: 0.08, dur: 4.2, fov: 38, tag: M.kael, tagText: 'THE REAL KAEL', vip: true, line: 'The real Kael is running tonight — with the weapon.' },
+      { at: () => heli.group.position.clone().add(new THREE.Vector3(0, 1.2, 0)), r: 13, h: 3, a0: 1.3, spin: 0.09, dur: 4, fov: 42, line: 'Stop him. If he gets aboard, shoot the fuel tanks.' },
+      { pov: true, at: () => sitePos('summit', 2), dur: 3, fov: 10, line: IS_TOUCH ? 'Tap THERMAL to see through the storm.' : 'Press N for thermal to see through the storm.' },
+    ],
     objectives: [{ id: 'kael', text: 'Stop Viktor Kael from escaping with HALCYON' }, { id: 'clean', text: 'Kill Kael before he boards', optional: true }],
     setup(M) {
       resetHeli(); heli.state = 'spinup'; heli.rotorSpeed = 0.35; heli.beam.visible = true; heli.search.intensity = 1600;
@@ -2453,8 +2497,6 @@ const MISSIONS = [
       M.g1.setPath(route.map(p => Object.assign(p.clone().add(new THREE.Vector3(1.2, 0, 0.6)), { ground: true })), { loop: false, speed: 1.05, pauses: false, delay: 8.4, onArrive: a => { a.faceYaw = yawS; a.becomeAlert(); } });
       M.g2.setPath(route.map(p => Object.assign(p.clone().add(new THREE.Vector3(-1.2, 0, 0.6)), { ground: true })), { loop: false, speed: 1.05, pauses: false, delay: 8.6, onArrive: a => { a.faceYaw = yawS; a.becomeAlert(); } });
       M.heliHits = 0;
-      radio('OVERWATCH', 'Wraith, annex door is opening. Three figures. Kael is the one in the long coat.', 2);
-      radio('OVERWATCH', IS_TOUCH ? 'Visibility is garbage. Switch to thermal.' : 'Visibility is garbage. Use thermal — press N.', 7);
       if (!IS_TOUCH) hint('<kbd>N</kbd> thermal vision', 6, 7);
     },
     update(M, dt) {
@@ -2482,10 +2524,10 @@ const MISSIONS = [
       }
     },
     debriefFor(M) {
-      if (M.kael.alive) return ['The helicopter burns on the pad with HALCYON still in the hold. Kael runs for the annex and walks straight into the strike team coming up the cable line.', 'He will spend the rest of his life explaining himself to people who are not interested. Officially, Operation Halcyon never happened.', '<b>— END —</b>'];
+      if (M.kael.alive) return ['The helicopter burns. Kael is captured. The weapon is safe.', 'THE END'];
       return this.debrief;
     },
-    debrief: ['The wreck burns for an hour on the north face of Black Summit. Recovery finds the HALCYON case intact in the snow, thirty meters from what is left of Viktor Kael.', 'Officially, Operation Halcyon never happened. Unofficially, there is a ridge in the Varn Mountains where the spotters still say: one shot, one story.', '<b>— END —</b>']
+    debrief: ['Kael is finished. The weapon is safe.', 'THE END'],
   },
 ];
 function xz(v) { return { x: v.x, z: v.z }; }
@@ -2532,7 +2574,7 @@ function clearMission() {
   if (boltMesh) { scene.remove(boltMesh); boltMesh = null; }
   G.alarm = false; G.alert = 0; G.ended = false; G.bc = null; G.timeScale = G.tsTarget = 1;
 }
-function startMission(idx) {
+function startMission(idx, withIntro = true) {
   clearMission();
   const M = G.mission = Object.assign(Object.create(MISSIONS[idx]), {});
   G.missionIdx = idx;
@@ -2553,15 +2595,56 @@ function startMission(idx) {
   P.yaw = Math.atan2(-(tp.x - P.pos.x), -(tp.z - P.pos.z)) + 0.06; P.pitch = Math.atan2(tp.y - P.pos.y, Math.hypot(tp.x - P.pos.x, tp.z - P.pos.z));
   camera.position.copy(P.pos); setFov(P.fov); camera.near = 0.1; camera.updateProjectionMatrix();
   M.setup(M);
-  buildObjectivesUI();
   $('#objCode').textContent = `MISSION ${M.code}`; $('#objTitle').textContent = M.title;
-  setScreen(null); $('#hud').style.display = 'block';
+  setScreen(null);
+  if (M.intro && withIntro) {
+    G.state = 'intro'; G.intro = { shots: M.intro(M), idx: 0, t: 0 };
+    $('#hud').style.display = 'none'; $('#cineUI').classList.add('on'); $('#letterbox').classList.add('on');
+    showCineLine(G.intro.shots[0]); AudioSys.setMusic(0.4); flashFade(0.9);
+  } else beginPlay();
+}
+function beginPlay() {
+  G.intro = null; G.introFocus = null;
+  $('#cineUI').classList.remove('on'); $('#letterbox').classList.remove('on');
+  buildObjectivesUI();
+  $('#hud').style.display = 'block';
   G.state = 'playing';
   AudioSys.setMusic(0);
-  flashFade(0.9);
+  flashFade(0.7);
   rifle.g.visible = true;
   requestLock();
 }
+function showCineLine(shot) {
+  const el = $('#cineLine'); el.textContent = shot.line || ''; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  const tg = $('#cineTag'); tg.textContent = shot.tagText || ''; tg.className = shot.vip ? 'vip' : '';
+}
+const _cv = new THREE.Vector3();
+function updateIntro(rdt) {
+  const I = G.intro; I.t += rdt;
+  let s = I.shots[I.idx];
+  if (I.t > s.dur) {
+    I.idx++; I.t = 0;
+    if (I.idx >= I.shots.length) { beginPlay(); return; }
+    s = I.shots[I.idx]; showCineLine(s); FX.uFade.value = 0.85; G.fadeOut = { t: 0, dur: 0.45 };
+  }
+  const tp = s.at();
+  if (s.pov) camera.position.copy(P.pos);
+  else {
+    const base = Math.atan2(P.pos.x - tp.x, P.pos.z - tp.z), a = base + (s.a0 || 0) + I.t * (s.spin ?? 0.05);
+    const r = s.r * (1 - 0.08 * I.t / s.dur);
+    camera.position.set(tp.x + Math.sin(a) * r, tp.y + s.h, tp.z + Math.cos(a) * r);
+    camera.position.y = Math.max(camera.position.y, heightAt(camera.position.x, camera.position.z) + 1.5);
+  }
+  camera.lookAt(tp);
+  setFov(s.fov * (1 - 0.1 * I.t / s.dur)); camera.near = s.pov ? 1 : 0.1; camera.updateProjectionMatrix();
+  G.introFocus = tp; G.introHalf = s.pov ? 120 : clamp((s.r || 40) * 1.6, 25, 300);
+  const tag = $('#cineTag');
+  if (s.tag && s.tag.alive && !s.tag.hidden) {
+    s.tag.headPos(_cv); _cv.y += 0.3; _cv.project(camera);
+    if (_cv.z < 1) { tag.style.display = 'block'; tag.style.left = (_cv.x * 0.5 + 0.5) * innerWidth + 'px'; tag.style.top = (-_cv.y * 0.5 + 0.5) * innerHeight + 'px'; }
+  } else tag.style.display = 'none';
+}
+$('#cineSkip').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); AudioSys.init(); if (G.state === 'intro') { AudioSys.click(); beginPlay(); } });
 function buildObjectivesUI() {
   const ob = $('#obj'); ob.classList.remove('mini'); clearTimeout(buildObjectivesUI.t); buildObjectivesUI.t = setTimeout(() => ob.classList.add('mini'), 7000);
   $('#objList').innerHTML = G.objectives.map(o => `<li data-id="${o.id}" class="${o.optional ? 'opt' : ''} ${o.state === 'done' ? 'done' : o.state === 'fail' ? 'fail' : ''}"><i></i><span>${o.text}</span></li>`).join('');
@@ -2599,7 +2682,7 @@ function endMission(ok) {
   $('#dTitle').textContent = M.title;
   $('#dStars').textContent = ok ? '★'.repeat(stars) + '☆'.repeat(3 - stars) : '';
   $('#dStats').innerHTML = [
-    ['TIME', fmtTime(G.time)], ['SHOTS FIRED', st.shots], ['HITS', st.hits], ['ACCURACY', acc + '%'], ['HEADSHOTS', st.heads], ['LONGEST SHOT', st.longest ? Math.round(st.longest) + ' m' : '—'], ['ALARM RAISED', G.alarm ? 'YES' : 'NO']
+    ['ACCURACY', acc + '%'], ['HEADSHOTS', st.heads], ['LONGEST SHOT', st.longest ? Math.round(st.longest) + ' m' : '—']
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
   const last = G.missionIdx === MISSIONS.length - 1;
   const btns = [];
@@ -2608,7 +2691,7 @@ function endMission(ok) {
   btns.push('<button class="btn" data-d="menu">MAIN MENU</button>');
   $('#dBtns').innerHTML = btns.join('');
   setScreen('debrief');
-  typeStory($('#dStory'), ok ? (M.debriefFor ? M.debriefFor(M) : M.debrief) : [G.failReason || 'Mission failed.', 'Overwatch: "Reset, Wraith. We go again."']);
+  typeStory($('#dStory'), ok ? (M.debriefFor ? M.debriefFor(M) : M.debrief) : [G.failReason || 'Mission failed.']);
   AudioSys.setMusic(0.5); AudioSys.setSiren(false);
   G.cine = { site: M.site, t: 0 };
 }
@@ -2658,6 +2741,7 @@ function hitmark(kill) {
 let hintTimer = null;
 function hint(html, dur = 3, delay = 0) {
   const id = setTimeout(() => {
+    if (G.state === 'intro') { hint(html, dur, 1); return; }
     const h = $('#hint'); h.innerHTML = html; h.style.opacity = 1;
     clearTimeout(hintTimer); hintTimer = setTimeout(() => h.style.opacity = 0, dur * 1000);
   }, delay * 1000);
@@ -2685,7 +2769,8 @@ function portrait(lookName) {
 
 /* ---------- menus ---------- */
 function showTitle() {
-  G.state = 'menu'; clearMission(); setScreen('title'); $('#hud').style.display = 'none'; $('#sub').classList.remove('on');
+  G.state = 'menu'; clearMission(); setScreen('title');
+  { const i = Math.min(progress.unlocked, MISSIONS.length) - 1; $('#playSub').textContent = `MISSION ${MISSIONS[i].code} · ${MISSIONS[i].title}`; } $('#hud').style.display = 'none'; $('#sub').classList.remove('on');
   applyEnv(['dawn', 'sunset', 'noon'][(progress.unlocked - 1) % 3]);
   resetHeli();
   G.cine = { site: 'title', t: 0 };
@@ -2748,20 +2833,20 @@ function bindSettings(root) {
 $('#mainMenu').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return; AudioSys.init(); AudioSys.click();
   const act = b.dataset.act;
-  if (act === 'continue') showBriefing(Math.min(progress.unlocked, MISSIONS.length) - 1);
+  if (act === 'continue') { goFullscreen(); startMission(Math.min(progress.unlocked, MISSIONS.length) - 1); }
   else renderSub(act);
 });
-$('#sub').addEventListener('click', e => { const c = e.target.closest('.mcard'); if (!c || c.classList.contains('locked')) return; AudioSys.click(); showBriefing(+c.dataset.m); });
+$('#sub').addEventListener('click', e => { const c = e.target.closest('.mcard'); if (!c || c.classList.contains('locked')) return; AudioSys.init(); AudioSys.click(); goFullscreen(); startMission(+c.dataset.m); });
 $('#bBack').onclick = () => { AudioSys.click(); showTitle(); };
 $('#bGo').onclick = () => { AudioSys.init(); AudioSys.click(); goFullscreen(); startMission(G.missionIdx); };
 $('#dBtns').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return; AudioSys.click();
-  if (b.dataset.d === 'next') showBriefing(G.missionIdx + 1);
-  else if (b.dataset.d === 'retry') startMission(G.missionIdx);
+  if (b.dataset.d === 'next') startMission(G.missionIdx + 1);
+  else if (b.dataset.d === 'retry') startMission(G.missionIdx, false);
   else showTitle();
 });
 $('#pResume').onclick = () => { setScreen(null); G.state = G.prevState || 'playing'; requestLock(); };
-$('#pRestart').onclick = () => startMission(G.missionIdx);
+$('#pRestart').onclick = () => startMission(G.missionIdx, false);
 $('#pQuit').onclick = () => showTitle();
 function pause() {
   if (G.state !== 'playing' && G.state !== 'bulletcam') return;
@@ -2852,7 +2937,7 @@ function goFullscreen() {
   if (!IS_TOUCH) return;
   try { const d = document.documentElement; const r = d.requestFullscreen ? d.requestFullscreen({ navigationUI: 'hide' }) : d.webkitRequestFullscreen && d.webkitRequestFullscreen(); if (r && r.then) r.catch(() => { }); } catch (e) { }
 }
-if (IS_TOUCH) $('#footTxt').textContent = 'TOUCH CONTROLS · HEADPHONES RECOMMENDED';
+
 document.addEventListener('mousemove', e => {
   if (!locked || G.state !== 'playing') return;
   const k = settings.sens * 0.0022 * (P.fovCur / 62);
@@ -2868,6 +2953,7 @@ addEventListener('keydown', e => {
   keys[e.code] = true;
   if (['ArrowUp', 'ArrowDown', 'Space', 'Tab'].includes(e.code) && G.state !== 'menu') e.preventDefault();
   if (G.state === 'bulletcam' && (e.code === 'Space' || e.code === 'Enter')) G.bcSkip = true;
+  if (G.state === 'intro' && (e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape')) beginPlay();
   if (G.state !== 'playing') return;
   if (e.code === 'ArrowUp') { P.zero = Math.min(1500, P.zero + 50); AudioSys.click(); }
   if (e.code === 'ArrowDown') { P.zero = Math.max(100, P.zero - 50); AudioSys.click(); }
@@ -3102,6 +3188,8 @@ function update(rdt) {
     flashLight.intensity = f * 3.2; cloudU.uFlash.value = f; if (boltMesh) boltMesh.visible = G.lightning > 0.45;
   } else { flashLight.intensity = 0; cloudU.uFlash.value = 0; if (boltMesh) boltMesh.visible = false; }
 
+  G.frozen = G.state === 'intro';
+  if (G.state === 'intro') { for (const a of actors) a.update(dt); updateIntro(rdt); }
   if (G.state === 'playing') updatePlayer(rdt);
   if (playing) {
     for (const a of actors) a.update(dt);
@@ -3116,7 +3204,7 @@ function update(rdt) {
   else G.bcSkip = false;
   document.body.classList.toggle('playing', G.state === 'playing' || G.state === 'bulletcam');
   document.body.classList.toggle('bc', G.state === 'bulletcam');
-  RIM.value = G.state === 'bulletcam' ? 0.06 : (ENV.night ? 0.25 : 0.45);
+  RIM.value = G.state === 'bulletcam' || G.state === 'intro' ? 0.08 : (ENV.night ? 0.25 : 0.45);
   document.body.classList.toggle('night', !!ENV.night);
   $('#tScope').classList.toggle('on', P.scoped); $('#tTherm').classList.toggle('on', P.thermal);
   if (G.state === 'menu' || G.state === 'briefing' || G.state === 'debrief') updateCine(rdt);
@@ -3219,6 +3307,7 @@ function updateShadowCam() {
   let center, half;
   if (G.state === 'playing' && range) { const r = Math.min(range, 1600); center = _v2.copy(camera.position).addScaledVector(fwd, r); half = clamp(r * Math.tan(camera.fov * DEG / 2) * 1.6, 28, 420); }
   else if (G.state === 'bulletcam' && G.bc) { center = _v2.copy(G.bc.target.point); half = 60; }
+  else if (G.state === 'intro' && G.introFocus) { center = _v2.copy(G.introFocus); half = G.introHalf; }
   else { center = _v2.copy(camera.position).addScaledVector(fwd, 350); half = 520; }
   const ld = G.lightDir || sunDir;
   const texel = (half * 2) / sun.shadow.mapSize.x;
