@@ -25,7 +25,7 @@ open it there.
 
 | Input | Action |
 | --- | --- |
-| On-screen joystick (bottom left) | Steer: left/right turns, up/down dives and climbs |
+| Joystick | Touch anywhere on the screen and the joystick appears under your finger; drag to steer (left/right turns, up/down dives and climbs). It returns to the bottom-left corner when you let go, where it also works with a mouse. |
 | Mouse position | Steer (left/right turns, up/down pitches) |
 | **EAT** button, E or right click | Eat: lunge at the nearest prey, swallowing small prey in reach or biting big prey once. Eating only happens when you press it, and the button glows when prey is in reach. |
 | **JUMP** button or Space | Big leap out of the water, about 27 units high (flop forward on land) |
@@ -34,7 +34,7 @@ open it there.
 | P / Esc | Pause |
 | M | Toggle sound |
 | N | Toggle music |
-| Touch | Drag to steer, and use the EAT, JUMP and BOOST buttons |
+| Touch | Drag anywhere to steer with the floating joystick; a second finger boosts; use the EAT, JUMP and BOOST buttons |
 
 ## How it plays
 

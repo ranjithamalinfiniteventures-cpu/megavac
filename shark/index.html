@@ -41,6 +41,7 @@ canvas.gl{display:block;position:fixed;inset:0;width:100%;height:100%}
 #stick::before{width:2px;height:70%}#stick::after{width:70%;height:2px}
 #knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffffff,#9fd8ef 60%,#3b8fb5);box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:1;transition:transform .08s}
 #stick.on #knob{transition:none}
+#stick.float{background:radial-gradient(circle,rgba(255,255,255,.1) 30%,rgba(255,255,255,.28));border-color:rgba(255,255,255,.7)}
 #actions{position:absolute;right:max(18px,calc(env(safe-area-inset-right,0px) + 10px));bottom:calc(18px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;gap:12px;align-items:end;pointer-events:auto}
 .act{border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;letter-spacing:.06em;cursor:pointer;touch-action:none;border:2px solid rgba(255,255,255,.55);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);box-shadow:0 6px 18px rgba(0,0,0,.35),inset 0 2px 0 rgba(255,255,255,.35);transition:transform .08s,filter .08s}
 .act small{font-size:9px;font-weight:700;opacity:.85;letter-spacing:.08em;margin-top:2px}
@@ -1109,7 +1110,7 @@ let bannerT=0;function banner(t,s){$('banner').innerHTML=t+(s?'<small>'+s+'</sma
 $('menuList').innerHTML=Object.values(TYPES).map(t=>`<div class="${t.danger&&!t.sting?'bad':''}">${t.name}<span>+${t.pts}</span></div>`).join('');
 
 // ================= input =================
-const keys={};let mx=0,my=0,inputMode='mouse',mouseBoost=false,btnBoost=false,touchBoost=false,touchId=null,tox=0,toy=0,keyPitch=0;
+const keys={};let mx=0,my=0,inputMode='mouse',mouseBoost=false,btnBoost=false,touchBoost=false,keyPitch=0;
 addEventListener('keydown',e=>{keys[e.code]=true;
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))inputMode='keys';
@@ -1122,12 +1123,12 @@ addEventListener('keydown',e=>{keys[e.code]=true;
 addEventListener('keyup',e=>keys[e.code]=false);
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false;mouseBoost=btnBoost=touchBoost=false;if(phase==='play')togglePause();});
 const cv=renderer.domElement;
-cv.addEventListener('pointermove',e=>{if(e.pointerType==='touch'){if(e.pointerId===touchId){mx=clamp((e.clientX-tox)/70,-1,1);my=clamp((e.clientY-toy)/70,-1,1);}return;}
+cv.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'){if(e.pointerId===stickId)moveStick(e);return;}
   mx=(e.clientX/innerWidth)*2-1;my=(e.clientY/innerHeight)*2-1;inputMode='mouse';});
-cv.addEventListener('pointerdown',e=>{audio();if(e.pointerType==='touch'){if(touchId===null){touchId=e.pointerId;tox=e.clientX;toy=e.clientY;mx=my=0;inputMode='mouse';}else touchBoost=true;return;}
+cv.addEventListener('pointerdown',e=>{audio();if(e.pointerType!=='mouse'){if(stickId===null)floatStick(e);else touchBoost=true;return;}
   if(e.button===0)mouseBoost=true;if(e.button===2)doEat();});
-addEventListener('pointerup',e=>{if(e.pointerType==='touch'){if(e.pointerId===touchId){touchId=null;mx=my=0;}else touchBoost=false;return;}if(e.button===0)mouseBoost=false;});
-addEventListener('pointercancel',e=>{if(e.pointerId===touchId){touchId=null;mx=my=0;}});
+addEventListener('pointerup',e=>{if(e.pointerId===stickId){endStick(e);return;}if(e.pointerType!=='mouse'){touchBoost=false;return;}if(e.button===0)mouseBoost=false;});
+addEventListener('pointercancel',e=>{if(e.pointerId===stickId)endStick(e);else if(e.pointerType!=='mouse')touchBoost=false;});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('pointerout',e=>{if(e.pointerType!=='touch'){mx=my=0;}});
 function holdBtn(el,down,up){el.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();audio();el.classList.add('on');down();});
@@ -1138,7 +1139,11 @@ function moveStick(e){const r=stick.getBoundingClientRect(),R=r.width/2,m=R*.6;l
   knob.style.transform=`translate(${dx}px,${dy}px)`;jx=dx/m;jy=dy/m;}
 stick.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();audio();stickId=e.pointerId;try{stick.setPointerCapture(e.pointerId);}catch(_){}stick.classList.add('on');inputMode='stick';moveStick(e);});
 stick.addEventListener('pointermove',e=>{if(e.pointerId===stickId)moveStick(e);});
-const endStick=e=>{if(e.pointerId!==stickId)return;stickId=null;jx=jy=0;knob.style.transform='';stick.classList.remove('on');};
+// floating joystick: a touch anywhere on the 3D view puts the stick under the finger; it goes home on release
+function floatStick(e){const w=stick.offsetWidth,h=stick.offsetHeight;
+  stick.style.left=clamp(e.clientX-w/2,4,innerWidth-w-4)+'px';stick.style.top=clamp(e.clientY-h/2,4,innerHeight-h-4)+'px';stick.style.bottom='auto';
+  stickId=e.pointerId;try{cv.setPointerCapture(e.pointerId);}catch(_){}stick.classList.add('on','float');inputMode='stick';moveStick(e);}
+function endStick(e){if(e.pointerId!==stickId)return;stickId=null;jx=jy=0;knob.style.transform='';stick.classList.remove('on','float');stick.style.left=stick.style.top=stick.style.bottom='';}
 stick.addEventListener('pointerup',endStick);stick.addEventListener('pointercancel',endStick);stick.addEventListener('contextmenu',e=>e.preventDefault());
 holdBtn($('eatBtn'),doEat);holdBtn($('jumpBtn'),doJump);holdBtn($('boostBtn'),()=>btnBoost=true,()=>btnBoost=false);
 
