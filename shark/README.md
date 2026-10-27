@@ -27,8 +27,8 @@ open it there.
 | --- | --- |
 | On-screen joystick (bottom left) | Steer: left/right turns, up/down dives and climbs |
 | Mouse position | Steer (left/right turns, up/down pitches) |
-| **EAT** button, E or right click | Lunge at the nearest prey ahead, with a longer reach |
-| **JUMP** button or Space | Leap out of the water (flop forward on land) |
+| **EAT** button, E or right click | Eat: lunge at the nearest prey, swallowing small prey in reach or biting big prey once. Eating only happens when you press it, and the button glows when prey is in reach. |
+| **JUMP** button or Space | Big leap out of the water, about 27 units high (flop forward on land) |
 | **BOOST** button, hold left click or Shift | Boost |
 | W A S D / arrow keys | Steer with the keyboard |
 | P / Esc | Pause |
@@ -39,7 +39,7 @@ open it there.
 ## How it plays
 
 - **Eat anything.** Every creature is food at any level. Small prey goes down in one
-  bite and is sucked into your jaws when it gets close. Big prey takes a few bites,
+  bite and is sucked into your jaws when you press EAT. Big prey takes a few bites,
   and fewer as you grow. Hammerheads and orcas fight back until you outgrow them.
 - **Easy steering.** Steering has a soft response curve, the shark levels out on its
   own, and aim assist drifts it toward the nearest prey ahead.
@@ -48,8 +48,8 @@ open it there.
   start losing health. Eating restores both.
 - **Leap.** Press JUMP near the surface to launch out of the water and snatch seagulls.
 - **Beach raids.** Charge through the shallows to slide up onto the sand and grab
-  beachgoers. Press JUMP to flop along. You dry out on land, so get back to the
-  water quickly.
+  beachgoers. On land the shark slides and flops back to the sea by itself, so it
+  never gets stranded, but it slowly dries out while it is there.
 - **Combos.** Eating quickly in a row raises a score multiplier, up to x5.
 - **Sound and music.** Layered sound effects (crunching bites, splashes, screams,
   whale song) are muffled underwater. An original tropical soundtrack builds with your
