@@ -33,16 +33,17 @@ open it there.
 | W A S D / arrow keys | Steer with the keyboard |
 | P / Esc | Pause |
 | M | Toggle sound |
+| N | Toggle music |
 | Touch | Drag to steer, and use the EAT, JUMP and BOOST buttons |
 
 ## How it plays
 
-- **Eat by getting close.** Anything small enough near your jaws or body is sucked in and eaten automatically.
-- **Grow by eating.** Each creature shows the level you need before you can eat it.
-  Smaller creatures flee from you. Bigger ones bounce you off, and hammerheads,
-  orcas and jellyfish hurt you until you outgrow them.
-- **Blue whales** can be bitten at any level. Each bite rips off a chunk, and
-  a whale is devoured after 14 bites.
+- **Eat anything.** Every creature is food at any level. Small prey goes down in one
+  bite and is sucked into your jaws when it gets close. Big prey takes a few bites,
+  and fewer as you grow. Hammerheads and orcas fight back until you outgrow them.
+- **Easy steering.** Steering has a soft response curve, the shark levels out on its
+  own, and aim assist drifts it toward the nearest prey ahead.
+- **Blue whales** are eaten chunk by chunk: 14 bites at level 1, fewer as you grow.
 - **Hunger** drains all the time, and faster while boosting. When it is empty you
   start losing health. Eating restores both.
 - **Leap.** Press JUMP near the surface to launch out of the water and snatch seagulls.
@@ -50,6 +51,9 @@ open it there.
   beachgoers. Press JUMP to flop along. You dry out on land, so get back to the
   water quickly.
 - **Combos.** Eating quickly in a row raises a score multiplier, up to x5.
-- The radar (bottom right) turns with your heading. Green is edible, red is
-  dangerous, yellow is a whale and grey is too big for now. The best score is
+- **Sound and music.** Layered sound effects (crunching bites, splashes, screams,
+  whale song) are muffled underwater. An original tropical soundtrack builds with your
+  combo and boosting, and turns tense when a predator is chasing you.
+- The radar (top right) turns with your heading. Green is one bite, orange
+  takes a few bites, red is a predator and yellow is a whale. The best score is
   saved in `localStorage`.

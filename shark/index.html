@@ -61,6 +61,9 @@ h2{margin:0 0 10px;font-size:26px}
 button{font:inherit;font-size:20px;font-weight:800;padding:12px 36px;border:0;border-radius:40px;background:var(--accent);color:#3a1d00;cursor:pointer;box-shadow:0 4px 0 var(--accent-dk);margin:6px}
 button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 button:active{transform:translateY(2px);box-shadow:0 2px 0 var(--accent-dk)}
+.toggles{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.tg{font-size:14px;padding:7px 16px;background:rgba(255,255,255,.12);color:var(--fg);box-shadow:none;border:1px solid var(--line)}
+.tg:active{transform:none;box-shadow:none}
 .keys{font-size:13px;color:var(--muted);margin-top:14px;line-height:1.7}
 kbd{background:rgba(255,255,255,.15);border-radius:4px;padding:1px 6px;font-family:inherit;color:var(--fg)}
 .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px;font-size:14px;text-align:left;margin:12px 0}
@@ -95,18 +98,20 @@ kbd{background:rgba(255,255,255,.15);border-radius:4px;padding:1px 6px;font-fami
 <div id="menu" class="panel">
   <div class="card">
     <h1>SHARK FRENZY</h1>
-    <p class="sub">You are a great white shark. Hunt fish, swimmers and people on the beach, octopus, seals and dolphins, and tear chunks out of blue whales. Eat to grow. Grow to eat bigger prey.</p>
+    <p class="sub">You are a great white shark, and everything is on the menu: fish, swimmers, people on the beach, octopus, seals, dolphins, orcas and blue whales. Small prey goes down in one bite. Big prey takes a few, and fewer as you grow.</p>
     <div class="menu-list" id="menuList"></div>
     <button id="playBtn">PLAY</button>
+    <div class="toggles"><button class="tg sndBtn" type="button">Sound: On</button><button class="tg musBtn" type="button">Music: On</button></div>
     <div class="keys">
       <b>Mouse</b> steer · <b>Hold left click</b> or <kbd>Shift</kbd> boost<br>
       <kbd>E</kbd> or <b>right click</b> EAT (lunge bite) · <kbd>Space</kbd> JUMP<br>
-      <b>Joystick</b> (bottom left) steers too · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows · <kbd>P</kbd> pause · <kbd>M</kbd> sound<br>
+      <b>Joystick</b> (bottom left) steers too · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows · <kbd>P</kbd> pause · <kbd>M</kbd> sound · <kbd>N</kbd> music<br>
       Anything small enough near your jaws gets sucked in and eaten. Jump near the surface to leap out and catch seagulls. Charge the shallows to slide onto the beach. Don't stay on land too long.
     </div>
   </div>
 </div>
-<div id="pause" class="panel hidden"><div class="card"><h2>Paused</h2><button id="resumeBtn">RESUME</button></div></div>
+<div id="pause" class="panel hidden"><div class="card"><h2>Paused</h2><button id="resumeBtn">RESUME</button>
+  <div class="toggles"><button class="tg sndBtn" type="button">Sound: On</button><button class="tg musBtn" type="button">Music: On</button></div></div></div>
 <div id="over" class="panel hidden">
   <div class="card">
     <h1 id="overTitle">GAME OVER</h1>
@@ -817,36 +822,91 @@ function updateParts(dt){for(const p of parts){if(p.life<=0)continue;p.life-=dt;
   const grow=p.kind==='blood'||p.kind==='ink';p.m.scale.setScalar(p.size*(grow?2.6-f*1.6:p.kind==='bubble'?1:.6+f*.6));p.m.material.opacity=K.op*(grow?f:Math.min(1,f*2));
   if(p.kind==='bubble'&&p.m.position.y>-.1){p.life=0;p.m.visible=false;}}}
 
-// ================= audio =================
-let AC=null,muted=store.get('shark.muted')==='1',amb=null,ambF=null,noiseB=null;
+// ================= audio: sound effects and procedural music =================
+let AC=null,muted=store.get('shark.muted')==='1',musicOn=store.get('shark.music')!=='0';
+let amb=null,ambF=null,noiseB=null,whiteB=null,master=null,muffle=null,musBus=null,musF=null,sfxBus=null,verbIn=null,mDelay=null;
 function audio(){
   if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
-    noiseB=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);const d=noiseB.getChannelData(0);let l=0;for(let i=0;i<d.length;i++){const w=Math.random()*2-1;l=(l+.02*w)/1.02;d[i]=l*3.5;}
+    const len=AC.sampleRate*2;noiseB=AC.createBuffer(1,len,AC.sampleRate);whiteB=AC.createBuffer(1,len,AC.sampleRate);
+    const d=noiseB.getChannelData(0),w=whiteB.getChannelData(0);let l=0;for(let i=0;i<len;i++){const r=Math.random()*2-1;w[i]=r;l=(l+.02*r)/1.02;d[i]=l*3.5;}
+    const comp=AC.createDynamicsCompressor();comp.threshold.value=-16;comp.ratio.value=4;comp.connect(AC.destination);
+    master=AC.createGain();muffle=AC.createBiquadFilter();muffle.type='lowpass';muffle.frequency.value=18000;master.connect(muffle).connect(comp);
+    sfxBus=AC.createGain();sfxBus.gain.value=.9;sfxBus.connect(master);
+    musBus=AC.createGain();musF=AC.createBiquadFilter();musF.type='lowpass';musF.frequency.value=18000;musBus.connect(musF).connect(comp);
+    // reverb from a decaying noise impulse
+    const vl=AC.sampleRate*2.4,ir=AC.createBuffer(2,vl,AC.sampleRate);for(let c=0;c<2;c++){const b=ir.getChannelData(c);for(let i=0;i<vl;i++)b[i]=(Math.random()*2-1)*Math.pow(1-i/vl,3.2);}
+    const verb=AC.createConvolver();verb.buffer=ir;verbIn=AC.createGain();verbIn.gain.value=.5;verbIn.connect(verb).connect(muffle);
+    // music echo
+    mDelay=AC.createDelay(1);mDelay.delayTime.value=STEP*3;const fb=AC.createGain();fb.gain.value=.33;const dw=AC.createGain();dw.gain.value=.5;mDelay.connect(fb).connect(mDelay);mDelay.connect(dw).connect(musBus);
+    // surf / underwater rumble
     const src=AC.createBufferSource();src.buffer=noiseB;src.loop=true;ambF=AC.createBiquadFilter();ambF.type='lowpass';ambF.frequency.value=500;amb=AC.createGain();amb.gain.value=0;
-    src.connect(ambF).connect(amb).connect(AC.destination);src.start();}
+    src.connect(ambF).connect(amb).connect(master);src.start();
+    applyAudioPrefs();startMusic();}
   if(AC.state==='suspended')AC.resume();
 }
-function tone(type,f0,f1,dur,vol,delay=0){const t=AC.currentTime+delay,o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(f1,1),t+dur);
-  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+dur+.02);}
-function noise(freq,q,dur,vol,type='lowpass'){const t=AC.currentTime,s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=noiseB;f.type=type;f.frequency.value=freq;f.Q.value=q;
-  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f).connect(g).connect(AC.destination);s.start(t,Math.random());s.stop(t+dur+.02);}
-function sfx(k){if(!AC||muted)return;
-  if(k==='chomp'){noise(900,1,.16,.9);tone('sine',140,45,.14,.5);}
-  else if(k==='snap'){noise(1500,2,.08,.5);tone('sine',220,90,.07,.25);}
-  else if(k==='bite'){noise(600,1,.22,1.1);tone('sawtooth',90,40,.2,.2);}
-  else if(k==='splash'){noise(1400,.7,.55,.7,'bandpass');}
-  else if(k==='jump'){noise(500,.8,.4,.5,'bandpass');tone('sine',180,420,.25,.12);}
-  else if(k==='hurt'){tone('sawtooth',110,40,.35,.25);noise(400,1,.25,.6);}
-  else if(k==='scream'){const f=rand(700,1100);tone('triangle',f,f*1.5,.12,.12);tone('triangle',f*1.5,f*.7,.35,.12,.12);}
-  else if(k==='level'){[523,659,784,1047].forEach((f,i)=>tone('square',f,f,.16,.09,i*.09));}
-  else if(k==='whale'){tone('sine',90,55,1.2,.25);}
-  else if(k==='squawk'){tone('square',1400,700,.18,.08);}
+function applyAudioPrefs(){
+  if(AC){master.gain.setTargetAtTime(muted?0:1,AC.currentTime,.05);musBus.gain.setTargetAtTime(muted||!musicOn?0:.6,AC.currentTime,.1);}
+  for(const b of document.querySelectorAll('.sndBtn'))b.textContent='Sound: '+(muted?'Off':'On');
+  for(const b of document.querySelectorAll('.musBtn'))b.textContent='Music: '+(musicOn?'On':'Off');
 }
-
+function toggleSound(){muted=!muted;store.set('shark.muted',muted?'1':'0');audio();applyAudioPrefs();}
+function toggleMusic(){musicOn=!musicOn;store.set('shark.music',musicOn?'1':'0');audio();applyAudioPrefs();}
+function env(g,t,att,peak,dur){g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(peak,.0002),t+att);g.gain.exponentialRampToValueAtTime(.0001,t+dur);}
+function wetSend(v){const g=AC.createGain();g.gain.value=v;g.connect(verbIn);return g;}
+function osc(type,f0,f1,dur,vol,o={}){const t=(o.at??AC.currentTime)+(o.delay||0),n=AC.createOscillator(),g=AC.createGain();n.type=type;n.detune.value=o.det||0;
+  n.frequency.setValueAtTime(f0,t);if(f1!==f0)n.frequency.exponentialRampToValueAtTime(Math.max(f1,1),t+dur*(o.glide||1));env(g,t,o.att||.004,vol,dur);
+  let out=n;if(o.lp){const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.setValueAtTime(o.lp,t);if(o.lp1)f.frequency.exponentialRampToValueAtTime(o.lp1,t+dur);f.Q.value=o.q||.7;n.connect(f);out=f;}
+  out.connect(g);g.connect(o.bus||sfxBus);if(o.wet)g.connect(wetSend(o.wet));if(o.echo)g.connect(mDelay);n.start(t);n.stop(t+dur+.05);}
+function nz(freq,q,dur,vol,o={}){const t=(o.at??AC.currentTime)+(o.delay||0),sn=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();sn.buffer=o.brown?noiseB:whiteB;
+  f.type=o.type||'bandpass';f.frequency.setValueAtTime(freq,t);if(o.f1)f.frequency.exponentialRampToValueAtTime(o.f1,t+dur);f.Q.value=q;env(g,t,o.att||.002,vol,dur);
+  sn.connect(f).connect(g).connect(o.bus||sfxBus);if(o.wet)g.connect(wetSend(o.wet));sn.start(t,Math.random()*1.5);sn.stop(t+dur+.05);}
+function sfx(k,arg){if(!AC||muted)return;const r=Math.random;
+  switch(k){
+    case'chomp':nz(2600,1.3,.05,.55);nz(1700,1.4,.06,.5,{delay:.035});nz(1100,1,.12,.45,{delay:.07,type:'lowpass'});
+      osc('sine',130,42,.17,.75);osc('sine',260,760,.08,.12,{delay:.13});break;
+    case'bigchomp':sfx('chomp');osc('sawtooth',85,30,.4,.22,{lp:500});nz(600,.8,.45,.7,{type:'lowpass',brown:true,wet:.25});break;
+    case'snap':nz(4000,1.5,.04,.45,{type:'highpass'});osc('triangle',760,190,.06,.25);nz(1400,.8,.28,.25,{f1:300,type:'lowpass'});break;
+    case'bite':nz(800,.8,.35,.85,{type:'lowpass',f1:220,brown:true});osc('sawtooth',92,38,.3,.16,{lp:700});nz(2200,1.2,.07,.35);break;
+    case'splash':nz(3200,.6,.7,.75,{f1:500,wet:.25});nz(700,.7,.5,.5,{type:'lowpass',delay:.04,brown:true});
+      for(let i=0;i<6;i++)osc('sine',1400+r()*1800,900+r()*900,.07,.05,{delay:.1+r()*.45});break;
+    case'jump':nz(380,1,.5,.5,{f1:2600});osc('sine',200,520,.3,.07);break;
+    case'hurt':osc('sawtooth',100,44,.42,.28,{lp:900});osc('square',62,40,.32,.12,{lp:400});nz(320,1,.3,.7,{type:'lowpass',brown:true});break;
+    case'scream':{const fem=r()<.5,f0=fem?380+r()*110:210+r()*80,t=AC.currentTime,o=AC.createOscillator(),vib=AC.createOscillator(),vg=AC.createGain(),g=AC.createGain();
+      o.type='sawtooth';o.frequency.setValueAtTime(f0*1.2,t);o.frequency.linearRampToValueAtTime(f0*1.45,t+.15);o.frequency.exponentialRampToValueAtTime(f0*.8,t+.75);
+      vib.frequency.value=6.5;vg.gain.value=f0*.035;vib.connect(vg).connect(o.frequency);env(g,t,.04,.1,.8);
+      for(const[f,q]of[[820,6],[1220,7],[2700,9]]){const b=AC.createBiquadFilter();b.type='bandpass';b.frequency.value=f*(fem?1.15:1);b.Q.value=q;o.connect(b).connect(g);}
+      g.connect(sfxBus);g.connect(wetSend(.25));o.start(t);vib.start(t);o.stop(t+.85);vib.stop(t+.85);break;}
+    case'level':[0,4,7,12,16].forEach((sm,i)=>{const f=523*2**(sm/12);osc('square',f,f,.22,.06,{delay:i*.07,lp:3000,wet:.4});});
+      [0,4,7,12].forEach(sm=>{const f=262*2**(sm/12);osc('sawtooth',f,f,1.1,.035,{delay:.38,att:.04,lp:1800,wet:.5});});break;
+    case'whale':osc('sine',170,96,1.6,.2,{wet:.7,att:.2});osc('sine',96,215,1.3,.14,{delay:1.1,wet:.7,att:.2});break;
+    case'squawk':osc('square',2100,1150,.12,.05,{lp:3500});osc('square',2000,980,.17,.05,{delay:.15,lp:3500});break;
+    case'combo':{const n=Math.min(arg,14),f=660*2**(n/12);osc('triangle',f,f,.14,.08,{wet:.25});osc('sine',f*2,f*2,.2,.035,{delay:.045});break;}
+    case'bubble':osc('sine',280+r()*240,900+r()*700,.06,.045);break;
+  }
+}
+// ---- music: an adaptive tropical groove (A minor: Am F C G) ----
+const BPM=104,STEP=60/BPM/4,PROG=[[57,60,64],[53,57,60],[48,52,55],[55,59,62]],MEL=[0,2,4,2,0,1,2,4];
+const MZ={step:0,next:0,I:.2,D:0,timer:null};
+const mtof=m=>440*Math.pow(2,(m-69)/12);
+function startMusic(){if(MZ.timer)return;MZ.next=AC.currentTime+.15;
+  MZ.timer=setInterval(()=>{if(!AC||AC.state!=='running')return;if(MZ.next<AC.currentTime-.05)MZ.next=AC.currentTime+.05;
+    while(MZ.next<AC.currentTime+.18){mStep(MZ.step,MZ.next);MZ.next+=STEP;MZ.step++;}},25);}
+function mStep(s,t){
+  if(!musicOn||muted)return;
+  const bar=(s>>4)%4,st=s&15,ch=PROG[bar],I=MZ.I,D=MZ.D,B={at:t,bus:musBus};
+  if(st===0)ch.forEach(m=>{const f=mtof(m);osc('sawtooth',f,f,STEP*16,.022,{...B,att:.5,lp:1000,det:-7});osc('sawtooth',f,f,STEP*16,.022,{...B,att:.5,lp:1000,det:7});});
+  if(st===0||st===7||st===10||(I>.5&&st===13)){const f=mtof(ch[0]-24+(st===10?12:0));osc('triangle',f,f,STEP*(st===0?3:1.7),.17,{...B,lp:700});osc('sine',f/2,f/2,STEP*2,.1,B);}
+  if(st===0||st===8||(I>.45&&(st===4||st===12)))osc('sine',150,44,.2,st%8?.32:.55,B);
+  if(st%2===0)nz(8500,.7,.045,(st%4===2?.05:.025)*(.6+I),{...B,type:'highpass'});
+  if(I>.3&&(st===4||st===12)){nz(1900,.9,.16,.14*I,B);osc('triangle',210,150,.09,.07,B);}
+  if([0,3,6,10,12].includes(st)){const deg=MEL[(st+bar*3)%8],n=ch[deg%3]+12+(deg>2?12:0),f=mtof(n);osc('sine',f,f,.45,.09,{...B,echo:1});osc('sine',f*4,f*4,.12,.022,B);}
+  if(I>.55&&st%2===1){const n=ch[(st>>1)%3]+24,f=mtof(n);osc('triangle',f,f,.12,.035*I,{...B,lp:2600,lp1:600,echo:1});}
+  if(D>.05&&st%2===0){const f=mtof(33+(st%8===4?1:0));osc('sawtooth',f,f,STEP*1.8,.09*D,{...B,lp:420});}
+}
 // ================= shark =================
 const shark=buildShark();scene.add(shark);const SU=shark.userData.mat.userData.u;
 const S={pos:shark.position,vel:new V3(),yaw:0,pitch:0,roll:0,size:1,lvl:1,xp:0,hp:100,hunger:100,score:0,combo:0,comboT:0,mode:'water',
-  biteCd:0,jaw:0,phase:0,hop:0,hurtCd:0,alive:true,eaten:{},bestCombo:0,time:0,landT:0,jumpT:0,jumpCd:0,lungeT:0,eatCd:0,jawWant:0,aim:null};
+  biteCd:0,jaw:0,phase:0,hop:0,hurtCd:0,alive:true,eaten:{},bestCombo:0,time:0,landT:0,jumpT:0,jumpCd:0,lungeT:0,eatCd:0,jawWant:0,aim:null,turnV:0,assist:null,assistT:0};
 const tmp=new V3(),tmp2=new V3(),fwd=new V3(),mouth=new V3(),camTarget=new V3(),look=new V3();
 const maxHp=()=>100+(S.lvl-1)*25;
 function sharkForward(o){return o.set(Math.sin(S.yaw)*Math.cos(S.pitch),Math.sin(S.pitch),Math.cos(S.yaw)*Math.cos(S.pitch));}
@@ -884,7 +944,7 @@ function makeCreature(key,school){
 }
 function place(c){
   if(c.school&&c.school.alive){c.pos.copy(c.school.pos).add(c.off);}else spawnPos(c.T,c.pos);
-  c.dead=false;c.mesh.visible=true;c.hp=c.T.hp||1;c.vel.set(0,0,0);
+  c.dead=false;c.mesh.visible=true;c.hp=c.T.hp||1;c.dmg=0;c.vel.set(0,0,0);
   const ud=c.mesh.userData;
   if(c.T.zone==='beach'){ud.pose=pick(['walk','walk','stand','sit']);if(ud.pose==='sit'&&groundY(c.pos.x,c.pos.z)<.4)ud.pose='stand';if(ud.pose!=='walk')c.yaw=Math.PI+rand(-.7,.7);}
 }
@@ -903,7 +963,7 @@ function updateSchools(dt){for(const sc of schools){wander(sc,dt,false);keepInBo
   const g=groundY(sc.pos.x,sc.pos.z);if(g>-7)sc.dir.z=-Math.abs(sc.dir.z)-.6;sc.dir.normalize();
   sc.pos.addScaledVector(sc.dir,TYPES.fish.speed*dt);sc.pos.y=clamp(sc.pos.y,g+3,-2.5);}}
 
-const SEA_ZONES={sea:1,reef:1,mid:1,deep:1,whale:1,surface:1};
+const SEA_ZONES={sea:1,reef:1,mid:1,deep:1,whale:1,surface:1};let threat=0;
 function updateCreature(c,dt,t){
   const T=c.T,p=c.pos;
   if(c.dead){c.respawn-=dt;if(c.respawn<=0)place(c);return;}
@@ -911,12 +971,13 @@ function updateCreature(c,dt,t){
   const dx=p.x-S.pos.x,dy=p.y-S.pos.y,dz=p.z-S.pos.z,sd=Math.sqrt(dx*dx+dy*dy+dz*dz);
   const visible=sd<(camera.position.y<0?140:260);c.mesh.visible=visible;
   if(sd>230&&!c.school){c.phase+=dt;return;}
-  const edible=T.lvl<=S.lvl, hostile=T.danger&&!edible&&!T.sting;
+  const edible=!T.chunk, hostile=T.danger&&T.lvl>S.lvl&&!T.sting, small=T.lvl<=S.lvl&&!T.chunk;
+  if(hostile&&sd<42)threat=1;
   let spd=T.speed;const des=tmp.set(0,0,0);
   const flat=T.zone==='floor'||T.zone==='beach'||T.zone==='swim'||T.zone==='floorup';
   c.fleeing=false;
   const fear=10+6*S.size;
-  if(S.alive&&edible&&T.zone!=='air'&&sd<fear&&T.zone!=='whale'){
+  if(S.alive&&edible&&!hostile&&T.zone!=='air'&&sd<fear){
     c.fleeing=true;des.set(dx,flat?0:dy*.5,dz).normalize();spd*=T.zone==='beach'?1.25:1.35;
     if(T.zone==='swim')des.z+=.8;
     if(T.zone==='beach')des.z+=1.2;
@@ -966,43 +1027,41 @@ function updateCreature(c,dt,t){
     if(ud.crab)ud.crab.rotation.z=Math.sin(ph*3)*.06;
   }
   if(!S.alive)return;
-  const reach=c.r+(1.7+(S.lungeT>0?2.4:0))*S.size;
+  const reach=c.r+(2.6+(S.lungeT>0?3:0))*S.size;
   let md;
   if(T.hl){const cf=c.mesh.getWorldDirection(tmp2);
     const ax=mouth.x-p.x,ay=mouth.y-p.y,az=mouth.z-p.z,proj=clamp(ax*cf.x+ay*cf.y+az*cf.z,-T.hl*c.mesh.scale.x,T.hl*c.mesh.scale.x);
     md=Math.hypot(ax-cf.x*proj,ay-cf.y*proj,az-cf.z*proj);}
   else md=mouth.distanceTo(p);
-  if(md<reach*1.7)S.jawWant=1;
-  // suction: anything edible close to the jaws is pulled in
-  if(edible&&!T.chunk&&md<reach*1.8&&md>.2){const k=Math.min(1,dt*(S.lungeT>0?9:4.5));p.x+=(mouth.x-p.x)*k;p.z+=(mouth.z-p.z)*k;if(T.zone!=='beach'&&T.zone!=='floor')p.y+=(mouth.y-p.y)*k;}
-  if((md<reach||sd<c.r+1.3*S.size&&(edible||T.chunk))&&S.biteCd<=0)tryBite(c);
+  if(md<reach*1.8)S.jawWant=1;
+  // suction: small prey anywhere near the jaws gets pulled in
+  if(small&&md<reach*2.3&&md>.2){const k=Math.min(1,dt*(S.lungeT>0?10:6));p.x+=(mouth.x-p.x)*k;p.z+=(mouth.z-p.z)*k;if(T.zone!=='beach'&&T.zone!=='floor')p.y+=(mouth.y-p.y)*k;}
+  if((md<reach||sd<c.r+2*S.size)&&S.biteCd<=0)tryBite(c);
   else if(hostile&&sd<c.r+1.6*S.size&&c.cd<=0)hurtShark(c);
-  else if(T.sting&&!edible&&sd<c.r+1.2*S.size&&c.cd<=0)hurtShark(c);
 }
 
 let tooBigT=0;
+// Everything is edible. Big prey takes several bites; growing makes it fewer.
+const bitesNeeded=T=>T.chunk?Math.max(4,T.hp-(S.lvl-1)*2):Math.max(1,T.lvl-S.lvl+1);
 function tryBite(c){
-  const T=c.T;S.lungeT=0;
-  if(T.chunk){
-    S.biteCd=.45;S.jaw=1;c.hp--;sfx('bite');burst('blood',mouth,16,4,1,1.8);
-    if(c.hp<=0){eat(c,T.pts,T.food,T.xp);sfx('whale');banner('WHALE DEVOURED!','+'+T.pts*mult()+' points');}
-    else{gain(T.chunk.pts,T.chunk.food,T.chunk.xp,c.pos,'Whale bite');S.vel.multiplyScalar(.4);}
+  const T=c.T,need=bitesNeeded(T);S.lungeT=0;S.jaw=1;c.dmg=(c.dmg||0)+1;
+  if(c.dmg<need){
+    S.biteCd=T.chunk?.35:.28;sfx('bite');burst('blood',mouth,14,4,.9,1.6);c.vel.multiplyScalar(.3);c.cd=Math.max(c.cd,.6);
+    const ch=T.chunk||{pts:Math.round(T.pts*.2),food:Math.round(T.food*.3),xp:Math.round(T.xp*.2)};
+    gain(ch.pts,ch.food,ch.xp,c.pos,T.name+' bite '+c.dmg+'/'+need);
+    if(T.chunk)S.vel.multiplyScalar(.5);
     return;
   }
-  if(T.lvl>S.lvl){
-    S.biteCd=.4;S.jaw=1;S.vel.addScaledVector(tmp.copy(S.pos).sub(c.pos).normalize(),6);
-    if(!T.danger&&tooBigT<=0){tooBigT=2;popup(c.pos,T.name+' too big! Reach LV '+T.lvl,'info');}
-    if(T.danger&&c.cd<=0)hurtShark(c);
-    return;
-  }
-  S.biteCd=.12;S.jaw=1;eat(c,T.pts,T.food,T.xp);sfx('chomp');
+  S.biteCd=.1;eat(c,T.pts,T.food,T.xp);sfx(need>1?'bigchomp':'chomp');
+  if(T.chunk){sfx('whale');banner(T.name.toUpperCase()+' DEVOURED!','+'+T.pts*mult()+' points');}
+  else if(need>2)banner(T.name.toUpperCase()+' DOWN!','+'+T.pts*mult()+' points');
   if(c.key==='gull')sfx('squawk');
 }
 const mult=()=>1+Math.min(4,Math.floor(S.combo/3));
 function gain(pts,food,xp,pos,label){
   const m=mult(),got=pts*m;S.score+=got;S.hunger=Math.min(100,S.hunger+food);S.hp=Math.min(maxHp(),S.hp+food*.35);
   S.combo++;S.comboT=2.6;S.bestCombo=Math.max(S.bestCombo,S.combo);
-  addXp(xp);popup(pos,'+'+got);feed(label+' +'+got);
+  addXp(xp);popup(pos,'+'+got);feed(label+' +'+got);if(S.combo>=2)sfx('combo',S.combo);
 }
 function eat(c,pts,food,xp){
   c.dead=true;c.mesh.visible=false;c.respawn=c.T.chunk?rand(45,70):rand(6,18);
@@ -1013,18 +1072,18 @@ function addXp(x){
   S.xp+=x;
   while(S.lvl<MAXLVL&&S.xp>=XP[S.lvl]){S.lvl++;S.hp=maxHp();sfx('level');
     const now=Object.values(TYPES).filter(t=>t.lvl===S.lvl).map(t=>t.name);
-    banner('LEVEL '+S.lvl+'!',now.length?'You can now eat: '+now.join(', '):'Bigger, faster, hungrier');}
+    banner('LEVEL '+S.lvl+'!',now.length?'One bite now: '+now.join(', '):'Bigger bites, faster swimming');}
 }
 function hurtShark(c){
   c.cd=1.2;S.hp-=c.T.danger;S.hurtCd=.5;sfx('hurt');burst('blood',S.pos,10,3,.9,1.4);
   S.vel.addScaledVector(tmp.copy(S.pos).sub(c.pos).normalize(),9);
   $('flash').style.opacity=1;setTimeout(()=>$('flash').style.opacity=0,180);
-  if(tooBigT<=0){tooBigT=2;popup(S.pos,c.T.sting?'Stung! (eat at LV '+c.T.lvl+')':c.T.name+' attacks! Grow to LV '+c.T.lvl,'bad');}
+  if(tooBigT<=0){tooBigT=2;popup(S.pos,c.T.name+' attacks! Bite back!','bad');}
 }
 // EAT: lunge forward with the jaws wide open and a longer reach
 function doEat(){if(phase!=='play'||!S.alive||S.eatCd>0)return;S.eatCd=.5;S.lungeT=.45;S.jaw=1;sfx('snap');
   // aim the lunge at the nearest edible prey ahead
-  sharkForward(fwd);let best=null,bd=14*S.size;for(const c of creatures){if(c.dead||!(c.T.lvl<=S.lvl||c.T.chunk))continue;tmp.copy(c.pos).sub(S.pos);const d=tmp.length();if(d<bd&&tmp.dot(fwd)>d*.15){bd=d;best=c;}}S.aim=best;
+  S.aim=findPrey(18*S.size,.1,true);
   if(S.mode==='water'){sharkForward(fwd);S.vel.addScaledVector(fwd,6+S.size*2);}}
 // JUMP: launch out of the water (or flop along on land)
 function doJump(){if(phase!=='play'||!S.alive||S.jumpCd>0)return;
@@ -1041,7 +1100,7 @@ function popup(pos,text,cls=''){projV.copy(pos).project(camera);if(projV.z>1)ret
   d.style.left=((projV.x+1)/2*innerWidth)+'px';d.style.top=((1-projV.y)/2*innerHeight)+'px';document.body.appendChild(d);setTimeout(()=>d.remove(),1100);}
 function feed(text){const f=$('feed'),d=document.createElement('div');d.textContent=text;f.prepend(d);while(f.children.length>6)f.lastChild.remove();setTimeout(()=>d.remove(),2600);}
 let bannerT=0;function banner(t,s){$('banner').innerHTML=t+(s?'<small>'+s+'</small>':'');$('banner').style.opacity=1;bannerT=3;}
-$('menuList').innerHTML=Object.values(TYPES).map(t=>`<div class="${t.danger&&!t.sting?'bad':''}">${t.name}<span>${t.chunk?'BITE':'LV '+t.lvl}</span></div>`).join('');
+$('menuList').innerHTML=Object.values(TYPES).map(t=>`<div class="${t.danger&&!t.sting?'bad':''}">${t.name}<span>+${t.pts}</span></div>`).join('');
 
 // ================= input =================
 const keys={};let mx=0,my=0,inputMode='mouse',mouseBoost=false,btnBoost=false,touchBoost=false,touchId=null,tox=0,toy=0,keyPitch=0;
@@ -1051,7 +1110,8 @@ addEventListener('keydown',e=>{keys[e.code]=true;
   if(e.repeat)return;
   if(e.code==='Space')doJump();
   if(e.code==='KeyE'||e.code==='KeyF'||e.code==='Enter')doEat();
-  if(e.code==='KeyM'){muted=!muted;store.set('shark.muted',muted?'1':'0');}
+  if(e.code==='KeyM')toggleSound();
+  if(e.code==='KeyN')toggleMusic();
   if((e.code==='KeyP'||e.code==='Escape')&&(phase==='play'||phase==='pause'))togglePause();});
 addEventListener('keyup',e=>keys[e.code]=false);
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false;mouseBoost=btnBoost=touchBoost=false;if(phase==='play')togglePause();});
@@ -1063,6 +1123,7 @@ cv.addEventListener('pointerdown',e=>{audio();if(e.pointerType==='touch'){if(tou
 addEventListener('pointerup',e=>{if(e.pointerType==='touch'){if(e.pointerId===touchId){touchId=null;mx=my=0;}else touchBoost=false;return;}if(e.button===0)mouseBoost=false;});
 addEventListener('pointercancel',e=>{if(e.pointerId===touchId){touchId=null;mx=my=0;}});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerout',e=>{if(e.pointerType!=='touch'){mx=my=0;}});
 function holdBtn(el,down,up){el.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();audio();el.classList.add('on');down();});
   const off=()=>{el.classList.remove('on');if(up)up();};el.addEventListener('pointerup',off);el.addEventListener('pointerleave',off);el.addEventListener('pointercancel',off);el.addEventListener('contextmenu',e=>e.preventDefault());}
 // on-screen joystick: x turns, y pitches
@@ -1079,7 +1140,7 @@ holdBtn($('eatBtn'),doEat);holdBtn($('jumpBtn'),doJump);holdBtn($('boostBtn'),()
 let phase='menu',best=+store.get('shark.best')||0;
 function startGame(){
   audio();
-  Object.assign(S,{yaw:0,pitch:0,roll:0,size:1,lvl:1,xp:0,hp:100,hunger:100,score:0,combo:0,comboT:0,mode:'water',biteCd:0,jaw:0,hurtCd:0,alive:true,eaten:{},bestCombo:0,time:0,landT:0,jumpT:0,jumpCd:0,lungeT:0,eatCd:0});
+  Object.assign(S,{yaw:0,pitch:0,roll:0,size:1,lvl:1,xp:0,hp:100,hunger:100,score:0,combo:0,comboT:0,mode:'water',biteCd:0,jaw:0,hurtCd:0,alive:true,eaten:{},bestCombo:0,time:0,landT:0,jumpT:0,jumpCd:0,lungeT:0,eatCd:0,turnV:0,assist:null,assistT:0,aim:null});
   S.pos.set(0,-5,-15);S.vel.set(0,0,0);shark.visible=true;
   populate();
   camera.position.set(0,-2,-26);
@@ -1097,27 +1158,50 @@ function gameOver(why){
     rows.push(`<div>Best combo: <b>${S.bestCombo}</b></div>`,`<div>Survived: <b>${Math.round(S.time)}s</b></div>`);
     $('overStats').innerHTML=rows.join('');$('over').classList.remove('hidden');$('hud').classList.add('hidden');},1800);
 }
+for(const b of document.querySelectorAll('.sndBtn'))b.onclick=toggleSound;
+for(const b of document.querySelectorAll('.musBtn'))b.onclick=toggleMusic;
+applyAudioPrefs();
+addEventListener('pointerdown',()=>audio());addEventListener('keydown',()=>audio());
 $('playBtn').onclick=startGame;$('againBtn').onclick=startGame;$('resumeBtn').onclick=togglePause;
 
 // ================= shark physics =================
+// nearest prey ahead of the shark, preferring one-bite meals; used by aim assist and the EAT lunge
+function findPrey(range,cosMin,anySize){
+  sharkForward(fwd);let best=null,bs=Infinity;
+  for(const c of creatures){if(c.dead||c.T.zone==='air')continue;const T=c.T;if(T.danger&&T.lvl>S.lvl&&!T.sting&&!anySize)continue;
+    tmp.copy(c.pos).sub(S.pos);const d=tmp.length();if(d>range||d<.01)continue;if(T.zone==='beach'&&d>14)continue;
+    const cs=tmp.dot(fwd)/d;if(cs<cosMin)continue;const sc=d*(1.3-cs)*(T.lvl<=S.lvl||T.chunk?1:2.5);if(sc<bs){bs=sc;best=c;}}
+  return best;
+}
 function updateShark(dt){
   const boosting=(keys.ShiftLeft||keys.ShiftRight||mouseBoost||btnBoost||touchBoost)&&S.alive;
-  const dz=v=>Math.abs(v)<.06?0:(v-Math.sign(v)*.06)/.94;
-  let turn=0,pitchT=0;
-  if(inputMode==='mouse'){turn=-dz(mx)*2.3;pitchT=-dz(my)*1.15;}
-  if(inputMode==='stick'){turn=-dz(jx)*2.4;pitchT=-dz(jy)*1.15;}
-  const kl=keys.KeyA||keys.ArrowLeft,kr=keys.KeyD||keys.ArrowRight,ku=keys.KeyW||keys.ArrowUp,kd=keys.KeyS||keys.ArrowDown;
-  if(inputMode==='keys'){turn=(kl?2:0)-(kr?2:0);if(ku)keyPitch=Math.min(1.1,keyPitch+dt*1.5);else if(kd)keyPitch=Math.max(-1.1,keyPitch-dt*1.5);else keyPitch*=Math.exp(-dt*2.5);pitchT=keyPitch;}
-  if(!S.alive){turn=0;pitchT=-.3;}
-  S.jumpT-=dt;S.jumpCd-=dt;S.lungeT-=dt;S.eatCd-=dt;
   const p=S.pos,r=.62*S.size,g=groundY(p.x,p.z);
+  // dead zone plus a soft curve: small inputs give fine control, full input turns hard
+  const curve=v=>{const a=Math.abs(v);if(a<.1)return 0;const x=Math.min(1,(a-.1)/.8);return Math.sign(v)*x*(.35+.65*x);};
+  let ti=0,pi=0;
+  if(inputMode==='mouse'){ti=-curve(mx);pi=-curve(my);}
+  if(inputMode==='stick'){ti=-curve(jx);pi=-curve(jy);}
+  const kl=keys.KeyA||keys.ArrowLeft,kr=keys.KeyD||keys.ArrowRight,ku=keys.KeyW||keys.ArrowUp,kd=keys.KeyS||keys.ArrowDown;
+  if(inputMode==='keys'){ti=(kl?1:0)-(kr?1:0);pi=(ku?1:0)-(kd?1:0);}
+  const steering=Math.abs(ti)>.05,climbing=Math.abs(pi)>.05;
+  let turnT=ti*1.9,pitchT=pi*.85;
+  // aim assist: drift toward the nearest prey ahead, weaker while the player steers
+  S.assistT-=dt;if(S.assistT<=0){S.assistT=.2;S.assist=findPrey(26*S.size,.35);}
+  const A=S.assist;
+  if(A&&!A.dead&&S.alive&&S.mode==='water'&&S.jumpT<=0){const dx=A.pos.x-p.x,dy=A.pos.y-p.y,dzz=A.pos.z-p.z;let dyaw=Math.atan2(dx,dzz)-S.yaw;dyaw=Math.atan2(Math.sin(dyaw),Math.cos(dyaw));
+    turnT+=clamp(dyaw*3.2,-1.7,1.7)*(steering?.3:1);if(!climbing)pitchT=clamp(Math.atan2(dy,Math.hypot(dx,dzz)),-.8,.8);}
+  if(p.y-g<3*S.size&&pitchT<.2)pitchT=.2; // keep clear of the seabed
+  if(!S.alive){turnT=0;pitchT=-.3;}
+  S.turnV=lerp(S.turnV,turnT,damp(6,dt));const turn=S.turnV;
+  S.jumpT-=dt;S.jumpCd-=dt;S.lungeT-=dt;S.eatCd-=dt;
   if(p.y<=g+r+.05&&g+r>-.35*S.size)S.mode='land';else if(p.y>.05)S.mode='air';else{if(S.mode==='air'&&S.vel.y<-3){burst('splash',tmp.set(p.x,.3,p.z),30,8,1.1,1.1,-12,1.5);sfx('splash');}S.mode='water';}
   const base=7+S.size*2.2;let spd=S.alive?(boosting?base*2.1:base):1.5;if(S.lungeT>0)spd*=1.9;
   if(S.mode==='water'){
     S.yaw+=turn*dt*(boosting?.85:1);
-    if(S.jumpT<=0)S.pitch=lerp(S.pitch,pitchT,damp(3,dt));
+    if(S.jumpT<=0)S.pitch=lerp(S.pitch,pitchT,damp(2.6,dt));
+    if(boosting&&Math.random()<dt*6)sfx('bubble');
     if(S.lungeT>0&&S.aim&&!S.aim.dead){const a=S.aim.pos,dx=a.x-p.x,dy=a.y-p.y,dzz=a.z-p.z;S.yaw=angLerp(S.yaw,Math.atan2(dx,dzz),damp(12,dt));S.pitch=lerp(S.pitch,Math.atan2(dy,Math.hypot(dx,dzz)),damp(12,dt));}
-    S.pitch=clamp(S.pitch,-1.25,1.25);
+    S.pitch=clamp(S.pitch,-1.05,1.05);
     sharkForward(fwd);
     if(S.jumpT>0){S.vel.x=lerp(S.vel.x,fwd.x*spd,damp(1,dt));S.vel.z=lerp(S.vel.z,fwd.z*spd,damp(1,dt));}
     else{S.vel.lerp(tmp.copy(fwd).multiplyScalar(spd),damp(3,dt));
@@ -1152,7 +1236,7 @@ function updateShark(dt){
     S.time+=dt;S.biteCd-=dt;S.comboT-=dt;if(S.comboT<=0)S.combo=0;
     S.hunger-=dt*(1.5+S.lvl*.18+(boosting?2.2:0));
     if(S.hunger<=0){S.hunger=0;S.hp-=9*dt;}else if(S.hunger>55)S.hp=Math.min(maxHp(),S.hp+dt*1.5);
-    if(S.hp<=0){S.hp=0;gameOver(S.hunger<=0?'You starved. Keep eating!':S.mode==='land'?'You dried out on the beach.':'You were overpowered. Eat smaller prey until you grow.');}
+    if(S.hp<=0){S.hp=0;gameOver(S.hunger<=0?'You starved. Keep eating!':S.mode==='land'?'You dried out on the beach.':'You were overpowered. Bite back faster, or grow first.');}
   }
   return boosting;
 }
@@ -1173,12 +1257,14 @@ function atmosphere(){
   const cx=camera.position.x,cz=camera.position.z;
   for(const r of rays){r.visible=under;if(!under)continue;const o=r.userData.off;const rx=o.x+Math.floor((cx-o.x)/100+.5)*100,rz=o.z+Math.floor((cz-o.z)/100+.5)*100;
     r.position.set(rx+Math.sin(UT.value*.2+o.x)*2,0,rz);}
-  if(AC&&amb){amb.gain.value=muted?0:(under?.18:.1);ambF.frequency.value=under?380:1100;}
+  if(AC&&amb){amb.gain.value=under?.18:.1;ambF.frequency.value=under?380:1100;
+    muffle.frequency.setTargetAtTime(under?850:18000,AC.currentTime,.08);musF.frequency.setTargetAtTime(under?2400:18000,AC.currentTime,.15);
+    if(!under&&Math.random()<.002)sfx('squawk');if(under&&Math.random()<.004)sfx('bubble');}
   waterNear.position.set(Math.round(cx/4)*4,0,Math.round(cz/4)*4);waterFar.position.set(waterNear.position.x,-.05,waterNear.position.z);
   sun.position.copy(S.pos).addScaledVector(SUN_DIR,150);sun.target.position.copy(S.pos);
 }
 function updateCamera(dt,boosting){
-  const d=8.5*S.size+(boosting?2.5:0),h=2.8*S.size;
+  const d=9*S.size+(boosting?2.5:0),h=3.3*S.size;
   const back=tmp.set(-Math.sin(S.yaw),0,-Math.cos(S.yaw));
   camTarget.copy(S.pos).addScaledVector(back,d*Math.cos(S.pitch*.6));camTarget.y+=h-Math.sin(S.pitch*.6)*d;
   camera.position.lerp(camTarget,damp(4,dt));
@@ -1200,7 +1286,7 @@ function updateHud(dt){
   $('lvl').textContent='LV '+S.lvl;
   $('xpBar').style.width=(S.lvl>=MAXLVL?100:(S.xp-XP[S.lvl-1])/(XP[S.lvl]-XP[S.lvl-1])*100)+'%';
   const next=Object.values(TYPES).filter(t=>t.lvl===S.lvl+1).map(t=>t.name);
-  $('next').textContent=S.lvl>=MAXLVL?'Apex predator — everything is food':'Next level: '+next.join(', ');
+  $('next').textContent=S.lvl>=MAXLVL?'Apex predator — everything is one bite':'Next level, one bite: '+next.join(', ');
   $('score').textContent=S.score.toLocaleString();
   $('combo').textContent=S.combo>=3?'COMBO x'+mult()+' ('+S.combo+')':'';
   $('warn').textContent=!S.alive?'':S.mode==='land'&&groundY(S.pos.x,S.pos.z)>0?'Get back to the water! (JUMP to flop)':S.hunger<25?'STARVING — eat something!':'';
@@ -1212,7 +1298,7 @@ function updateHud(dt){
   for(let i=40;i>=0;i--){const x=S.pos.x-range*1.5+i*range*3/40,[a,b]=toR(x,shoreZ(x)+400);rc.lineTo(a,b);}
   rc.fillStyle='rgba(243,220,166,.85)';rc.fill();
   for(const c of creatures){if(c.dead)continue;const dx=c.pos.x-S.pos.x,dz=c.pos.z-S.pos.z;if(dx*dx+dz*dz>range*range)continue;
-    const[a,b]=toR(c.pos.x,c.pos.z),T=c.T;rc.fillStyle=T.chunk?'#ffd23f':T.lvl<=S.lvl?'#4dff88':T.danger?'#ff4d5e':'#9aa7b0';
+    const[a,b]=toR(c.pos.x,c.pos.z),T=c.T;rc.fillStyle=T.chunk?'#ffd23f':T.lvl<=S.lvl?'#4dff88':T.danger&&!T.sting?'#ff4d5e':'#ffa94d';
     rc.beginPath();rc.arc(a,b,T.chunk?9:T.danger?6:4,0,TAU);rc.fill();}
   rc.restore();rc.fillStyle='#fff';rc.beginPath();rc.moveTo(R,R-13);rc.lineTo(R-8,R+9);rc.lineTo(R+8,R+9);rc.fill();
 }
@@ -1236,7 +1322,8 @@ function frame(){
   }
   atmosphere();
   const wasAlive=S.alive;if(phase==='menu')S.alive=false;
-  updateSchools(dt);for(const c of creatures)updateCreature(c,dt,t);
+  threat=0;updateSchools(dt);for(const c of creatures)updateCreature(c,dt,t);
+  MZ.I=lerp(MZ.I,phase==='play'?clamp(.3+S.combo*.07+(boosting?.3:0),0,1):.15,damp(1.5,dt));MZ.D=lerp(MZ.D,phase==='play'?threat:0,damp(2,dt));
   S.alive=wasAlive;
   updateParts(dt);
   if(phase!=='menu')updateHud(dt);
@@ -1245,7 +1332,7 @@ function frame(){
 try{renderer.compile(scene,camera);}catch(e){}
 $('loading').remove();
 frame();
-window.__shark={S,creatures,TYPES,startGame,groundY,shoreZ,renderer,doEat,doJump,get phase(){return phase;}};
+window.__shark={S,creatures,TYPES,startGame,groundY,shoreZ,renderer,doEat,doJump,MZ,get audioCtx(){return AC;},get phase(){return phase;}};
 })();
 </script>
 </body>
