@@ -13,8 +13,15 @@ kelp forests, coral, sand textures, palm trees and distant islands. Creatures ar
 smooth anatomical models that bend as they swim, and the great white has an
 opening jaw with teeth.
 
-The whole game is one file, `index.html`: three.js r159 (MIT License) is embedded
-in it, so it needs no other files and works offline.
+The whole game is one file, `index.html` (about 4 MB). It embeds three.js r159 (MIT License)
+and two music tracks, so it needs no other files and works offline.
+
+## Credits
+
+Music: "The Builder" and "Carefree" by Kevin MacLeod (incompetech.com), licensed under
+Creative Commons: By Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/).
+The tracks are re-encoded as 64 kbps mono MP3 and loudness-normalized. Everything
+else, including all sound effects, is generated in code.
 
 ## Play
 
@@ -51,9 +58,16 @@ open it there.
   beachgoers. On land the shark slides and flops back to the sea by itself, so it
   never gets stranded, but it slowly dries out while it is there.
 - **Combos.** Eating quickly in a row raises a score multiplier, up to x5.
-- **Sound and music.** Layered sound effects (crunching bites, splashes, screams,
-  whale song) are muffled underwater. An original tropical soundtrack builds with your
-  combo and boosting, and turns tense when a predator is chasing you.
+- **Music.** "The Builder" plays on the menu and "Carefree" during play, then they
+  alternate, crossfading between tracks. The music is muffled underwater and dips
+  under a heartbeat when a predator is chasing you.
+- **Sound effects and ambience.** Crunchy bites with a gulp and bubbles, tearing bites on
+  big prey, splashes with droplets, leaps, and screams. Bell chimes rise with your combo,
+  and level-ups play a harp glissando. Above water you hear rolling surf that grows near
+  the beach, waves crashing at the shore, a breeze and seagulls. Underwater there's a
+  deep rumble, bubbles and distant whale song.
+- **Toggles.** Use the pause, music and sound buttons under the health bars, the
+  toggles on the menu and pause screen, or the M and N keys.
 - The radar (top right) turns with your heading. Green is one bite, orange
   takes a few bites, red is a predator and yellow is a whale. The best score is
   saved in `localStorage`.
