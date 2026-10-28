@@ -63,7 +63,8 @@ Touch devices get simple on-screen controls automatically, in portrait or landsc
 - **FIRE**: hold it to steady your breath, release to shoot.
 - Zero and reload are automatic. A **THERMAL** button appears in the night mission.
 - In the scope, red markers show enemies and a gold marker shows the main target.
-- Every kill plays a slow-motion bullet cam. Headshots end in a close-up of the head.
+- Every kill plays a slow-motion bullet cam in three shots: from the muzzle, beside the spinning round, then from beside the target as the round arrives. Impacts get a flash, a shock ring, a hit-stop, a knockback and a landing dust puff. Headshots knock the helmet off. The sound muffles during slow motion.
+- Enemies wear red vests and caps and have a red rim glow, so they stand out from the rocks.
 
 Tap the big **PLAY** button to start. Each mission opens with a short 3D intro that flies the camera to the targets with one line of story; tap **SKIP** to jump straight in. On phones the game goes fullscreen, and graphics default to Performance mode: no real-time shadows or bloom, a lighter terrain mesh, and cheaper shaders.
 

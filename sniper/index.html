@@ -1368,23 +1368,23 @@ function updateCable(dt) {
    HUMANS
    ===================================================================== */
 const LOOKS = {
-  guard: { jacket: 0x3d4431, pants: 0x2e3127, vest: 0x24271e, hat: 'helmet', hatCol: 0x3a3f30, skin: 0xb98a68, weapon: true },
-  guard2: { jacket: 0x4a4436, pants: 0x34302a, vest: 0x2a2620, hat: 'beanie', hatCol: 0x1b1b1d, skin: 0xa77a5c, weapon: true },
-  winter: { jacket: 0xb4b9bd, pants: 0x8b9094, vest: 0x5d6266, hat: 'helmet', hatCol: 0xd0d4d8, skin: 0xc49577, weapon: true },
+  guard: { jacket: 0x2b2f2a, pants: 0x23251f, vest: 0x9a1c14, hat: 'helmet', hatCol: 0x151515, skin: 0xb98a68, weapon: true },
+  guard2: { jacket: 0x262a35, pants: 0x1e2028, vest: 0x8f1a12, hat: 'beanie', hatCol: 0xb3221a, skin: 0xa77a5c, weapon: true },
+  winter: { jacket: 0xb4b9bd, pants: 0x8b9094, vest: 0xa31d15, hat: 'helmet', hatCol: 0xd0d4d8, skin: 0xc49577, weapon: true },
   courier: { jacket: 0x262a33, pants: 0x1f2229, vest: null, hat: null, hair: 0x2a2018, skin: 0xd3a585, case: true, shirt: 0xd8d4cc },
   kael: { jacket: 0x4a0f12, pants: 0x161618, vest: null, hat: null, hair: 0xdcd8cf, skin: 0xd8b08e, coat: true, shades: true, cigar: true, shirt: 0x111113 },
   pilot: { jacket: 0x4c513c, pants: 0x4c513c, vest: null, hat: 'helmet', hatCol: 0xe8e8e8, skin: 0xc49577 },
 };
 const matCache = new Map();
-const RIM = { value: 0.45 };
+const RIM = { value: 0.7 }, RIMCOL = { value: new THREE.Color(1.0, 0.32, 0.18) };
 function cmat(color, rough = 0.85, metal = 0, emissive = 0, ei = 0) {
   const k = [color, rough, metal, emissive, ei].join(); if (matCache.has(k)) return matCache.get(k);
   const m = new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, emissive, emissiveIntensity: ei }); matCache.set(k, m);
   // Soft rim light so people separate from the terrain at long range.
   m.onBeforeCompile = sh => {
-    sh.uniforms.uRim = RIM;
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uRim;')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(1.0, 0.93, 0.82) * pow(1.0 - abs(dot(normal, normalize(vViewPosition))), 2.2) * uRim;');
+    sh.uniforms.uRim = RIM; sh.uniforms.uRimCol = RIMCOL;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uRim; uniform vec3 uRimCol;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += uRimCol * pow(1.0 - abs(dot(normal, normalize(vViewPosition))), 2.0) * uRim;');
   };
   return m;
 }
@@ -1409,8 +1409,9 @@ function makeHuman(look) {
   const neck = new THREE.Group(); neck.position.y = 0.6; spine.add(neck);
   const nk = part(GEO.neck, mS, 'head'); nk.position.y = 0.03; neck.add(nk);
   const head = part(GEO.head, mS, 'head'); head.position.y = 0.16; head.scale.set(0.92, 1.05, 1); neck.add(head);
-  if (L.hat === 'helmet') { const h = part(GEO.helmet, cmat(L.hatCol, 0.7), 'head'); h.position.y = 0.175; neck.add(h); }
-  else if (L.hat === 'beanie') { const h = part(new THREE.SphereGeometry(0.125, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), cmat(L.hatCol), 'head'); h.position.y = 0.19; h.scale.y = 1.1; neck.add(h); }
+  let hat = null;
+  if (L.hat === 'helmet') { const h = hat = part(GEO.helmet, cmat(L.hatCol, 0.7), 'head'); h.position.y = 0.175; neck.add(h); }
+  else if (L.hat === 'beanie') { const h = hat = part(new THREE.SphereGeometry(0.125, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), cmat(L.hatCol), 'head'); h.position.y = 0.19; h.scale.y = 1.1; neck.add(h); }
   if (L.hair) { const h = part(new THREE.SphereGeometry(0.122, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.45), cmat(L.hair, 0.9), 'head'); h.position.set(0, 0.185, -0.01); neck.add(h); }
   if (L.shades) { const s = part(new THREE.BoxGeometry(0.2, 0.04, 0.03), cmat(0x050505, 0.1, 0.8), 'head'); s.position.set(0, 0.18, 0.1); neck.add(s); }
   const arms = [];
@@ -1454,7 +1455,7 @@ function makeHuman(look) {
     cigar = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.11, 6), cmat(0x3a2414)); cigar.rotation.x = Math.PI / 2; cigar.position.set(0, -0.31, 0.05); arms[1].el.add(cigar);
     const tip = new THREE.Mesh(new THREE.SphereGeometry(0.011, 6, 4), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 1.1, 0.2) })); tip.position.y = 0.055; cigar.add(tip); cigar.userData.tip = tip;
   }
-  return { group, root, hips, spine, neck, head, arms, legs, rifle, coat, cigar, brief };
+  return { group, root, hips, spine, neck, head, hat, arms, legs, rifle, coat, cigar, brief };
 }
 
 const actors = [];
@@ -1594,12 +1595,16 @@ class Actor {
     this.fallDir.set(dir.x, 0, dir.z).normalize();
     if (part === 'head') this.fallDir.multiplyScalar(-1).applyAxisAngle(UP, rand(-0.6, 0.6)).negate();
     this.fallAxis.crossVectors(UP, this.fallDir).normalize();
-    this.fallVel = part === 'head' ? 2.4 : 1.6; this.fallAng = 0.02;
+    this.fallVel = part === 'head' ? 3.2 : 2.4; this.fallAng = 0.02;
     this.hitDir = dir.clone();
+    this.knock = this.fallDir.clone().multiplyScalar(part === 'head' ? 2.2 : 3.0);
+    if (part === 'head') { this.h.neck.rotation.x = -1.0; this.h.neck.rotation.y = rand(-0.5, 0.5); }
+    this.h.arms[0].sh.rotation.z = -0.9; this.h.arms[1].sh.rotation.z = 0.9;
     deadBodies.push(this);
   }
   updateDeath(dt) {
     this.dieT += dt; const h = this.h, L = h.legs, A = h.arms;
+    if (this.knock && this.knock.lengthSq() > 0.0004) { this.pos.addScaledVector(this.knock, dt); this.knock.multiplyScalar(Math.exp(-dt * 5)); }
     const k = Math.min(1, this.dieT * 3.5);
     L[0].hp.rotation.x = lerp(L[0].hp.rotation.x, -0.5, k * 0.2); L[1].hp.rotation.x = lerp(L[1].hp.rotation.x, -0.1, k * 0.2);
     L[0].kn.rotation.x = lerp(L[0].kn.rotation.x, 0.9, k * 0.2); L[1].kn.rotation.x = lerp(L[1].kn.rotation.x, 0.4, k * 0.2);
@@ -1615,7 +1620,7 @@ class Actor {
     }
     if (this.fallAng < 1.5) {
       this.fallVel += 6.5 * Math.sin(this.fallAng + 0.12) * dt; this.fallAng += this.fallVel * dt;
-      if (this.fallAng >= 1.5) { this.fallAng = 1.5; this.bounced = true; this.landT = this.dieT; }
+      if (this.fallAng >= 1.5) { this.fallAng = 1.5; this.bounced = true; this.landT = this.dieT; landFX(this); }
     }
     if (this.canFall) {
       const g = heightAt(this.pos.x, this.pos.z);
@@ -1754,6 +1759,52 @@ function explosion(p, scale = 1) {
   G.shake = Math.max(G.shake, 0.4 * scale);
 }
 const boomLight = new THREE.PointLight(0xffa040, 0, 900, 2); scene.add(boomLight);
+// ---------- hit VFX: shock rings, flying debris, impact flash ----------
+const rings = [], debris = [];
+const ringGeo = new THREE.RingGeometry(0.9, 1, 48);
+function shockRing(p, normal, size = 1.6, color = 0xffffff) {
+  const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  m.position.copy(p); m.lookAt(_v1.copy(p).add(normal)); m.scale.setScalar(0.05); m.userData = { t: 0, size }; scene.add(m); rings.push(m);
+}
+function updateHitFX(dt) {
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const r = rings[i]; r.userData.t += dt; const k = r.userData.t / 0.45;
+    r.scale.setScalar(0.05 + (1 - (1 - Math.min(k, 1)) ** 3) * r.userData.size); r.material.opacity = 0.55 * (1 - k);
+    if (k >= 1) { scene.remove(r); r.material.dispose(); rings.splice(i, 1); }
+  }
+  for (let i = debris.length - 1; i >= 0; i--) {
+    const d = debris[i], u = d.userData; u.t += dt;
+    if (!u.rest) {
+      u.v.y -= 9.8 * dt; d.position.addScaledVector(u.v, dt); d.rotation.x += u.w.x * dt; d.rotation.z += u.w.z * dt;
+      const g = heightAt(d.position.x, d.position.z) + 0.08;
+      if (d.position.y < g && u.v.y < 0) { d.position.y = g; u.v.y *= -0.3; u.v.x *= 0.5; u.v.z *= 0.5; u.w.multiplyScalar(0.4); if (Math.abs(u.v.y) < 0.6) u.rest = true; }
+    }
+    if (u.t > 30) { scene.remove(d); debris.splice(i, 1); }
+  }
+}
+function hitFX(a, p, dir, part) {
+  const head = part === 'head';
+  // flash + sparks of light at the point of impact
+  glowP.spawn(p.x, p.y, p.z, 0, 0, 0, 0.09, 0.25, head ? 0.75 : 0.6, 2.4, 1.9, 1.5, 0.9, 0, 0);
+  for (let i = 0; i < 18; i++) glowP.spawn(p.x, p.y, p.z, dir.x * rand(2, 8) + rand(-3, 3), rand(-1, 4), dir.z * rand(2, 8) + rand(-3, 3), rand(0.15, 0.4), 0.06, 0.02, 4, 2.6, 1.2, 1, 1, 6);
+  shockRing(p, dir, head ? 0.55 : 0.75);
+  shockRing(p, UP, head ? 0.45 : 0.6, 0xffc080);
+  // helmet / cap flies off on a headshot
+  if (head && a.h.hat && a.h.hat.parent) {
+    const hat = a.h.hat; const wp = hat.getWorldPosition(new THREE.Vector3()), wq = hat.getWorldQuaternion(new THREE.Quaternion());
+    hat.parent.remove(hat); hat.position.copy(wp); hat.quaternion.copy(wq); scene.add(hat);
+    hat.userData = { t: 0, v: new THREE.Vector3(dir.x * 5 + rand(-1, 1), 4.5, dir.z * 5 + rand(-1, 1)), w: new THREE.Vector3(rand(-12, 12), 0, rand(-12, 12)), rest: false };
+    debris.push(hat); a.lostHat = hat;
+  }
+  G.shake = Math.max(G.shake, 0.25);
+  if (G.bc) { FX.uFlash.value = Math.max(FX.uFlash.value, head ? 0.18 : 0.12); G.hitStop = head ? 0.22 : 0.16; }
+  AudioSys.hit(head, !!G.bc);
+}
+function landFX(a) {
+  const p = a.pos.clone().addScaledVector(a.fallDir, 1.0); p.y = (a.canFall ? heightAt(p.x, p.z) : a.pos.y) + 0.1;
+  for (let i = 0; i < 26; i++) { const ang = rand(0, 6.28); smoke.spawn(p.x, p.y, p.z, Math.cos(ang) * rand(1, 3), rand(0.2, 1.2), Math.sin(ang) * rand(1, 3), rand(1, 2.2), 0.25, rand(1.2, 2.4), 0.5, 0.45, 0.4, 0.55, 2.2, 0.3); }
+  AudioSys.thud(clamp(1 - a.pos.distanceTo(camera.position) / 60, 0.25, 1));
+}
 
 /* =====================================================================
    FIRST-PERSON RIFLE
@@ -1881,7 +1932,10 @@ const AudioSys = {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
     const ctx = this.ctx = new C();
-    this.master = ctx.createGain(); this.master.gain.value = settings.volume; this.master.connect(ctx.destination);
+    // master -> slow-mo muffle filter -> out; UI chimes bypass the muffle
+    this.out = ctx.createGain(); this.out.gain.value = settings.volume; this.out.connect(ctx.destination);
+    this.muffle = ctx.createBiquadFilter(); this.muffle.type = 'lowpass'; this.muffle.frequency.value = 20000; this.muffle.connect(this.out);
+    this.master = ctx.createGain(); this.master.connect(this.muffle);
     const len = ctx.sampleRate * 2; this.noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
     const d = this.noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     this.rev = ctx.createConvolver(); const ir = ctx.createBuffer(2, ctx.sampleRate * 4.5, ctx.sampleRate);
@@ -1944,6 +1998,30 @@ const AudioSys = {
     else this.noise(t, { type: 'lowpass', f: 900, peak: 0.25 * v, dec: 0.2, rev: 0.3 });
   },
   kill() { if (!this.ctx) return; const t = this.ctx.currentTime; this.tone(t, { f: 160, fEnd: 50, peak: 0.5, dec: 0.6, rev: 0.6 }); this.noise(t, { type: 'lowpass', f: 400, peak: 0.4, dec: 0.4, rev: 0.4 }); },
+  hit(head, slow) {
+    if (!this.ctx) return; const t = this.ctx.currentTime;
+    this.noise(t, { type: 'lowpass', f: 1400, fEnd: 200, peak: 0.9, dec: 0.22, rev: 0.4 });
+    this.tone(t, { f: 95, fEnd: 32, peak: 1.1, dec: slow ? 1.6 : 0.5, rev: 0.5 });
+    if (head) { this.tone(t, { type: 'triangle', f: 2300, fEnd: 1700, peak: 0.25, dec: 0.5, rev: 0.6 }); this.noise(t, { type: 'bandpass', f: 3200, q: 3, peak: 0.4, dec: 0.08 }); }
+    if (slow) this.noise(t + 0.02, { type: 'bandpass', f: 2400, fEnd: 120, q: 1.2, a: 0.01, peak: 0.5, dec: 1.4, rev: 1.0 });
+    // kill-confirm chime, kept crisp (bypasses the slow-mo muffle)
+    const c = this.ctx; for (const [dl, f] of [[0.05, head ? 1568 : 1319], [0.13, head ? 2093 : 1760]]) {
+      const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = f;
+      this.env(g, t + dl, 0.005, 0.12, 0.45); o.connect(g).connect(this.out); o.start(t + dl); o.stop(t + dl + 0.6);
+    }
+  },
+  thud(v) { if (!this.ctx) return; const t = this.ctx.currentTime; this.noise(t, { type: 'lowpass', f: 380, peak: 0.6 * v, dec: 0.25, rev: 0.3 }); this.tone(t, { f: 70, fEnd: 40, peak: 0.5 * v, dec: 0.25 }); },
+  slowmo(on) {
+    if (!this.ctx) return; const t = this.ctx.currentTime;
+    this.muffle.frequency.cancelScheduledValues(t); this.muffle.frequency.setTargetAtTime(on ? 650 : 20000, t, on ? 0.08 : 0.5);
+    if (on && !this.bcWind) {
+      const n = this.src(true), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain(), lfo = this.ctx.createOscillator(), lg = this.ctx.createGain();
+      f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 2.5; g.gain.value = 0; lfo.frequency.value = 9; lg.gain.value = 0.08;
+      lfo.connect(lg).connect(g.gain); n.connect(f).connect(g).connect(this.out); n.start(); lfo.start();
+      g.gain.setTargetAtTime(0.12, t, 0.15); f.frequency.setTargetAtTime(1600, t, 1.5);
+      this.bcWind = { n, g, lfo };
+    } else if (!on && this.bcWind) { const w = this.bcWind; this.bcWind = null; w.g.gain.setTargetAtTime(0, t, 0.08); setTimeout(() => { try { w.n.stop(); w.lfo.stop(); } catch (e) { } }, 600); }
+  },
   whoosh(d) { if (!this.ctx) return; const t = this.ctx.currentTime; this.noise(t, { type: 'bandpass', f: 400, fEnd: 2200, q: 2, a: d * 0.7, peak: 0.35, dec: d * 0.3 }); },
   heartbeat() { if (!this.ctx) return; const t = this.ctx.currentTime; this.tone(t, { f: 58, fEnd: 40, peak: 0.45, dec: 0.15 }); this.tone(t + 0.22, { f: 52, fEnd: 38, peak: 0.3, dec: 0.15 }); },
   breathOut() { if (!this.ctx) return; this.noise(this.ctx.currentTime, { type: 'bandpass', f: 900, q: 0.8, a: 0.15, peak: 0.12, dec: 0.7 }); },
@@ -1958,7 +2036,7 @@ const AudioSys = {
   setSiren(on) { if (!this.ctx) return; this.sirenG.gain.setTargetAtTime(on ? 0.035 : 0, this.ctx.currentTime, 0.4); },
   setMusic(v) { if (!this.ctx) return; this.musicG.gain.setTargetAtTime(v, this.ctx.currentTime, 1.2); },
   heliLevel(rs, dist) { if (!this.ctx) return; const v = rs * clamp(1 - dist / 2600, 0, 1) * 0.6; this.heliG.gain.setTargetAtTime(v, this.ctx.currentTime, 0.2); this.heliLFO.frequency.setTargetAtTime(6 + rs * 12, this.ctx.currentTime, 0.3); },
-  setVolume(v) { if (this.master) this.master.gain.value = v; }
+  setVolume(v) { if (this.out) this.out.gain.value = v; }
 };
 
 /* =====================================================================
@@ -2011,7 +2089,7 @@ function applyEnv(name) {
   terrainU.uSnowLine.value = E.snowLine; terrainU.uSnowAmt.value = E.snowAmt; terrainU.uSnowSlope.value = E.night ? 110 : 260;
   FX.uGain.value.set(...E.gain); FX.uLift.value.set(...E.lift); FX.uSat.value = E.sat; FX.uSunTint.value.setRGB(...E.rays);
   stars.material.opacity = E.night ? 0.9 : 0;
-  RIM.value = E.night ? 0.25 : 0.45;
+  RIM.value = E.night ? 0.45 : 0.75;
   moon.visible = !!E.night; if (E.night) moon.position.copy(lightDir).multiplyScalar(16000);
   snow.visible = !!E.snow; snowU.uOpacity.value = E.snow ? 0.85 : 0;
   sky.visible = true;
@@ -2222,6 +2300,7 @@ function onImpact(b, h) {
   if (G.bc && G.bc.bullet === b) { G.bc.impact = h; G.bc.phase = 'impact'; G.bc.impactT = 0; }
   if (h.actor) {
     const a = h.actor;
+    if (a.alive) hitFX(a, h.point, dir, h.part);
     puff(h.point, 'blood', dir);
     if (h.part === 'head') { puff(h.point, 'blood', dir); for (let i = 0; i < 40; i++) smoke.spawn(h.point.x, h.point.y, h.point.z, dir.x * rand(2, 7) + rand(-1, 1), rand(-0.3, 1.2), dir.z * rand(2, 7) + rand(-1, 1), rand(0.8, 1.8), 0.05, rand(0.6, 1.4), 0.75, 0.04, 0.03, rand(0.6, 0.95), 3, 1); }
     AudioSys.impact('flesh', dist);
@@ -2229,7 +2308,7 @@ function onImpact(b, h) {
       a.kill(dir, h.part);
       G.stats.hits++; if (h.part === 'head') G.stats.heads++;
       G.stats.longest = Math.max(G.stats.longest, dist);
-      AudioSys.kill(); hitmark(true);
+      hitmark(true);
       toast(h.part === 'head' ? 'HEADSHOT' : (a.primary ? 'TARGET DOWN' : 'KILL'), `${a.name.toUpperCase()} · ${Math.round(dist)} M`);
       // witnesses
       for (const o of actors) if (o !== a && o.alive && o.role !== 'pilot' && o.pos.distanceTo(a.pos) < 38) o.hear(rand(0.5, 1.4));
@@ -2285,13 +2364,13 @@ function startBulletCam(b, pr) {
   G.bc = { bullet: b, target: pr, phase: 'fly', t: 0, impactT: 0, ang: rand(0, 6.28), side: Math.random() < 0.5 ? -1 : 1, wasScoped: P.scoped };
   G.state = 'bulletcam';
   G.tsTarget = G.timeScale = clamp(flight / 3.0, 0.01, 0.35);
+  AudioSys.slowmo(true);
   $('#letterbox').classList.add('on');
   $('#bcTag').style.display = 'block';
   $('#bcDist').textContent = Math.round(pr.point.distanceTo(b.start)) + ' M';
   $('#bcInfo').textContent = pr.actor ? pr.actor.name.toUpperCase() : 'FUEL TANK';
   setScoped(false, true);
   rifle.g.visible = false;
-  AudioSys.whoosh(3);
 }
 function updateBulletCam(rdt) {
   const bc = G.bc; bc.t += rdt;
@@ -2299,19 +2378,33 @@ function updateBulletCam(rdt) {
   if (bc.phase === 'fly') {
     const d = b.vel.clone().normalize();
     const side = new THREE.Vector3().crossVectors(d, UP).normalize(); const up2 = new THREE.Vector3().crossVectors(side, d);
-    // Side-on tracking shot: the camera flies beside the round so it is seen in profile,
-    // then widens out near the end so the strike and the target share the frame.
-    bc.ang += rdt * 0.25 * bc.side;
+    bc.ang += rdt * 0.35 * bc.side;
     const remain = b.pos.distanceTo(bc.target.point);
-    const k = smoothstep(30, 2, remain);
-    const sideDir = side.clone().multiplyScalar(bc.side).applyAxisAngle(d, Math.sin(bc.ang) * 0.5);
-    camera.position.copy(b.pos).addScaledVector(sideDir, 0.85 + k * 2.0).addScaledVector(up2, 0.08 + k * 0.35).addScaledVector(d, -0.1 - k * 1.2);
-    const aimAt = bc.target.actor && bc.target.actor.alive ? (bc.target.part === 'head' ? bc.target.actor.headPos(_v1) : bc.target.actor.centerPos(_v1)) : _v1.copy(bc.target.point);
-    camera.lookAt(_v2.copy(b.pos).addScaledVector(d, 0.35).lerp(aimAt, k * 0.55));
-    setFov(lerp(42, 50, k)); camera.near = 0.02; camera.updateProjectionMatrix();
-    bulletMesh.visible = true; bulletMesh.position.copy(b.pos); bulletMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d); bulletMesh.rotateZ(bc.t * 40);
-    FX.uBC.value = 1;
-    if (remain < 30) G.tsTarget = Math.min(G.tsTarget, 0.03);
+    const aimAt = bc.target.actor && bc.target.actor.alive ? (bc.target.part === 'head' ? bc.target.actor.headPos(new THREE.Vector3()) : bc.target.actor.centerPos(new THREE.Vector3())) : bc.target.point.clone();
+    const arriveAt = bc.target.part === 'head' ? 9 : 12;
+    if (bc.t < 0.5 && b.start.distanceTo(b.pos) < 120) {
+      // shot 1: just behind the round as it leaves the muzzle
+      camera.position.copy(b.pos).addScaledVector(d, -0.75).addScaledVector(up2, 0.12).addScaledVector(side, 0.18 * bc.side);
+      camera.lookAt(_v2.copy(b.pos).addScaledVector(d, 2)); setFov(58);
+    } else if (remain > arriveAt) {
+      // shot 2: tracking beside the round, slowly rolling around it
+      const sideDir = side.clone().multiplyScalar(bc.side).applyAxisAngle(d, Math.sin(bc.ang) * 0.6);
+      camera.position.copy(b.pos).addScaledVector(sideDir, 0.8).addScaledVector(up2, 0.1).addScaledVector(d, -0.15);
+      camera.lookAt(_v2.copy(b.pos).addScaledVector(d, 0.3)); setFov(44);
+      // dust motes streaming past sell the speed
+      if (Math.random() < 0.9) for (let i = 0; i < 3; i++) { const q = _v2.copy(b.pos).addScaledVector(d, rand(4, 14)).addScaledVector(side, rand(-2, 2)).addScaledVector(up2, rand(-1.2, 1.2)); glowP.spawn(q.x, q.y, q.z, 0, 0, 0, 0.6, 0.012, 0.012, 1.4, 1.2, 1.0, 0.7, 0, 0); }
+    } else {
+      // shot 3: camera waits beside the target and watches the round arrive
+      if (!bc.wait) { bc.wait = aimAt.clone().addScaledVector(side, 1.7 * bc.side).addScaledVector(d, -2.2).add(new THREE.Vector3(0, 0.2, 0)); AudioSys.whoosh(0.6); }
+      camera.position.copy(bc.wait);
+      camera.lookAt(_v2.lerpVectors(b.pos, aimAt, 0.45)); setFov(50);
+      G.tsTarget = 0.008;
+    }
+    camera.near = 0.02; camera.updateProjectionMatrix();
+    bulletMesh.visible = true; bulletMesh.position.copy(b.pos); bulletMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d); bulletMesh.rotateZ(bc.t * 18);
+    // spiral air wake around the round
+    for (let i = 0; i < 2; i++) { const a = bc.t * 40 + i * Math.PI; const q = _v2.copy(b.pos).addScaledVector(d, -0.25).addScaledVector(side, Math.cos(a) * 0.09).addScaledVector(up2, Math.sin(a) * 0.09); smoke.spawn(q.x, q.y, q.z, 0, 0, 0, 0.4, 0.015, 0.1, 0.92, 0.95, 1, 0.12, 0, 0); }
+    FX.uBC.value = remain > arriveAt ? 1 : 0.4;
     if (!b.alive && bc.phase === 'fly') { bc.phase = 'impact'; bc.impactT = 0; }
   } else {
     bulletMesh.visible = false;
@@ -2338,6 +2431,7 @@ function updateBulletCam(rdt) {
 }
 function endBulletCam() {
   const ws = G.bc && G.bc.wasScoped;
+  AudioSys.slowmo(false);
   G.bc = null; G.state = 'playing'; G.tsTarget = 1; bulletMesh.visible = false; FX.uBC.value = 0;
   $('#letterbox').classList.remove('on'); $('#bcTag').style.display = 'none';
   camera.near = 0.1; setFov(P.fov); camera.updateProjectionMatrix();
@@ -2356,6 +2450,11 @@ const bulletMesh = (() => {
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.glow, color: new THREE.Color(5, 2.6, 1.0), blending: THREE.AdditiveBlending, depthWrite: false })); glow.scale.setScalar(0.09); glow.position.z = -0.03; g.add(glow);
   const streak = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.001, 1.6, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.2, 1.4), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   streak.rotation.x = Math.PI / 2; streak.position.z = -0.84; g.add(streak);
+  const dark = new THREE.MeshStandardMaterial({ color: 0x5a3018, roughness: 0.5, metalness: 0.8 });
+  for (let i = 0; i < 6; i++) { const gr = new THREE.Mesh(new THREE.BoxGeometry(0.0025, 0.0012, 0.046), dark); const ang = i / 6 * Math.PI * 2; gr.position.set(Math.cos(ang) * 0.0155, Math.sin(ang) * 0.0155, 0); gr.rotation.z = ang; gr.rotation.y = 0.12; g.add(gr); }
+  const cannelure = new THREE.Mesh(new THREE.CylinderGeometry(0.0158, 0.0158, 0.004, 20), dark); cannelure.rotation.x = Math.PI / 2; cannelure.position.z = 0.012; g.add(cannelure);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.32, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.045, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  cone.rotation.x = Math.PI / 2; cone.position.z = -0.1; g.add(cone);
   g.scale.setScalar(5); g.visible = false; scene.add(g); return g;
 })();
 
@@ -2611,6 +2710,7 @@ function heliEscapeCheck(M) {
 function clearMission() {
   for (const a of actors) { if (a.inHeli) heli.group.remove(a.group); a.dispose(); }
   for (const b of bullets) if (b.tracer) scene.remove(b.tracer);
+  for (const r of rings) scene.remove(r); rings.length = 0; for (const d of debris) scene.remove(d); debris.length = 0;
   actors.length = 0; deadBodies.length = 0; bullets.length = 0;
   smoke.clear(); glowP.clear();
   for (const t of G.timers) clearTimeout(t); G.timers = [];
@@ -3203,6 +3303,7 @@ function loop(now) {
 }
 function update(rdt) {
   G.timeScale = lerp(G.timeScale, G.tsTarget, Math.min(1, rdt * (G.tsTarget > G.timeScale ? 3 : 10)));
+  if (G.hitStop > 0) { G.hitStop -= rdt; G.timeScale = 0.003; }
   const dt = rdt * G.timeScale;
   const playing = G.state === 'playing' || G.state === 'bulletcam';
   G.realT = (G.realT || 0) + rdt;
@@ -3256,14 +3357,14 @@ function update(rdt) {
   else G.bcSkip = false;
   document.body.classList.toggle('playing', G.state === 'playing' || G.state === 'bulletcam');
   document.body.classList.toggle('bc', G.state === 'bulletcam');
-  RIM.value = G.state === 'bulletcam' || G.state === 'intro' ? 0.08 : (ENV.night ? 0.25 : 0.45);
+  RIM.value = G.state === 'bulletcam' || G.state === 'intro' ? 0.1 : (ENV.night ? 0.45 : 0.75);
   document.body.classList.toggle('night', !!ENV.night);
   $('#tScope').classList.toggle('on', P.scoped); $('#tTherm').classList.toggle('on', P.thermal);
   if (G.state === 'menu' || G.state === 'briefing' || G.state === 'debrief') updateCine(rdt);
   rifle.g.visible = G.state === 'playing' && !P.scoped;
-  smoke.update(dt); glowP.update(dt);
+  smoke.update(dt); glowP.update(dt); updateHitFX(dt);
   snowU.uCam.value.copy(camera.position); cloudDome.position.copy(camera.position);
-  PART_U.uNear.value = G.state === 'bulletcam' ? 0.9 : P.scoped && G.state === 'playing' ? 4 : 0.05;
+  PART_U.uNear.value = G.state === 'bulletcam' ? 0.15 : P.scoped && G.state === 'playing' ? 4 : 0.05;
   snowU.uNear.value = 1 + (P.scoped && G.state === 'playing' ? P.zooms[P.zoomIdx] * 4.5 : 0);
   // fades & fx
   if (G.fadeOut) { G.fadeOut.t += rdt; FX.uFade.value = Math.max(0, 1 - G.fadeOut.t / G.fadeOut.dur) * (FX.uFade.value > 0 ? 1 : 0); if (G.fadeOut.t >= G.fadeOut.dur) { G.fadeOut = null; FX.uFade.value = 0; } }
