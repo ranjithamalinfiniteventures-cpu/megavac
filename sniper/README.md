@@ -52,6 +52,7 @@ Made for kids and casual players. Switch to **Realistic** under Settings → Dif
 - Aim assist guides each shot onto the enemy nearest the crosshair. Aim near the head for a headshot.
 - The scope barely sways, and zoom goes up to 36×.
 - Enemies never shoot back.
+- Missions are gentler. Targets walk slowly and take longer to escape. In mission 2 the cable car arrives in about 10 seconds, and the courier stops at the bunker door to type a code (a 25-second countdown). The helicopters take off later and fly slower.
 - The bullet cam always shows the round striking its target.
 
 ## Phones and tablets

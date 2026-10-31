@@ -1726,7 +1726,7 @@ function updateHeli(dt) {
     Hh.flyT += dt; const tgt = Hh.path[Hh.pathIdx];
     const to = _v1.subVectors(tgt, g.position); const d = to.length();
     if (d < 40 && Hh.pathIdx < Hh.path.length - 1) Hh.pathIdx++;
-    const sp = Math.min(48, 6 + Hh.flyT * 4.5);
+    const sp = easy() ? Math.min(22, 4 + Hh.flyT * 1.5) : Math.min(48, 6 + Hh.flyT * 4.5);
     Hh.vel.lerp(to.normalize().multiplyScalar(sp), Math.min(1, dt * 0.8));
     g.position.addScaledVector(Hh.vel, dt);
     const yawT = Math.atan2(Hh.vel.x, Hh.vel.z);
@@ -2501,7 +2501,7 @@ const MISSIONS = [
       else setObjText('kill', `Eliminate the 3 outpost sentries (${M.kills}/3)`);
     },
     onAlarm(M) {
-      if (M.tower.alive) { failObj('quiet'); radio('OVERWATCH', 'They\'re on the radio! You have twenty seconds before that call goes through!', 0.2); startCountdown(20, () => { if (M.tower.alive) fail('The tower radioed the summit. Kael has been warned.'); }); M.tower.anim = 'phone'; }
+      if (M.tower.alive) { failObj('quiet'); radio('OVERWATCH', 'They\'re on the radio! You have twenty seconds before that call goes through!', 0.2); startCountdown(easy() ? 45 : 20, () => { if (M.tower.alive) fail('The tower radioed the summit. Kael has been warned.'); }); M.tower.anim = 'phone'; }
       else { radio('OVERWATCH', 'They know you\'re out there, but the radio is dead. Finish it.', 0.3); }
     },
     debrief: ['Outpost silent. A courier is coming down the mountain.'],
@@ -2530,18 +2530,18 @@ const MISSIONS = [
       const st = SITEOBJ.bunkerStation.map(p => sitePt('bunker', p.x, p.z, p.y < 1 ? null : p.y));
       const door = SITEOBJ.bunkerDoor; const doorPt = sitePt('bunker', door.x, door.z);
       const route = [st[1], st[2], sitePt('bunker', 2, 12), sitePt('bunker', -2, 7), doorPt];
-      M.courier = spawn({ name: 'Dr. Sorel', look: 'courier', role: 'vip', primary: true, ...xz(st[0]), y: st[0].y, speed: 1.3 });
-      M.escort = spawn({ name: 'Escort', look: 'guard2', ...xz(st[0]), y: st[0].y, speed: 1.3 });
+      M.courier = spawn({ name: 'Dr. Sorel', look: 'courier', role: 'vip', primary: true, ...xz(st[0]), y: st[0].y, speed: easy() ? 0.7 : 1.3 });
+      M.escort = spawn({ name: 'Escort', look: 'guard2', ...xz(st[0]), y: st[0].y, speed: easy() ? 0.7 : 1.3 });
       M.courier.hidden = M.escort.hidden = true;
-      const C = SITEOBJ.cable; C.t = 0.62; C.hold = 0;
+      const C = SITEOBJ.cable; C.t = easy() ? 0.1 : 0.62; C.hold = 0;
       C.script = (C, dt) => {
         if (C.t > 0.0) { C.t = Math.max(0, C.t - dt * 0.011); if (C.t === 0 && !M.arrived) { M.arrived = true; arrive(); } }
       };
       const arrive = () => {
         M.courier.hidden = M.escort.hidden = false;
         radio('OVERWATCH', 'Cable car is in. That\'s Sorel — grey suit, steel case. Take the shot.', 0.4);
-        M.courier.setPath(route.map(p => p.clone ? Object.assign(p.clone(), { ground: p.ground }) : p), { loop: false, speed: 1.3, pauses: false, onArrive: () => { if (M.courier.alive) fail('Sorel reached the bunker. The arming key is in the vault.'); } });
-        M.escort.setPath(route.map(p => Object.assign(p.clone().add(new THREE.Vector3(0.9, 0, -0.9)), { ground: p.ground })), { loop: false, speed: 1.3, pauses: false, delay: 0.6 });
+        M.courier.setPath(route.map(p => p.clone ? Object.assign(p.clone(), { ground: p.ground }) : p), { loop: false, speed: easy() ? 0.7 : 1.3, pauses: easy(), onArrive: () => doorReached(M) });
+        M.escort.setPath(route.map(p => Object.assign(p.clone().add(new THREE.Vector3(0.9, 0, -0.9)), { ground: p.ground })), { loop: false, speed: easy() ? 0.7 : 1.3, pauses: false, delay: 0.6 });
         M.courier.wait = 1.2;
       };
       M.route = route;
@@ -2549,7 +2549,7 @@ const MISSIONS = [
     update(M, dt) {
       if (G.alarm && M.courier.alive && !M.ran && M.arrived && !M.courier.hidden) {
         M.ran = true; const rest = M.courier.path ? M.courier.path.slice(M.courier.pathIdx) : [M.route[M.route.length - 1]];
-        M.courier.setPath(rest, { loop: false, speed: 3.4, pauses: false, onArrive: () => { if (M.courier.alive) fail('Sorel made it inside. The arming key is in the vault.'); } });
+        M.courier.setPath(rest, { loop: false, speed: easy() ? 1.0 : 3.4, pauses: false, onArrive: () => doorReached(M) });
       }
     },
     onKill(M, a) {
@@ -2605,7 +2605,7 @@ const MISSIONS = [
     onAlarm(M) {
       if (!M.kael.alive) return;
       radio('OVERWATCH', 'He\'s running for the helicopter! Stop him!', 0.1);
-      heliFlee(M, M.kael, 4.2);
+      heliFlee(M, M.kael, easy() ? 12 : 4.2);
     },
     debrief: ['Wait… that was a body double. The real Kael is escaping.'],
   },
@@ -2632,26 +2632,26 @@ const MISSIONS = [
       const door = SITEOBJ.annexDoor;
       const pad = SITEOBJ.helipad;
       const route = [sitePt('summit', door.x, door.z + 2), sitePt('summit', -22, 12), sitePt('summit', -24, 18)];
-      M.kael = spawn({ name: 'Viktor Kael', look: 'kael', role: 'vip', primary: true, ...xz(sitePt('summit', door.x, door.z)), speed: 1.05, crouchOnAlert: false });
+      M.kael = spawn({ name: 'Viktor Kael', look: 'kael', role: 'vip', primary: true, ...xz(sitePt('summit', door.x, door.z)), speed: easy() ? 0.75 : 1.05, crouchOnAlert: false });
       M.g1 = spawn({ name: 'Bodyguard', look: 'winter', ...xz(sitePt('summit', door.x + 1, door.z - 0.5)), speed: 1.05, crouchOnAlert: false });
       M.g2 = spawn({ name: 'Bodyguard', look: 'winter', ...xz(sitePt('summit', door.x - 1, door.z - 0.5)), speed: 1.05, crouchOnAlert: false });
       const yawS = yawToPlayer(SITES.summit.x, SITES.summit.z);
       spawn({ name: 'Guard', look: 'winter', ...xz(sitePt('summit', 4, 22)), faceYaw: yawS, anim: 'scan' });
       spawn({ name: 'Guard', look: 'winter', ...xz(sitePt('summit', -38, 30)), path: [sitePt('summit', -38, 30), sitePt('summit', -14, 34), sitePt('summit', -8, 18)], speed: 1.0 });
       spawn({ name: 'Deck Guard', look: 'winter', ...xz(sitePt('summit', 0, 2.8, SITEOBJ.deckY)), y: SITEOBJ.summit.position.y + SITEOBJ.deckY, faceYaw: yawS, anim: 'scan' });
-      const boarding = () => { if (!M.kael.alive) return; M.kael.hidden = true; M.boarded = true; failObj('clean'); radio('OVERWATCH', 'He\'s aboard! Fuel tanks, low on either side, orange band — two hits!', 0.2); heliTakeoff(M, 4.5); };
-      M.kael.setPath([...route, Object.assign(pad.clone(), { ground: false })], { loop: false, speed: 1.05, pauses: false, delay: 9, onArrive: boarding });
-      M.g1.setPath(route.map(p => Object.assign(p.clone().add(new THREE.Vector3(1.2, 0, 0.6)), { ground: true })), { loop: false, speed: 1.05, pauses: false, delay: 8.4, onArrive: a => { a.faceYaw = yawS; a.becomeAlert(); } });
-      M.g2.setPath(route.map(p => Object.assign(p.clone().add(new THREE.Vector3(-1.2, 0, 0.6)), { ground: true })), { loop: false, speed: 1.05, pauses: false, delay: 8.6, onArrive: a => { a.faceYaw = yawS; a.becomeAlert(); } });
+      const boarding = () => { if (!M.kael.alive) return; M.kael.hidden = true; M.boarded = true; failObj('clean'); radio('OVERWATCH', 'He\'s aboard! Fuel tanks, low on either side, orange band — two hits!', 0.2); heliTakeoff(M, easy() ? 12 : 4.5); };
+      M.kael.setPath([...route, Object.assign(pad.clone(), { ground: false })], { loop: false, speed: easy() ? 0.75 : 1.05, pauses: false, delay: easy() ? 14 : 9, onArrive: boarding });
+      M.g1.setPath(route.map(p => Object.assign(p.clone().add(new THREE.Vector3(1.2, 0, 0.6)), { ground: true })), { loop: false, speed: easy() ? 0.75 : 1.05, pauses: false, delay: easy() ? 13.4 : 8.4, onArrive: a => { a.faceYaw = yawS; a.becomeAlert(); } });
+      M.g2.setPath(route.map(p => Object.assign(p.clone().add(new THREE.Vector3(-1.2, 0, 0.6)), { ground: true })), { loop: false, speed: easy() ? 0.75 : 1.05, pauses: false, delay: easy() ? 13.6 : 8.6, onArrive: a => { a.faceYaw = yawS; a.becomeAlert(); } });
       M.heliHits = 0;
       if (!IS_TOUCH) hint('<kbd>N</kbd> thermal vision', 6, 7);
     },
     update(M, dt) {
-      if (G.alarm && M.kael.alive && !M.kael.hidden && !M.ran && M.kael.path) { M.ran = true; M.kael.speed = 3.2; for (const g of [M.g1, M.g2]) if (g.alive) g.speed = 3.2; }
+      if (G.alarm && M.kael.alive && !M.kael.hidden && !M.ran && M.kael.path) { M.ran = true; M.kael.speed = easy() ? 1.2 : 3.2; for (const g of [M.g1, M.g2]) if (g.alive) g.speed = 3.2; }
       if (M.boarded && heli.state === 'fly') {
         const d = heli.group.position.distanceTo(P.pos);
         setCountdownText(`TARGET RANGE ${Math.round(d)} M`);
-        if (d > 2100 && !G.ended) fail('The helicopter vanished into the storm. HALCYON is gone.');
+        if (d > (easy() ? 3200 : 2100) && !G.ended) fail('The helicopter vanished into the storm. HALCYON is gone.');
       }
     },
     onKill(M, a) {
@@ -2685,11 +2685,19 @@ function spawnPilot() {
   a.sync = function () { this.group.position.copy(this.pos); this.group.rotation.set(this.alive ? 0 : -0.6, this.yaw, 0); };
   heli.pilot = a; return a;
 }
+// Easy mode: the courier has to punch in the door code first, which buys a last chance.
+function doorReached(M) {
+  if (!M.courier.alive || G.ended) return;
+  if (!easy()) { fail('Sorel reached the bunker. The arming key is in the vault.'); return; }
+  M.courier.anim = 'phone'; M.courier.faceYaw = M.courier.yaw;
+  radio('OVERWATCH', 'He is typing the door code — take the shot!', 0.1, true);
+  startCountdown(25, () => { if (M.courier.alive) fail('Sorel got inside the bunker.'); });
+}
 function heliFlee(M, k, delay) {
   heli.state = 'spinup';
   const pad = SITEOBJ.helipad;
   k.anim = 'idle'; k.setPath([sitePt('summit', -6, 1, SITEOBJ.deckY), sitePt('summit', -10, 0.5, SITEOBJ.deckY), sitePt('summit', -10, -7.5), sitePt('summit', -9, 0), sitePt('summit', -18, 12), Object.assign(pad.clone(), { ground: false })], {
-    loop: false, speed: 3.1, pauses: false, delay: 0.6,
+    loop: false, speed: easy() ? 1.4 : 3.1, pauses: false, delay: easy() ? 2 : 0.6,
     onArrive: () => { if (!k.alive) return; k.hidden = true; M.boarded = true; radio('OVERWATCH', 'He\'s in the helicopter!', 0.1); heliTakeoff(M, delay); }
   });
 }
