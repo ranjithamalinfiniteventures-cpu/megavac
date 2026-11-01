@@ -1131,7 +1131,7 @@ function doEat(){if(phase!=='play'||!S.alive||S.eatCd>0)return;S.eatCd=.3;S.lung
 function doJump(){if(phase!=='play'||!S.alive||S.jumpCd>0)return;
   if(S.mode==='water'){const depth=-S.pos.y;S.jumpCd=1.1;S.jumpT=.9;sfx('jump');
     const up=depth<14*S.size?26+4*S.size:19;S.vel.y=Math.max(S.vel.y,up);S.pitch=Math.max(S.pitch,.8);
-    const h=Math.hypot(S.vel.x,S.vel.z),want=13+S.size*3;if(h<want){S.vel.x=Math.sin(S.yaw)*want;S.vel.z=Math.cos(S.yaw)*want;}
+    const h=Math.hypot(S.vel.x,S.vel.z),want=9+S.size*2;if(h>want*1.4){S.vel.x*=want*1.4/h;S.vel.z*=want*1.4/h;}else if(h<want){S.vel.x=Math.sin(S.yaw)*want;S.vel.z=Math.cos(S.yaw)*want;}
     burst('bubble',S.pos,14,4,.25,1.5,4);}
   else if(S.mode==='land'){S.jumpCd=.45;hop();}}
 function hop(){S.hop=.55;S.vel.x=Math.sin(S.yaw)*9;S.vel.z=Math.cos(S.yaw)*9;S.vel.y=5.5;burst('sand',S.pos,10,4,.5,.7,-10,1);}
@@ -1246,7 +1246,9 @@ function updateShark(dt){
   if(!S.alive){turnT=0;pitchT=-.3;}
   S.turnV=lerp(S.turnV,turnT,damp(6,dt));const turn=S.turnV;
   S.jumpT-=dt;S.jumpCd-=dt;S.lungeT-=dt;S.eatCd-=dt;
-  if(p.y<=g+r+.05&&g+r>-.35*S.size)S.mode='land';else if(p.y>.05)S.mode='air';else{if(S.mode==='air'&&S.vel.y<-3){burst('splash',tmp.set(p.x,.3,p.z),30,8,1.1,1.1,-12,1.5);sfx('splash');}S.mode='water';}
+  const grounded=g+r>-.35*S.size&&(p.y<=g+r+.05||(S.mode==='land'&&S.vel.y<=.5&&p.y<=g+r+.8));
+  if(grounded){if(S.mode==='air'&&S.vel.y<-6){burst('sand',p,14,5,.7,.8,-10,1);sfx('bite');}S.mode='land';if(S.vel.y<=.5)p.y=g+r;}
+  else if(p.y>.05)S.mode='air';else{if(S.mode==='air'&&S.vel.y<-3){burst('splash',tmp.set(p.x,.3,p.z),30,8,1.1,1.1,-12,1.5);sfx('splash');}S.mode='water';}
   const base=7+S.size*2.2;let spd=S.alive?(boosting?base*2.1:base):1.5;if(S.lungeT>0)spd*=1.9;
   if(S.mode==='water'){
     S.yaw+=turn*dt*(boosting?.85:1);
@@ -1261,24 +1263,25 @@ function updateShark(dt){
     if((boosting||S.lungeT>0)&&Math.random()<dt*30)burst('bubble',tmp.copy(p).addScaledVector(fwd,-2.4*S.size),1,1,.22,2,4);
     if(p.y>-1.2&&S.vel.length()>8&&Math.random()<dt*14)burst('splash',tmp.set(p.x,.15,p.z).addScaledVector(fwd,1.5*S.size),1,2,.6,.6,-6,1);
   }else if(S.mode==='air'){
-    S.yaw+=turn*dt*.5;S.vel.y-=17*dt;S.pitch=Math.atan2(S.vel.y,Math.hypot(S.vel.x,S.vel.z));
+    S.yaw+=turn*dt*.5;S.vel.y-=17*dt;S.pitch=lerp(S.pitch,Math.atan2(S.vel.y,Math.max(4,Math.hypot(S.vel.x,S.vel.z))),damp(6,dt));
+    if(g>0){S.vel.x*=Math.exp(-dt*.5);S.vel.z*=Math.exp(-dt*.5);} // air over the beach slows you so you land near the water
   }else{
-    S.landT+=dt;S.yaw+=turn*dt*.9;
+    S.landT+=dt;S.yaw+=turn*dt*.9;if(S.landT>.35)S.yaw=angLerp(S.yaw,Math.PI,damp(2.4,dt));
     S.vel.x*=Math.exp(-dt*.75);S.vel.z*=Math.exp(-dt*.75);
     const gx=(groundY(p.x+.5,p.z)-groundY(p.x-.5,p.z)),gz=(groundY(p.x,p.z+.5)-groundY(p.x,p.z-.5));
     S.vel.x-=gx*8*dt;S.vel.z-=gz*8*dt;S.vel.y=Math.max(S.vel.y,0);S.pitch=lerp(S.pitch,0,damp(4,dt));
     S.vel.z-=9*dt; // the sea is toward -z
     S.hop-=dt;
-    if(S.alive&&S.hop<=0&&(S.landT>.7||boosting)){S.yaw=angLerp(S.yaw,Math.PI,.6);hop();}
+    if(S.alive&&S.hop<=0&&(S.landT>.8||boosting))hop();
     if(g>0)S.hp-=4*dt;
   }
-  if(S.mode!=='land')S.landT=0;
+  if(S.mode==='water')S.landT=0;
   sharkForward(fwd);
   p.addScaledVector(S.vel,dt);
   if(p.x<-BX||p.x>BX){p.x=clamp(p.x,-BX,BX);S.vel.x*=-.3;}
   if(p.z<ZMIN||p.z>ZMAX){p.z=clamp(p.z,ZMIN,ZMAX);S.vel.z*=-.3;}
   const g2=groundY(p.x,p.z);if(p.y<g2+r){p.y=g2+r;if(S.vel.y<0)S.vel.y=0;if(S.mode==='water'&&S.pitch<0)S.pitch*=.9;}
-  S.roll=lerp(S.roll,S.mode==='land'?Math.sin(S.time*9)*.35:-turn*.28,damp(5,dt));
+  S.roll=lerp(S.roll,S.mode==='land'?Math.sin(S.time*7)*.2:-turn*.28,damp(5,dt));
   shark.rotation.order='YXZ';shark.rotation.set(-S.pitch,S.yaw,S.roll);
   S.size=lerp(S.size,1+(S.lvl-1)*.3,damp(2,dt));shark.scale.setScalar(S.size);
   S.phase+=dt*(S.mode==='land'?14:2.2+S.vel.length()*.35);
@@ -1313,13 +1316,15 @@ function atmosphere(){
   waterNear.position.set(Math.round(cx/4)*4,0,Math.round(cz/4)*4);waterFar.position.set(waterNear.position.x,-.05,waterNear.position.z);
   sun.position.copy(S.pos).addScaledVector(SUN_DIR,150);sun.target.position.copy(S.pos);
 }
+let camSide=-1;
 function updateCamera(dt,boosting){
   const d=9*S.size+(boosting?2.5:0),h=3.3*S.size;
   const back=tmp.set(-Math.sin(S.yaw),0,-Math.cos(S.yaw));
   camTarget.copy(S.pos).addScaledVector(back,d*Math.cos(S.pitch*.6));camTarget.y+=h-Math.sin(S.pitch*.6)*d;
   camera.position.lerp(camTarget,damp(4,dt));
   const cg=groundY(camera.position.x,camera.position.z)+.6;if(camera.position.y<cg)camera.position.y=cg;
-  if(Math.abs(camera.position.y)<.6)camera.position.y=S.pos.y<0?-.6:.6;
+  if(S.pos.y<-.25)camSide=-1;else if(S.pos.y>.6)camSide=1; // stay on the shark's side of the surface
+  if(Math.abs(camera.position.y)<1)camera.position.y=camSide;
   if(S.hurtCd>0){S.hurtCd-=dt;camera.position.x+=rand(-.25,.25);camera.position.y+=rand(-.25,.25);}
   look.copy(S.pos).addScaledVector(fwd,5*S.size);look.y+=.9*S.size;camera.lookAt(look);
   camera.fov=lerp(camera.fov,boosting||S.lungeT>0?72:62,damp(3,dt));camera.updateProjectionMatrix();
