@@ -44,6 +44,10 @@ Kessler Observatory on top of Black Summit. You are **WRAITH**, a lone sniper on
 | Space | Skip the bullet cam |
 | Esc | Pause and settings |
 
+## Enemy sniper
+
+Every mission hides an enemy sniper on a nearby ridge. The intro shows him, and his scope **glints** every few seconds, faster as time runs out. An orange marker tags him in your scope. Kill him before the **SNIPER** countdown hits zero (90 s in Easy, 45 s in Realistic). If you don't, a cinematic plays: over his shoulder, then his round in slow motion, side-on, until it hits you, and the mission fails.
+
 ## Easy mode (default)
 
 Made for kids and casual players. Switch to **Realistic** under Settings → Difficulty.
