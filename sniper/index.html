@@ -224,6 +224,7 @@ body.touch #alert .lbl{display:none!important}body.touch #alert:not(.alarm) #ale
 #snipeWarn i{width:18px;height:18px;border:2px solid #ff6a40;border-radius:50%;position:relative}
 #snipeWarn i:before,#snipeWarn i:after{content:"";position:absolute;background:#ff6a40;left:50%;top:-5px;width:2px;height:24px;margin-left:-1px}
 #snipeWarn i:after{transform:rotate(90deg)}
+#snipeArrow{position:absolute;display:none;width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:30px solid #ff8a1e;filter:drop-shadow(0 0 6px rgba(255,120,30,.9))}
 #snipeWarn.hot{animation:blink .5s infinite;color:#fff}
 body.touch #snipeWarn{top:52px}
 @media (orientation:portrait){body.touch #snipeWarn{left:auto;right:calc(12px + env(safe-area-inset-right));transform:none;top:calc(58px + env(safe-area-inset-top));font-size:13px}}
@@ -309,6 +310,7 @@ body.touch .toast{font-size:20px}
   <div id="alert"><div class="lbl" id="alertLbl">ENEMY AWARENESS</div><div class="bar"><i id="alertFill"></i></div><div id="alertTxt" class="mono">UNDETECTED</div></div>
   <div id="timer" class="mono"></div>
   <div id="snipeWarn" class="mono"><i></i><span id="snipeT"></span></div>
+  <div id="snipeArrow"></div>
   <div id="wind" class="panel"><canvas id="windC" width="128" height="128" style="width:64px;height:64px"></canvas><div id="windTxt" class="mono"></div></div>
   <div id="ballistics" class="panel mono"></div>
   <div id="bolt" class="mono"></div>
@@ -560,6 +562,14 @@ TEX.flag = canvasTex(256, 160, (g, w, h) => {
   g.fillStyle = '#a3171a'; g.beginPath(); g.arc(w / 2, h / 2, h * 0.34, 0, Math.PI * 2); g.fill();
   g.strokeStyle = '#121214'; g.lineWidth = 10; g.beginPath(); g.moveTo(w / 2 - 40, h / 2 - 26); g.lineTo(w / 2, h / 2 + 30); g.lineTo(w / 2 + 40, h / 2 - 26); g.stroke();
   g.fillStyle = '#a3171a'; g.fillRect(0, h - 14, w, 6);
+});
+TEX.sniperMark = canvasTex(128, 166, (g, w, h) => {
+  g.shadowColor = 'rgba(0,0,0,.7)'; g.shadowBlur = 8;
+  g.fillStyle = '#ff8a1e'; g.beginPath(); g.moveTo(w / 2, h - 6); g.lineTo(w * 0.2, h - 52); g.lineTo(w * 0.8, h - 52); g.closePath(); g.fill();
+  g.shadowBlur = 0; g.strokeStyle = '#ff8a1e'; g.lineWidth = 7;
+  g.beginPath(); g.arc(w / 2, 50, 34, 0, Math.PI * 2); g.stroke();
+  g.lineWidth = 6; g.beginPath(); g.moveTo(w / 2, 6); g.lineTo(w / 2, 94); g.moveTo(w / 2 - 44, 50); g.lineTo(w / 2 + 44, 50); g.stroke();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(w / 2, 50, 6, 0, Math.PI * 2); g.fill();
 });
 TEX.windows = canvasTex(256, 64, (g, w, h) => {
   g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
@@ -2302,7 +2312,8 @@ function updateBullets(dt) {
       else if (b.t > 7 || b.pos.y < -300) b.alive = false;
     }
   }
-  for (const b of bullets) if (b.tracer) { b.tracer.position.copy(b.pos); b.tracer.visible = b.alive && !G.bc && b.pos.distanceTo(b.start) > 6; if (!b.alive) { scene.remove(b.tracer); b.tracer = null; } }
+  const tzf = Math.max(0.1, Math.tan(camera.fov * DEG / 2) / Math.tan(31 * DEG));
+  for (const b of bullets) if (b.tracer) { b.tracer.position.copy(b.pos); b.tracer.scale.set(0.012 * tzf, 0.012 * tzf, 1); b.tracer.visible = b.alive && !G.bc && b.pos.distanceTo(b.start) > 6; if (!b.alive) { scene.remove(b.tracer); b.tracer = null; } }
   for (let i = bullets.length - 1; i >= 0; i--) if (!bullets[i].alive) bullets.splice(i, 1);
 }
 
@@ -2480,6 +2491,7 @@ const yawToPlayer = (x, z) => Math.atan2(-x, -z);
 
 const MISSIONS = [
   {
+    sniperBase: [[14, 9, null], [-14, 12, null], [4, 16, null]],
     sniperSpots: [[-90, -330], [-360, -520], [-150, -560], [40, -430], [-300, -300]],
     code: '01', title: 'FIRST LIGHT', time: '05:42 · DAWN', loc: 'HOLLOW RIDGE · VARN MOUNTAINS', env: 'dawn',
     wind: { speed: 1.4, dir: 80, gust: 0.25 }, zero: 500, site: 'outpost', shotNoise: 10,
@@ -2520,6 +2532,7 @@ const MISSIONS = [
     debrief: ['Outpost silent. A courier is coming down the mountain.'],
   },
   {
+    sniperBase: [[2, -3, 5.9], [-6, -6, 5.9], [-11, 7, null]],
     sniperSpots: [[210, -520], [430, -560], [260, -760], [150, -640], [420, -740]],
     code: '02', title: 'THE COURIER', time: '12:10 · MIDDAY', loc: 'SOUTHERN SHOULDER · KESSLER LINE', env: 'noon',
     wind: { speed: 3.6, dir: 95, gust: 0.4 }, zero: 700, site: 'bunker', shotNoise: 18,
@@ -2574,6 +2587,7 @@ const MISSIONS = [
     debrief: ['The arming key is ours. Now for Kael himself.'],
   },
   {
+    sniperBase: [[-17, -5, 5.0], [-20, -8, 5.0], [8, 18, null]],
     sniperSpots: [[70, -830], [-220, -860], [40, -1010], [-190, -1030], [-10, -860]],
     code: '03', title: 'THE VULTURE\'S NEST', time: '19:24 · SUNSET', loc: 'BLACK SUMMIT · KESSLER OBSERVATORY', env: 'sunset',
     wind: { speed: 4.5, dir: 100, gust: 0.45 }, zero: 950, site: 'summit', shotNoise: 20,
@@ -2625,6 +2639,7 @@ const MISSIONS = [
     debrief: ['Wait… that was a body double. The real Kael is escaping.'],
   },
   {
+    sniperBase: [[-15, -5, 5.0], [-20, -8, 5.0], [8, 18, null]],
     sniperSpots: [[-220, -860], [70, -830], [-190, -1030], [40, -1010], [-10, -860]],
     code: '04', title: 'STORMBREAK', time: '23:51 · NIGHT · BLIZZARD', loc: 'BLACK SUMMIT · HELIPAD', env: 'night',
     wind: { speed: 5.0, dir: 110, gust: 0.4 }, zero: 1000, site: 'summit', shotNoise: 8,
@@ -2717,8 +2732,13 @@ function clearLine(a, b) {
 function spawnEnemySniper(M) {
   G.sniper = null;
   const eye = P.pos.clone();
-  let spot = null;
-  for (const [x, z] of M.sniperSpots || []) {
+  let spot = null, onRoof = false;
+  // first choice: on the enemy base itself (a roof or behind cover), if he is visible from the ridge
+  for (const [lx, lz, ly] of M.sniperBase || []) {
+    const v = sitePt(M.site, lx, lz, ly); v.y += 1.0;
+    if (clearLine(eye, v)) { spot = v; onRoof = ly != null; break; }
+  }
+  for (const [x, z] of spot ? [] : (M.sniperSpots || [])) {
     const n = normalAt(x, z); if (n.y < 0.75) continue;
     const p = new THREE.Vector3(x, heightAt(x, z) + 1.0, z);
     if (p.distanceTo(eye) > 250 && clearLine(eye, p)) { spot = p; break; }
@@ -2732,17 +2752,20 @@ function spawnEnemySniper(M) {
     if (p.distanceTo(eye) > 250 && clearLine(eye, p)) spot = p;
   }
   if (!spot) return;
-  const a = new Actor({ name: 'Enemy Sniper', look: 'esniper', role: 'sniper', x: spot.x, z: spot.z, forceAim: true, crouchOnAlert: false });
+  const a = new Actor({ name: 'Enemy Sniper', look: 'esniper', role: 'sniper', x: spot.x, z: spot.z, y: spot.y - 1.0, forceAim: true, crouchOnAlert: false });
+  if (onRoof) a.canFall = false;
   // scope glint: a screen-space sparkle that gives his position away
   const glint = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.glow, color: new THREE.Color(9, 8, 6), blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: false, fog: false }));
   glint.position.set(0, 0.06, 0.3); glint.scale.setScalar(0.004); a.h.rifle.add(glint);
   const limit = easy() ? 90 : 45;
-  G.sniper = { actor: a, t: limit, limit, glint, done: false };
+  const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.sniperMark, depthTest: false, depthWrite: false, sizeAttenuation: false, fog: false, transparent: true }));
+  mark.renderOrder = 20; mark.scale.set(0.05, 0.065, 1); scene.add(mark);
+  G.sniper = { actor: a, t: limit, limit, glint, mark, done: false };
   G.objectives.push({ id: 'sniper', text: 'Find the enemy sniper before he finds you', state: 'open' });
 }
 function sniperDown() {
   if (!G.sniper || G.sniper.done) return;
-  G.sniper.done = true; G.sniper.glint.visible = false; complete('sniper');
+  G.sniper.done = true; G.sniper.glint.visible = false; G.sniper.mark.visible = false; $('#snipeArrow').style.display = 'none'; complete('sniper');
   $('#snipeWarn').style.display = 'none';
   radio('OVERWATCH', 'Enemy sniper down. Nice work!', 0.3, true);
 }
@@ -2752,7 +2775,26 @@ function updateEnemySniper(dt, rdt) {
   if (G.state === 'playing' && !G.ended) S.t -= dt;
   const frac = S.t / S.limit, rate = frac < 0.3 ? 5.5 : 2.2;
   const pulse = Math.pow(Math.max(0, Math.sin(G.realT * rate)), 10);
-  S.glint.scale.setScalar(0.003 + pulse * (frac < 0.3 ? 0.03 : 0.02));
+  S.glint.scale.setScalar((0.003 + pulse * (frac < 0.3 ? 0.03 : 0.02)) * Math.max(0.12, Math.tan(camera.fov * DEG / 2) / Math.tan(31 * DEG)));
+  // floating marker above his head, and an arrow on the screen edge when he is out of view
+  const live = G.state === 'playing';
+  const hp = S.actor.headPos(new THREE.Vector3()); hp.y += 0.9;
+  S.mark.position.copy(hp); S.mark.visible = live;
+  // sizeAttenuation:false sprites still scale with the field of view; undo that so the tag stays the same size when zoomed
+  const zf = Math.tan(camera.fov * DEG / 2) / Math.tan(31 * DEG);
+  const k = (1 + 0.12 * Math.sin(G.realT * 6)) * zf; S.mark.scale.set(0.06 * k, 0.078 * k, 1);
+  const arrow = $('#snipeArrow');
+  if (live) {
+    const ndc = hp.clone().project(camera); let x = ndc.x, y = ndc.y;
+    const behind = ndc.z > 1; if (behind) { x = -x; y = -y; }
+    if (behind || Math.abs(x) > 0.92 || Math.abs(y) > 0.92) {
+      const m = Math.max(Math.abs(x), Math.abs(y)) || 1; x /= m; y /= m;
+      const px = (x * 0.5 + 0.5) * innerWidth, py = (-y * 0.5 + 0.5) * innerHeight;
+      arrow.style.display = 'block';
+      arrow.style.left = clamp(px, 36, innerWidth - 36) + 'px'; arrow.style.top = clamp(py, 90, innerHeight - 150) + 'px';
+      arrow.style.transform = `translate(-50%,-50%) rotate(${Math.atan2(x, y)}rad)`;
+    } else arrow.style.display = 'none';
+  } else arrow.style.display = 'none';
   if (G.state === 'playing' || G.state === 'bulletcam') {
     w.style.display = 'flex'; $('#snipeT').textContent = `SNIPER ${Math.max(0, Math.ceil(S.t))}`; w.classList.toggle('hot', frac < 0.2);
   }
@@ -2838,6 +2880,7 @@ function heliEscapeCheck(M) {
 function clearMission() {
   for (const a of actors) { if (a.inHeli) heli.group.remove(a.group); a.dispose(); }
   for (const b of bullets) if (b.tracer) scene.remove(b.tracer);
+  if (G.sniper) scene.remove(G.sniper.mark); $('#snipeArrow').style.display = 'none';
   for (const r of rings) scene.remove(r); rings.length = 0; for (const d of debris) scene.remove(d); debris.length = 0;
   actors.length = 0; deadBodies.length = 0; bullets.length = 0;
   smoke.clear(); glowP.clear();
@@ -3327,7 +3370,7 @@ function drawScope(range) {
   g.restore();
   // spotter tags: red over hostiles, gold over the primary target
   for (const a of actors) {
-    if (!a.alive || a.hidden || a.role === 'pilot' || a.role === 'player') continue;
+    if (!a.alive || a.hidden || a.role === 'pilot' || a.role === 'player' || a.role === 'sniper') continue;
     const p = a.headPos(new THREE.Vector3()); p.y += 0.5; p.project(camera);
     if (p.z > 1) continue;
     const sx = (p.x * 0.5 + 0.5) * w, sy = (-p.y * 0.5 + 0.5) * h;
