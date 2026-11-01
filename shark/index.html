@@ -860,13 +860,13 @@ function audio(){
     const bed=(buf,type,f,q)=>{const s=AC.createBufferSource();s.buffer=buf;s.loop=true;const fl=AC.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;const g=AC.createGain();g.gain.value=0;s.connect(fl).connect(g).connect(master);s.start(0,Math.random());return g;};
     amb.surf=bed(noiseB,'lowpass',650,.4);amb.breeze=bed(whiteB,'bandpass',2600,.4);amb.deep=bed(noiseB,'lowpass',170,.6);
     // music elements go through the graph so they can be muffled underwater and ducked
-    TRACKS.forEach(k=>{const el=new Audio();el.src=trackURL(k);el.preload='auto';el.addEventListener('ended',()=>playTrack((MZ.cur+1)%TRACKS.length));
+    if(window.MUSIC_DATA)TRACKS.forEach(k=>{const el=new Audio();el.src=trackURL(k);el.preload='auto';el.addEventListener('ended',()=>playTrack((MZ.cur+1)%TRACKS.length));
       const g=AC.createGain();g.gain.value=0;try{AC.createMediaElementSource(el).connect(g);}catch(e){}g.connect(musBus);MZ.els.push(el);MZ.gains.push(g);});
     applyAudioPrefs();}
   if(AC.state==='suspended')AC.resume();
   syncMusic();
 }
-function playTrack(i){if(!AC)return;const t=AC.currentTime,el=MZ.els[i];
+function playTrack(i){if(!AC||!MZ.els[i])return;const t=AC.currentTime,el=MZ.els[i];
   MZ.gains.forEach((g,j)=>g.gain.setTargetAtTime(j===i?1:0,t,.7));
   if(MZ.cur!==i){try{el.currentTime=0;}catch(e){}const old=MZ.cur;MZ.cur=i;if(old>=0)setTimeout(()=>{if(MZ.cur!==old)MZ.els[old].pause();},3000);}
   if(musicOn&&!muted)el.play().catch(()=>{});}
