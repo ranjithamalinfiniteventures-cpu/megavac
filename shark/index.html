@@ -1230,7 +1230,7 @@ function updateRival(R,dt){
   }
 }
 function updateRivalLabels(){
-  const under=camera.position.y<0;
+  camera.updateMatrixWorld();const under=camera.position.y<0;
   for(const R of rivals){const L=R.label;if(R.dead||!R.mesh.visible||phase==='menu'){L.style.display='none';continue;}
     const d=R.pos.distanceTo(camera.position);projV.copy(R.pos);projV.y+=1.5*R.size+.6;projV.project(camera);
     if(projV.z>1||d>(under?95:180)){L.style.display='none';continue;}
@@ -1503,7 +1503,7 @@ function frame(){
 try{renderer.compile(scene,camera);}catch(e){}
 $('loading').remove();
 frame();
-window.__shark={S,creatures,rivals,TYPES,startGame,groundY,shoreZ,renderer,doEat,doJump,MZ,sfx,get audioCtx(){return AC;},get phase(){return phase;}};
+window.__shark={S,creatures,rivals,camera,updateRivalLabels,TYPES,startGame,groundY,shoreZ,renderer,doEat,doJump,MZ,sfx,get audioCtx(){return AC;},get phase(){return phase;}};
 })();
 </script>
 </body>

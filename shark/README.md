@@ -45,6 +45,15 @@ open it there.
 
 ## How it plays
 
+- **Rival sharks.** Six AI sharks (Jaws, Bruce, Razor, Tiger, Mako and Fang) hunt the same
+  waters, eat prey, level up and grow. Rivals bigger than you or your size hunt you down
+  and bite. Smaller ones attack while healthy and flee when hurt, and ones you outgrow by
+  two levels keep away. Press EAT next to a rival to bite it; the lunge locks onto it.
+  Each rival shows its name, level and health bar (red is bigger than you, yellow is your
+  level, purple is smaller). Defeating one pays big points and XP, and it returns later
+  near your level. A live leaderboard ranks you against them.
+- **Grow.** There are 10 levels. Your shark grows with each level and a little with
+  every meal, up to almost 4 times its starting size.
 - **Eat anything.** Every creature is food at any level. Small prey goes down in one
   bite and is sucked into your jaws when you press EAT. Big prey takes a few bites,
   and fewer as you grow. Hammerheads and orcas fight back until you outgrow them.
