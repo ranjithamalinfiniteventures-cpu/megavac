@@ -64,6 +64,21 @@ h2{margin:0 0 10px;font-size:26px}
 button{font:inherit;font-size:20px;font-weight:800;padding:12px 36px;border:0;border-radius:40px;background:var(--accent);color:#3a1d00;cursor:pointer;box-shadow:0 4px 0 var(--accent-dk);margin:6px}
 button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 button:active{transform:translateY(2px);box-shadow:0 2px 0 var(--accent-dk)}
+#rivalLabels{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.rlabel{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:800;text-shadow:0 1px 3px #000;white-space:nowrap;will-change:transform}
+.rlabel i{display:block;width:64px;height:6px;border-radius:3px;background:rgba(0,0,0,.5);overflow:hidden}
+.rlabel b{display:block;height:100%;background:#4dff88;transition:width .15s}
+.rlabel.big .rn{color:#ff6b81}.rlabel.big b{background:#ff3b5c}
+.rlabel.even .rn{color:#ffd23f}.rlabel.even b{background:#ffd23f}
+.rlabel.small .rn{color:#d6b4ff}.rlabel.small b{background:#b98cff}
+.rlabel.hit{filter:brightness(1.8)}
+#board{position:absolute;left:max(16px,env(safe-area-inset-left,0px));top:calc(172px + env(safe-area-inset-top,0px));width:150px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 10px;font-size:12px;backdrop-filter:blur(6px);font-variant-numeric:tabular-nums}
+#board b{display:block;font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:3px}
+#board div{display:flex;justify-content:space-between;gap:6px;line-height:1.55}
+#board .me{color:var(--accent);font-weight:800}
+#board .dead{opacity:.4}
+@media (max-width:600px){#board{width:128px;font-size:11px;top:calc(166px + env(safe-area-inset-top,0px))}}
+@media (max-height:560px){#board div:nth-of-type(n+4){display:none}#board div.me{display:flex}}
 #hudBtns{position:absolute;left:max(16px,env(safe-area-inset-left,0px));top:calc(124px + env(safe-area-inset-top,0px));display:flex;gap:8px;pointer-events:auto}
 .hb{font:inherit;font-size:13px;font-weight:800;width:40px;height:40px;padding:0;border-radius:50%;margin:0;background:var(--panel);color:var(--fg);border:1px solid var(--line);box-shadow:none;backdrop-filter:blur(6px)}
 .hb.off{opacity:.45;text-decoration:line-through}
@@ -91,6 +106,7 @@ kbd{background:rgba(255,255,255,.15);border-radius:4px;padding:1px 6px;font-fami
     <div id="next"></div>
   </div>
   <div id="hudBtns"><button class="hb" id="pauseBtn" type="button" aria-label="Pause">❚❚</button><button class="hb hbMus" type="button" aria-label="Toggle music">♪</button><button class="hb hbSnd" type="button" aria-label="Toggle sound">SFX</button></div>
+  <div id="board"></div>
   <div id="scoreBox"><div id="score">0</div><div id="combo"></div></div>
   <canvas id="radar" width="264" height="264"></canvas>
   <div id="feed"></div>
@@ -108,7 +124,7 @@ kbd{background:rgba(255,255,255,.15);border-radius:4px;padding:1px 6px;font-fami
 <div id="menu" class="panel">
   <div class="card">
     <h1>SHARK FRENZY</h1>
-    <p class="sub">You are a great white shark, and everything is on the menu: fish, swimmers, people on the beach, octopus, seals, dolphins, orcas and blue whales. Small prey goes down in one bite. Big prey takes a few, and fewer as you grow.</p>
+    <p class="sub">Rival sharks (Jaws, Bruce, Razor, Tiger, Mako and Fang) hunt the same waters. They grow as they eat, and they will come for you. Press EAT next to one to bite it, and climb the leaderboard. You are a great white shark, and everything is on the menu: fish, swimmers, people on the beach, octopus, seals, dolphins, orcas and blue whales. Small prey goes down in one bite. Big prey takes a few, and fewer as you grow.</p>
     <div class="menu-list" id="menuList"></div>
     <button id="playBtn">PLAY</button>
     <div class="toggles"><button class="tg sndBtn" type="button">Sound: On</button><button class="tg musBtn" type="button">Music: On</button></div>
@@ -821,7 +837,7 @@ const TYPES={
   orca:{name:'Orca',lvl:6,r:2.4,hl:2.6,pts:400,food:55,xp:220,speed:9,n:3,zone:'deep',sc:[2.1,2.3],build:()=>buildDolphin(true),danger:26},
   whale:{name:'Blue Whale',lvl:99,r:3.4,hl:6,pts:1500,food:90,xp:500,speed:2.6,n:3,zone:'whale',sc:[1,1.15],build:buildWhale,hp:14,chunk:{pts:45,food:10,xp:22}},
 };
-const XP=[0,150,420,850,1500,2400,3600];
+const XP=[0,150,420,850,1500,2400,3600,5200,7200,9800];
 const MAXLVL=XP.length;
 
 // ================= particles (soft sprites) =================
@@ -1136,6 +1152,100 @@ function doJump(){if(phase!=='play'||!S.alive||S.jumpCd>0)return;
   else if(S.mode==='land'){S.jumpCd=.45;hop();}}
 function hop(){S.hop=.55;S.vel.x=Math.sin(S.yaw)*9;S.vel.z=Math.cos(S.yaw)*9;S.vel.y=5.5;burst('sand',S.pos,10,4,.5,.7,-10,1);}
 
+// ================= rival sharks =================
+// AI sharks that hunt prey, level up and grow, and fight the player. Bigger or equal rivals hunt you;
+// smaller ones attack while healthy and flee when hurt; ones you outgrow by two levels keep away.
+const sizeFor=(lvl,xp)=>1+(lvl-1)*.3+(lvl<MAXLVL?.28*clamp((xp-XP[lvl-1])/(XP[lvl]-XP[lvl-1]),0,1):0);
+const rivalMaxHp=l=>90+30*(l-1);
+const RIVAL_LOOK=[['Jaws',0x575d66,0xf0efe9],['Bruce',0x6d6b55,0xe9e3cd],['Razor',0x2e4c70,0xdfe6ee],['Tiger',0x7d6747,0xefe5d0],['Mako',0x34557e,0xf2f4f6],['Fang',0x4b5246,0xe7e7dd]];
+const rivals=[];
+const rivalLayer=document.createElement('div');rivalLayer.id='rivalLabels';$('hud').prepend(rivalLayer);
+const rtmp=new V3(),rfwd=new V3(),rmouth=new V3();
+function makeRival(i){
+  const[name,top,bel]=RIVAL_LOOK[i],mesh=buildShark(top,bel);mesh.rotation.order='YXZ';scene.add(mesh);
+  const label=document.createElement('div');label.className='rlabel';label.innerHTML='<span class="rn"></span><i><b></b></i>';rivalLayer.appendChild(label);
+  const R={name,mesh,pos:mesh.position,vel:new V3(),yaw:rand(0,TAU),pitch:0,lvl:1,xp:0,hp:100,maxHp:100,size:1,dead:false,respawn:0,cd:0,jaw:0,phase:rand(0,TAU),
+    state:'roam',target:null,thinkT:0,dir:new V3(rand(-1,1),0,rand(-1,1)).normalize(),wt:0,label,u:mesh.userData.mat.userData.u,hitT:0};
+  rivals.push(R);return R;
+}
+function spawnRival(R,lvl){
+  R.lvl=clamp(lvl??S.lvl+pick([-2,-1,0,0,1,1,2]),1,MAXLVL);R.xp=XP[R.lvl-1];R.size=sizeFor(R.lvl,R.xp);R.maxHp=R.hp=rivalMaxHp(R.lvl);
+  for(let k=0;k<30;k++){const x=rand(-BX+20,BX-20),z=rand(-320,shoreZ(x)-40),g=groundY(x,z);if(g>-10)continue;R.pos.set(x,rand(g+4,-3),z);if(Math.hypot(x-S.pos.x,z-S.pos.z)>70)break;}
+  R.dead=false;R.mesh.visible=true;R.vel.set(0,0,0);R.state='roam';R.target=null;R.cd=1;
+}
+function killRival(R,byPlayer){
+  R.dead=true;R.mesh.visible=false;R.respawn=rand(16,24);R.label.style.display='none';
+  burst('blood',R.pos,40,6,2+R.size,2.4);
+  if(byPlayer){S.kills=(S.kills||0)+1;sfx('bigchomp');sfx('devour');
+    gain(250*R.lvl,45,110*R.lvl,R.pos,'Defeated '+R.name);banner(R.name.toUpperCase()+' DEFEATED!','+'+250*R.lvl*mult()+' points');}
+}
+function rivalForward(R,o){return o.set(Math.sin(R.yaw)*Math.cos(R.pitch),Math.sin(R.pitch),Math.cos(R.yaw)*Math.cos(R.pitch));}
+function rivalGrow(R,xp){R.xp+=xp;while(R.lvl<MAXLVL&&R.xp>=XP[R.lvl]){R.lvl++;const f=R.hp/R.maxHp;R.maxHp=rivalMaxHp(R.lvl);R.hp=Math.max(R.hp,R.maxHp*f);
+  if(R.pos.distanceTo(S.pos)<80&&phase==='play')feed(R.name+' grew to LV '+R.lvl+'!');}}
+function updateRival(R,dt){
+  if(R.dead){R.respawn-=dt;if(R.respawn<=0)spawnRival(R);return;}
+  R.cd-=dt;R.thinkT-=dt;R.hitT-=dt;R.hp=Math.min(R.maxHp,R.hp+dt*1.5);
+  const p=R.pos,toP=rtmp.copy(S.pos).sub(p),dP=toP.length(),hunting=S.alive&&phase==='play'&&S.mode!=='land';
+  let spd=7+R.size*2,goal=null;
+  // decide what to do
+  if(hunting&&dP<38&&(R.lvl>=S.lvl||(R.lvl>=S.lvl-1&&R.hp>R.maxHp*.5))){R.state='attack';goal=S.pos;spd*=1.3;threat=1;}
+  else if(hunting&&dP<26&&R.lvl<S.lvl){R.state='flee';goal=rtmp.copy(p).multiplyScalar(2).sub(S.pos);spd*=1.25;}
+  else{
+    R.state='hunt';
+    if(R.thinkT<=0){R.thinkT=1;let best=null,bd=50;for(const c of creatures){if(c.dead||c.T.chunk||c.T.lvl>R.lvl||c.T.zone==='air'||c.T.zone==='beach')continue;const d=c.pos.distanceTo(p);if(d<bd){bd=d;best=c;}}R.target=best;}
+    if(R.target&&!R.target.dead)goal=R.target.pos;
+  }
+  // steer
+  let dx,dy,dz;
+  if(goal){dx=goal.x-p.x;dy=goal.y-p.y;dz=goal.z-p.z;}else{if((R.wt-=dt)<=0){R.dir.set(rand(-1,1),rand(-.2,.2),rand(-1,1)).normalize();R.wt=rand(2,5);}dx=R.dir.x;dy=R.dir.y;dz=R.dir.z;spd*=.7;}
+  const g=groundY(p.x,p.z);
+  if(g>-(2*R.size+2)){dz=-Math.abs(dz)-10;} // keep out of the shallows
+  if(p.x>BX-15)dx=-10;if(p.x<-BX+15)dx=10;if(p.z<ZMIN+15)dz=10;
+  let dyaw=Math.atan2(dx,dz)-R.yaw;dyaw=Math.atan2(Math.sin(dyaw),Math.cos(dyaw));R.yaw+=clamp(dyaw*3,-2.2,2.2)*dt;
+  R.pitch=lerp(R.pitch,clamp(Math.atan2(dy,Math.hypot(dx,dz)),-.7,.7),damp(2,dt));
+  rivalForward(R,rfwd);R.vel.lerp(rtmp.copy(rfwd).multiplyScalar(spd),damp(2.5,dt));p.addScaledVector(R.vel,dt);
+  p.x=clamp(p.x,-BX,BX);p.z=clamp(p.z,ZMIN,ZMAX);const r=.62*R.size,g2=groundY(p.x,p.z);p.y=clamp(p.y,g2+r,-.5*R.size);
+  // look and animate
+  R.size=lerp(R.size,sizeFor(R.lvl,R.xp),damp(2,dt));R.mesh.scale.setScalar(R.size);R.mesh.rotation.set(-R.pitch,R.yaw,clamp(-dyaw*.4,-.35,.35));
+  R.phase+=dt*(2.2+R.vel.length()*.35);R.jaw=Math.max(0,R.jaw-dt*3);
+  const dist=dP,vis=dist<(camera.position.y<0?130:240);R.mesh.visible=vis;
+  if(vis){R.u.uPhase.value=R.phase;R.u.uAmp.value=.22+Math.min(.18,R.vel.length()*.008);R.u.uJaw.value=lerp(R.u.uJaw.value,(R.state==='attack'&&dist<12?.7:R.jaw)*.62,damp(12,dt));}
+  rmouth.copy(p).addScaledVector(rfwd,2.05*R.size);
+  // rival eats its prey
+  if(R.target&&!R.target.dead&&R.state==='hunt'&&R.target.pos.distanceTo(rmouth)<R.target.r+1.4*R.size){
+    const c=R.target;c.dead=true;c.mesh.visible=false;c.respawn=rand(6,18);R.jaw=1;burst('blood',c.pos,10,3,.8,1.5);rivalGrow(R,c.T.xp);R.target=null;
+    if(dist<35&&phase==='play')sfx('chomp');}
+  // rival bites the player
+  if(R.state==='attack'&&R.cd<=0&&S.alive&&rmouth.distanceTo(S.pos)<1.3*S.size+.9*R.size){
+    const dmg=6+5*R.lvl;R.cd=1.3;R.jaw=1;S.hp-=dmg;S.hurtCd=.5;S.killer=R.name;sfx('hurt');burst('blood',S.pos,12,3,1,1.4);
+    S.vel.addScaledVector(rtmp.copy(S.pos).sub(p).normalize(),8);$('flash').style.opacity=1;setTimeout(()=>$('flash').style.opacity=0,180);
+    popup(S.pos,R.name+' bites! -'+dmg,'bad');}
+  // the player's EAT lunge bites the rival
+  if(S.lungeT>0&&S.biteCd<=0&&S.alive){
+    const ax=mouth.x-p.x,ay=mouth.y-p.y,az=mouth.z-p.z,hl=2.2*R.size,proj=clamp(ax*rfwd.x+ay*rfwd.y+az*rfwd.z,-hl,hl);
+    if(Math.hypot(ax-rfwd.x*proj,ay-rfwd.y*proj,az-rfwd.z*proj)<1.7*S.size+.7*R.size){
+      const dmg=Math.round((22+12*S.lvl)*(S.lvl>R.lvl?1.3:1));R.hp-=dmg;S.biteCd=.35;S.lungeT=0;S.jaw=1;R.hitT=.25;R.cd=Math.max(R.cd,.5);
+      R.vel.addScaledVector(rtmp.copy(p).sub(S.pos).normalize(),7);sfx('bite');burst('blood',mouth,18,4,1.1,1.8);popup(p,'-'+dmg);
+      if(R.hp<=0)killRival(R,true);else if(R.hp<R.maxHp*.35&&R.lvl<=S.lvl)R.state='flee';}
+  }
+}
+function updateRivalLabels(){
+  const under=camera.position.y<0;
+  for(const R of rivals){const L=R.label;if(R.dead||!R.mesh.visible||phase==='menu'){L.style.display='none';continue;}
+    const d=R.pos.distanceTo(camera.position);projV.copy(R.pos);projV.y+=1.5*R.size+.6;projV.project(camera);
+    if(projV.z>1||d>(under?95:180)){L.style.display='none';continue;}
+    L.style.display='';L.style.transform=`translate(${((projV.x+1)/2*innerWidth).toFixed(1)}px,${((1-projV.y)/2*innerHeight).toFixed(1)}px) translate(-50%,-100%)`;
+    const rel=R.lvl>S.lvl?'big':R.lvl===S.lvl?'even':'small';if(L.dataset.rel!==rel){L.dataset.rel=rel;L.className='rlabel '+rel;}
+    const txt=R.name+' · LV '+R.lvl;const n=L.firstChild;if(n.textContent!==txt)n.textContent=txt;
+    L.lastChild.firstChild.style.width=Math.max(0,R.hp/R.maxHp*100)+'%';L.classList.toggle('hit',R.hitT>0);}
+}
+function updateBoard(){
+  const all=[{name:'YOU',lvl:S.lvl,xp:S.xp,me:1}].concat(rivals.map(R=>({name:R.name,lvl:R.lvl,xp:R.xp,dead:R.dead})));
+  all.sort((a,b)=>b.xp-a.xp);
+  $('board').innerHTML='<b>LEADERBOARD</b>'+all.slice(0,6).map((e,i)=>`<div class="${e.me?'me':''}${e.dead?' dead':''}"><span>${i+1}. ${e.name}</span><span>LV ${e.lvl}</span></div>`).join('');
+}
+for(let i=0;i<RIVAL_LOOK.length;i++)spawnRival(makeRival(i),[1,1,2,2,3,4][i]);
+
 // ================= UI helpers =================
 const projV=new V3();
 function popup(pos,text,cls=''){projV.copy(pos).project(camera);if(projV.z>1)return;const d=document.createElement('div');d.className='pop '+cls;d.textContent=text;
@@ -1186,9 +1296,10 @@ holdBtn($('eatBtn'),doEat);holdBtn($('jumpBtn'),doJump);holdBtn($('boostBtn'),()
 let phase='menu',best=+store.get('shark.best')||0;
 function startGame(){
   audio();if(AC)playTrack(1);
-  Object.assign(S,{yaw:0,pitch:0,roll:0,size:1,lvl:1,xp:0,hp:100,hunger:100,score:0,combo:0,comboT:0,mode:'water',biteCd:0,jaw:0,hurtCd:0,alive:true,eaten:{},bestCombo:0,time:0,landT:0,jumpT:0,jumpCd:0,lungeT:0,eatCd:0,turnV:0,assist:null,assistT:0,aim:null});
+  Object.assign(S,{yaw:0,pitch:0,roll:0,size:1,lvl:1,xp:0,hp:100,hunger:100,score:0,combo:0,comboT:0,mode:'water',biteCd:0,jaw:0,hurtCd:0,alive:true,eaten:{},bestCombo:0,time:0,landT:0,jumpT:0,jumpCd:0,lungeT:0,eatCd:0,turnV:0,assist:null,assistT:0,aim:null,kills:0,killer:null});
   S.pos.set(0,-5,-15);S.vel.set(0,0,0);shark.visible=true;
   populate();
+  rivals.forEach((R,i)=>spawnRival(R,[1,1,2,2,3,4][i]));
   camera.position.set(0,-2,-26);
   phase='play';$('menu').classList.add('hidden');$('over').classList.add('hidden');$('hud').classList.remove('hidden');
   banner('EAT EVERYTHING!','Press EAT when the button glows');
@@ -1201,6 +1312,7 @@ function gameOver(why){
     $('overTitle').textContent=newBest?'NEW BEST!':'GAME OVER';$('overWhy').textContent=why;
     $('overScore').textContent=S.score.toLocaleString()+' points · LV '+S.lvl+' · best '+best.toLocaleString();
     const rows=Object.entries(S.eaten).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<div>${TYPES[k].name}: <b>${n}</b></div>`);
+    rows.unshift(`<div>Sharks defeated: <b>${S.kills||0}</b></div>`);
     rows.push(`<div>Best combo: <b>${S.bestCombo}</b></div>`,`<div>Survived: <b>${Math.round(S.time)}s</b></div>`);
     $('overStats').innerHTML=rows.join('');$('over').classList.remove('hidden');$('hud').classList.add('hidden');},1800);
 }
@@ -1222,6 +1334,7 @@ function findPrey(range,cosMin,anySize){
   for(const c of creatures){if(c.dead||c.T.zone==='air')continue;const T=c.T;if(T.danger&&T.lvl>S.lvl&&!T.sting&&!anySize)continue;
     tmp.copy(c.pos).sub(S.pos);const d=tmp.length();if(d>range||d<.01)continue;if(T.zone==='beach'&&d>14)continue;
     const cs=tmp.dot(fwd)/d;if(cs<cosMin)continue;const sc=d*(1.3-cs)*(T.lvl<=S.lvl||T.chunk?1:2.5);if(sc<bs){bs=sc;best=c;}}
+  if(anySize)for(const R of rivals){if(R.dead)continue;tmp.copy(R.pos).sub(S.pos);const d=tmp.length();if(d>range||d<.01)continue;const cs=tmp.dot(fwd)/d;if(cs<cosMin)continue;const sc=d*(1.3-cs)*.8;if(sc<bs){bs=sc;best=R;}}
   return best;
 }
 function updateShark(dt){
@@ -1283,7 +1396,7 @@ function updateShark(dt){
   const g2=groundY(p.x,p.z);if(p.y<g2+r){p.y=g2+r;if(S.vel.y<0)S.vel.y=0;if(S.mode==='water'&&S.pitch<0)S.pitch*=.9;}
   S.roll=lerp(S.roll,S.mode==='land'?Math.sin(S.time*7)*.2:-turn*.28,damp(5,dt));
   shark.rotation.order='YXZ';shark.rotation.set(-S.pitch,S.yaw,S.roll);
-  S.size=lerp(S.size,1+(S.lvl-1)*.3,damp(2,dt));shark.scale.setScalar(S.size);
+  S.size=lerp(S.size,sizeFor(S.lvl,S.xp),damp(2,dt));shark.scale.setScalar(S.size);
   S.phase+=dt*(S.mode==='land'?14:2.2+S.vel.length()*.35);
   SU.uPhase.value=S.phase;SU.uAmp.value=S.mode==='land'?.5:.22+Math.min(.18,S.vel.length()*.008);
   S.jaw=Math.max(S.jaw-dt*3.5,0);const jw=Math.max(S.jaw,S.jawWant?.6:0,S.lungeT>0?1:0);SU.uJaw.value=lerp(SU.uJaw.value,jw*.62,damp(14,dt));S.jawWant=0;
@@ -1292,7 +1405,7 @@ function updateShark(dt){
     S.time+=dt;S.biteCd-=dt;S.comboT-=dt;if(S.comboT<=0)S.combo=0;
     S.hunger-=dt*(1.5+S.lvl*.18+(boosting?2.2:0));
     if(S.hunger<=0){S.hunger=0;S.hp-=9*dt;}else if(S.hunger>55)S.hp=Math.min(maxHp(),S.hp+dt*1.5);
-    if(S.hp<=0){S.hp=0;gameOver(S.hunger<=0?'You starved. Keep eating!':S.mode==='land'?'You dried out on the beach.':'You were overpowered. Bite back faster, or grow first.');}
+    if(S.hp<=0){S.hp=0;gameOver(S.hunger<=0?'You starved. Keep eating!':S.mode==='land'?'You dried out on the beach.':(S.killer?S.killer+' got you! ':'You were overpowered. ')+'Bite back with EAT, or grow first.');}
   }
   return boosting;
 }
@@ -1335,13 +1448,13 @@ const radar=$('radar'),rc=radar.getContext('2d');let hudT=0;
 function updateHud(dt){
   bannerT-=dt;tooBigT-=dt;if(bannerT<=0)$('banner').style.opacity=0;
   $('eatBtn').classList.toggle('cool',S.eatCd>0);$('eatBtn').classList.toggle('ready',!!S.preyNear&&S.eatCd<=0);$('jumpBtn').classList.toggle('cool',S.jumpCd>0||S.mode==='air');
-  hudT-=dt;if(hudT>0)return;hudT=.08;
+  hudT-=dt;if(hudT>0)return;hudT=.08;updateBoard();
   const mh=maxHp();$('hpBar').style.width=(S.hp/mh*100)+'%';$('hungerBar').style.width=S.hunger+'%';
   $('hpWrap').classList.toggle('low',S.hp<mh*.3);$('hungerWrap').classList.toggle('low',S.hunger<25);
   $('lvl').textContent='LV '+S.lvl;
   $('xpBar').style.width=(S.lvl>=MAXLVL?100:(S.xp-XP[S.lvl-1])/(XP[S.lvl]-XP[S.lvl-1])*100)+'%';
   const next=Object.values(TYPES).filter(t=>t.lvl===S.lvl+1).map(t=>t.name);
-  $('next').textContent=S.lvl>=MAXLVL?'Apex predator — everything is one bite':'Next level, one bite: '+next.join(', ');
+  $('next').textContent=S.lvl>=MAXLVL?'Apex predator — everything is one bite':next.length?'Next level, one bite: '+next.join(', '):'Next level: bigger, stronger bites';
   $('score').textContent=S.score.toLocaleString();
   $('combo').textContent=S.combo>=3?'COMBO x'+mult()+' ('+S.combo+')':'';
   $('warn').textContent=!S.alive?'':S.mode==='land'&&groundY(S.pos.x,S.pos.z)>0?'Flopping back to the sea…':S.hunger<25?'STARVING — eat something!':'';
@@ -1355,6 +1468,8 @@ function updateHud(dt){
   for(const c of creatures){if(c.dead)continue;const dx=c.pos.x-S.pos.x,dz=c.pos.z-S.pos.z;if(dx*dx+dz*dz>range*range)continue;
     const[a,b]=toR(c.pos.x,c.pos.z),T=c.T;rc.fillStyle=T.chunk?'#ffd23f':T.lvl<=S.lvl?'#4dff88':T.danger&&!T.sting?'#ff4d5e':'#ffa94d';
     rc.beginPath();rc.arc(a,b,T.chunk?9:T.danger?6:4,0,TAU);rc.fill();}
+  for(const Q of rivals){if(Q.dead)continue;const dx=Q.pos.x-S.pos.x,dz=Q.pos.z-S.pos.z;if(dx*dx+dz*dz>range*range)continue;const[a,b]=toR(Q.pos.x,Q.pos.z);
+    rc.fillStyle=Q.lvl>S.lvl?'#ff3b5c':Q.lvl===S.lvl?'#ffd23f':'#c58cff';rc.strokeStyle='#fff';rc.lineWidth=2;rc.beginPath();rc.arc(a,b,8,0,TAU);rc.fill();rc.stroke();}
   rc.restore();rc.fillStyle='#fff';rc.beginPath();rc.moveTo(R,R-13);rc.lineTo(R-8,R+9);rc.lineTo(R+8,R+9);rc.fill();
 }
 
@@ -1377,17 +1492,18 @@ function frame(){
   }
   atmosphere();
   const wasAlive=S.alive;if(phase==='menu')S.alive=false;
-  threat=0;S.preyNear=0;updateSchools(dt);for(const c of creatures)updateCreature(c,dt,t);
+  threat=0;S.preyNear=0;updateSchools(dt);for(const c of creatures)updateCreature(c,dt,t);for(const R of rivals)updateRival(R,dt);
   MZ.I=lerp(MZ.I,phase==='play'?clamp(.3+S.combo*.07+(boosting?.3:0),0,1):.15,damp(1.5,dt));MZ.D=lerp(MZ.D,phase==='play'?threat:0,damp(2,dt));updateAmbience(dt);
   S.alive=wasAlive;
   updateParts(dt);
   if(phase!=='menu')updateHud(dt);
+  updateRivalLabels();
   renderer.render(scene,camera);
 }
 try{renderer.compile(scene,camera);}catch(e){}
 $('loading').remove();
 frame();
-window.__shark={S,creatures,TYPES,startGame,groundY,shoreZ,renderer,doEat,doJump,MZ,sfx,get audioCtx(){return AC;},get phase(){return phase;}};
+window.__shark={S,creatures,rivals,TYPES,startGame,groundY,shoreZ,renderer,doEat,doJump,MZ,sfx,get audioCtx(){return AC;},get phase(){return phase;}};
 })();
 </script>
 </body>
